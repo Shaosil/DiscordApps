@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ShaosilBot": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 3000"
+    }
+  }
+}
