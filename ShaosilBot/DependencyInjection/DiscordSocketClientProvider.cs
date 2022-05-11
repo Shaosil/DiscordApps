@@ -33,6 +33,9 @@ namespace ShaosilBot.DependencyInjection
                 {
                     await KeepAlive();
                     ready = true;
+
+                    // Uncomment to refresh commands
+                    //await SyncCommands();
                 };
                 _client.MessageReceived += MessageHandler;
 
@@ -71,6 +74,15 @@ namespace ShaosilBot.DependencyInjection
                 //}
                 await socketMessage.Author.SendMessageAsync($"Thanks for subscribing to Cat Facts Digest (CFD){extraMessage}! Be prepared to boost that feline knowledge every hour, on the hour, between the hours of 10 AM and 5:00 PM EST! *Meow!*");
             }
+        }
+
+        private async static Task SyncCommands()
+        {
+            var guild = _client.GetGuild(628019972316069890);
+            await guild.DeleteApplicationCommandsAsync();
+            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder() { Name = "test-command", Description = "Getting closer to world domination", DefaultMemberPermissions = GuildPermission.Administrator }.Build());
+            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder() { Name = "wow", Description = "Wow." }.Build());
+            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder() { Name = "cat-fact", Description = "Thank you for subscribing to cat facts! Text STOP to unsubscribe." }.Build());
         }
     }
 }

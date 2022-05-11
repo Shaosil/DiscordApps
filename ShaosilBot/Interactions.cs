@@ -3,16 +3,13 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Discord.Rest;
-using Discord;
 using System.Net.Mime;
 using System.Text;
 using ShaosilBot.SlashCommands;
-using Discord.WebSocket;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using System.Linq;
 using System.Net.Http;
-using System.Threading;
 
 namespace ShaosilBot
 {
@@ -20,19 +17,14 @@ namespace ShaosilBot
     {
         private readonly ILogger<Interactions> _logger;
         private readonly HttpClient _httpClient;
-        private readonly DiscordSocketClient _socketClient = null; // Basically only used for status updates
-        private readonly DiscordRestClient _restClient = null; // Handles the actual HTTP requests
+        private readonly DiscordRestClient _restClient = null;
 
-        public Interactions(ILogger<Interactions> logger, IHttpClientFactory httpClientFactory, DiscordSocketClient socketClient, DiscordRestClient restClient)
+        public Interactions(ILogger<Interactions> logger, IHttpClientFactory httpClientFactory, DiscordRestClient restClient)
         {
             // Initialize bot and login
             _logger = logger;
             _httpClient = httpClientFactory.CreateClient();
-            _socketClient = socketClient;
             _restClient = restClient;
-
-            // Uncomment to refresh commands
-            //_socketClient.Ready += async () => await SyncCommands();
         }
 
         [Function("interactions")]
@@ -98,15 +90,6 @@ namespace ShaosilBot
 
             _logger.LogWarning("New Request");
             _logger.LogInformation(sb.ToString());
-        }
-
-        private async Task SyncCommands()
-        {
-            var guild = _socketClient.GetGuild(628019972316069890);
-            await guild.DeleteApplicationCommandsAsync();
-            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder() { Name = "test-command", Description = "Getting closer to world domination", DefaultMemberPermissions = GuildPermission.Administrator }.Build());
-            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder() { Name = "wow", Description = "Wow." }.Build());
-            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder() { Name = "cat-fact", Description = "Thank you for subscribing to cat facts! Text STOP to unsubscribe." }.Build());
         }
     }
 }

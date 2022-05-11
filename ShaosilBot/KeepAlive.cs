@@ -16,7 +16,7 @@ namespace ShaosilBot
         }
 
         [Function("KeepAlive")]
-        public async Task Run([TimerTrigger("0 */9 * * * *", RunOnStartup = false)]TimerInfo myTimer)
+        public async Task Run([TimerTrigger("0 */9 * * * *", RunOnStartup = true)]TimerInfo myTimer)
         {
             await DiscordSocketClientProvider.KeepAlive();
             _logger.LogInformation($"Keep alive function executed at: {DateTime.Now}");
