@@ -23,7 +23,7 @@ namespace ShaosilBot
         }
 
         [Function("CatFactTimer")]
-        public async Task Run([TimerTrigger("0 0 14-21 * * *", RunOnStartup = false)] TimerInfo myTimer)
+        public async Task Run([TimerTrigger("0 0 0-2,14-23 * * *", RunOnStartup = false)] TimerInfo myTimer)
         {
             _logger.LogInformation($"CatFactTimer triggered at: {DateTime.Now}");
 
