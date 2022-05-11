@@ -31,7 +31,7 @@ namespace ShaosilBot.DependencyInjection
                 _client.Log += async (msg) => await Task.Run(() => logger.LogInformation($"SOCKET CLIENT: {msg}"));
                 _client.Ready += async () =>
                 {
-                    await _client.SetGameAsync("with his robot junk");
+                    await KeepAlive();
                     ready = true;
                 };
                 _client.MessageReceived += MessageHandler;
@@ -44,6 +44,11 @@ namespace ShaosilBot.DependencyInjection
             }
 
             return _client;
+        }
+
+        public static async Task KeepAlive()
+        {
+            await _client.SetGameAsync("with his robot junk");
         }
 
         private static async Task MessageHandler(SocketMessage socketMessage)
