@@ -65,7 +65,7 @@ namespace ShaosilBot.DependencyInjection
                 //    if (message.Author.IsBot)
                 //        await message.DeleteAsync();
                 //}
-                await socketMessage.Author.SendMessageAsync($"Thanks for subscribing to Cat Facts Digest (CFD){extraMessage}! Be prepared to boost that feline knowledge every hour, on the hour, between the hours of 10 AM and 5:00 PM EST! *Meow!*");
+                await socketMessage.Author.SendMessageAsync($"Thanks for subscribing to Cat Facts Digest (CFD){extraMessage}! Be prepared to boost that feline knowledge every hour, on the hour, between the hours of 10:00 AM and 10:00 PM EST! *Meow!*");
             }
         }
 
