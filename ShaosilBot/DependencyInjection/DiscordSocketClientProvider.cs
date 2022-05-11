@@ -6,7 +6,6 @@ using ShaosilBot.SlashCommands;
 using System;
 using System.Linq;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.DependencyInjection
@@ -29,7 +28,7 @@ namespace ShaosilBot.DependencyInjection
                 _client.Log += async (msg) => await Task.Run(() => logger.LogInformation($"SOCKET CLIENT: {msg}"));
                 _client.Ready += async () =>
                 {
-                    _ = KeepAlive();
+                    await KeepAlive();
 
                     // Uncomment to refresh commands
                     //await SyncCommands();
@@ -45,12 +44,7 @@ namespace ShaosilBot.DependencyInjection
 
         public static async Task KeepAlive()
         {
-            // Loop every 9 minutes and update our status to keep the functions app 
-            while (true)
-            {
-                await _client.SetGameAsync("with his robot junk");
-                Thread.Sleep(TimeSpan.FromMinutes(9));
-            }
+            await _client.SetGameAsync("with his robot junk");
         }
 
         private static async Task MessageHandler(SocketMessage socketMessage)
