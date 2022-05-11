@@ -24,14 +24,12 @@ namespace ShaosilBot.DependencyInjection
 
             if (_client.LoginState == LoginState.LoggedOut)
             {
-                bool ready = false;
                 var logger = provider.GetService<ILogger<DiscordSocketClient>>();
                 // Todo: will this get hit more than once?
                 _client.Log += async (msg) => await Task.Run(() => logger.LogInformation($"SOCKET CLIENT: {msg}"));
                 _client.Ready += async () =>
                 {
                     _ = KeepAlive();
-                    ready = true;
 
                     // Uncomment to refresh commands
                     //await SyncCommands();
@@ -40,9 +38,6 @@ namespace ShaosilBot.DependencyInjection
 
                 _client.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("BotToken")).GetAwaiter().GetResult();
                 _client.StartAsync().GetAwaiter().GetResult();
-
-                // Stall here until socket client is ready
-                while (!ready) { Thread.Sleep(10); }
             }
 
             return _client;
