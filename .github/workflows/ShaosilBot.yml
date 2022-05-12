@@ -7,7 +7,6 @@ env:
   CONFIGURATION: Release
   DOTNET_CORE_VERSION: 6.0.x
   WORKING_DIRECTORY: ShaosilBot
-  DOTNET_CORE_VERSION_INPROC: 3.1.x
   PUBLISH_PATH: ShaosilBot/publish
   PUBLISHED_ZIP_FILE: ShaosilBot.zip
 jobs:
@@ -19,12 +18,6 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
-        
-    - name: Setup .NET Core (for inproc extensions)
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: ${{ env.DOTNET_CORE_VERSION_INPROC }}
-        include-prerelease: True
         
     - name: Restore
       run: dotnet restore "${{ env.WORKING_DIRECTORY }}"
@@ -42,9 +35,11 @@ jobs:
         path: "${{ env.PUBLISH_PATH }}"
         filename: "${{ env.PUBLISHED_ZIP_FILE }}"
         
-    - name: Deploy
+    - name: Azure CLI Login
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-    - run:
-        az storage blob upload -f "${{ env.PUBLISH_PATH }}/${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}"
+    
+    - name: Deploy
+      run:
+        az storage blob upload --connection-string "${{ secrets.BLOB_CONNECTION_STRING }}" -f "${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}"
