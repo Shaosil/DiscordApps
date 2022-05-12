@@ -35,7 +35,7 @@ namespace ShaosilBot.SlashCommands
                         string description = $"*{responseObj.movie} **wow** {responseObj.current_wow_in_movie} of {responseObj.total_wows_in_movie}*";
                         await command.FollowupWithFileAsync(await _client.GetStreamAsync(responseObj.video._360p), Path.GetFileName(responseObj.video._360p), description);
                     }
-                    catch (Exception ex)
+                    catch
                     {
                         await command.FollowupAsync("Error parsing JSON from wow API (not ShaosilBot's fault).");
                     }

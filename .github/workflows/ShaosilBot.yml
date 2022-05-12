@@ -33,7 +33,7 @@ jobs:
       with:
         type: "zip"
         directory: "${{ env.PUBLISH_PATH }}"
-        filename: "${{ env.PUBLISHED_ZIP_FILE }}"
+        filename: "../${{ env.PUBLISHED_ZIP_FILE }}"
         
     - name: Azure CLI Login
       uses: azure/login@v1
