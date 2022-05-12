@@ -1,38 +1,51 @@
-name: Build and deploy .NET Core Function App to Azure functions app
+name: Zip Deploy to Azure Blob Storage
 on:
   push:
     branches:
     - master
 env:
-  AZURE_FUNCTIONAPP_NAME: ShaosilBot
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: ShaosilBot/publish
   CONFIGURATION: Release
   DOTNET_CORE_VERSION: 6.0.x
   WORKING_DIRECTORY: ShaosilBot
   DOTNET_CORE_VERSION_INPROC: 3.1.x
+  PUBLISH_PATH: ShaosilBot/publish
+  PUBLISHED_ZIP_FILE: ShaosilBot.zip
 jobs:
   build-and-deploy:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
+    
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
+        
     - name: Setup .NET Core (for inproc extensions)
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: ${{ env.DOTNET_CORE_VERSION_INPROC }}
         include-prerelease: True
+        
     - name: Restore
       run: dotnet restore "${{ env.WORKING_DIRECTORY }}"
+      
     - name: Build
       run: dotnet build "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-restore
+      
     - name: Publish
-      run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}"
-    - name: Deploy to Azure Function App
-      uses: Azure/functions-action@v1
+      run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.PUBLISH_PATH }}"
+      
+    - name: Zip
+      uses: thedoctor0/zip-release@master
       with:
-        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-        publish-profile: ${{ secrets.ShaosilBot_9497 }}
-        package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+        type: "zip"
+        path: "${{ env.PUBLISH_PATH }}"
+        filename: "${{ env.PUBLISHED_ZIP_FILE }}"
+      
+    - uses: azure/login@v1
+    - name: Deploy
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - run:
+        az storage blob upload -f "${{ env.PUBLISH_PATH }}/${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}"
