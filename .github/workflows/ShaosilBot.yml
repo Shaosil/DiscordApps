@@ -33,7 +33,7 @@ jobs:
       with:
         type: "zip"
         directory: "${{ env.PUBLISH_PATH }}"
-        filename: "..\\${{ env.PUBLISHED_ZIP_FILE }}"
+        filename: "${{ env.PUBLISHED_ZIP_FILE }}"
         
     - name: Azure CLI Login
       uses: azure/login@v1
@@ -42,7 +42,7 @@ jobs:
     
     - name: Upload Zip
       run:
-        az storage blob upload --connection-string "${{ secrets.BLOB_CONNECTION_STRING }}" -f "${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}" --overwrite
+        az storage blob upload --connection-string "${{ secrets.BLOB_CONNECTION_STRING }}" -f "${{ env.PUBLISHED_ZIP_FILE }}/${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}" --overwrite
     
     - name: Restart Functions App
       run:
