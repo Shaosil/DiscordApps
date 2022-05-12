@@ -15,34 +15,27 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
-    
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
-        
     - name: Setup .NET Core (for inproc extensions)
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: ${{ env.DOTNET_CORE_VERSION_INPROC }}
         include-prerelease: True
-        
     - name: Restore
       run: dotnet restore "${{ env.WORKING_DIRECTORY }}"
-      
     - name: Build
       run: dotnet build "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-restore
-      
     - name: Publish
       run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.PUBLISH_PATH }}"
-      
     - name: Zip
       uses: thedoctor0/zip-release@master
       with:
         type: "zip"
         path: "${{ env.PUBLISH_PATH }}"
         filename: "${{ env.PUBLISHED_ZIP_FILE }}"
-      
     - name: Deploy
     - uses: azure/login@v1
       with:
