@@ -28,7 +28,7 @@ jobs:
     - name: Publish
       run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.PUBLISH_PATH }}"
       
-    - name: Zip
+    - name: Create Zip
       uses: thedoctor0/zip-release@master
       with:
         type: "zip"
@@ -40,6 +40,10 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
     
-    - name: Deploy
+    - name: Upload Zip
       run:
         az storage blob upload --connection-string "${{ secrets.BLOB_CONNECTION_STRING }}" -f "${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}" --overwrite
+    
+    - name: Restart Functions App
+      run:
+        az functionapp restart -n ShaosilBot -g DiscordRG
