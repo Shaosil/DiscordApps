@@ -42,7 +42,7 @@ jobs:
     
     - name: Upload Zip
       run:
-        az storage blob upload --connection-string "${{ secrets.BLOB_CONNECTION_STRING }}" -f "${{ env.PUBLISHED_ZIP_FILE }}/${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}" --overwrite
+        az storage blob upload --connection-string "${{ secrets.BLOB_CONNECTION_STRING }}" -f "${{ env.PUBLISH_PATH }}/${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}" --overwrite
     
     - name: Restart Functions App
       run:
