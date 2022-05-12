@@ -42,4 +42,4 @@ jobs:
     
     - name: Deploy
       run:
-        az storage blob upload --connection-string "${{ secrets.BLOB_CONNECTION_STRING }}" -f "${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}"
+        az storage blob upload --connection-string "${{ secrets.BLOB_CONNECTION_STRING }}" -f "${{ env.PUBLISHED_ZIP_FILE }}" -c functions-deployments -n "${{ env.PUBLISHED_ZIP_FILE }}" --overwrite
