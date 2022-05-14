@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.SlashCommands;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -73,9 +74,15 @@ namespace ShaosilBot.DependencyInjection
         {
             var guild = _client.GetGuild(628019972316069890);
             await guild.DeleteApplicationCommandsAsync();
-            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder() { Name = "test-command", Description = "Getting closer to world domination", DefaultMemberPermissions = GuildPermission.Administrator }.Build());
-            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder() { Name = "wow", Description = "Wow." }.Build());
-            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder() { Name = "cat-fact", Description = "Thank you for subscribing to cat facts! Text STOP to unsubscribe." }.Build());
+            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "test-command", Description = "Getting closer to world domination", DefaultMemberPermissions = GuildPermission.Administrator }.Build());
+            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "wow", Description = "Wow." }.Build());
+            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "cat-fact", Description = "Thank you for subscribing to cat facts! Text STOP to unsubscribe." }.Build());
+            await guild.CreateApplicationCommandAsync(new SlashCommandBuilder
+            {
+                Name = "xkcd",
+                Description = "Get a random XKCD comic, or optionally a specific one!",
+                Options = new List<SlashCommandOptionBuilder> { new SlashCommandOptionBuilder { Name = "comic-num", Type = ApplicationCommandOptionType.Integer, MinValue = 0, Description = "The number of the comic to pull. 0 for current. Omit for random." } }
+            }.Build());
         }
     }
 }
