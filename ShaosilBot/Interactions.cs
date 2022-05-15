@@ -11,6 +11,7 @@ using Microsoft.Azure.Functions.Worker.Http;
 using System.Linq;
 using System.Net.Http;
 using Discord.WebSocket;
+using Azure.Storage.Blobs;
 
 namespace ShaosilBot
 {
@@ -18,14 +19,16 @@ namespace ShaosilBot
     {
         private readonly ILogger<Interactions> _logger;
         private readonly HttpClient _httpClient;
+        private readonly BlobServiceClient _blobClient; // Ensures DI keeps the blob connection active
         private readonly DiscordSocketClient _socketClient; // Ensures DI spins up a new websocket connection
         private readonly DiscordRestClient _restClient = null;
 
-        public Interactions(ILogger<Interactions> logger, IHttpClientFactory httpClientFactory, DiscordSocketClient socketClient, DiscordRestClient restClient)
+        public Interactions(ILogger<Interactions> logger, IHttpClientFactory httpClientFactory, BlobServiceClient blobServiceClient, DiscordSocketClient socketClient, DiscordRestClient restClient)
         {
             // Initialize bot and login
             _logger = logger;
             _httpClient = httpClientFactory.CreateClient();
+            _blobClient = blobServiceClient;
             _socketClient = socketClient;
             _restClient = restClient;
         }

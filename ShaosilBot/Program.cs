@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ShaosilBot.DependencyInjection;
+using System;
 using System.Threading.Tasks;
 
 namespace ShaosilBot
@@ -17,6 +18,7 @@ namespace ShaosilBot
                 {
                     services.AddHttpClient();
 
+                    services.AddSingleton(sp => DataBlobProvider.GetBlobProvider(sp));
                     services.AddScoped((d) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.DirectMessages });
                     services.AddSingleton(sp => DiscordSocketClientProvider.GetSocketClient(sp));
                     services.AddSingleton(sp => DiscordRestClientProvider.GetRestClient(sp));

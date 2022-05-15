@@ -20,7 +20,7 @@ namespace ShaosilBot.SlashCommands
 
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)
         {
-            // Get current subscribers asynchronously and add this one to the list if they do not exist
+            // Get current comic asynchronously and defer the response for later
             _ = Task.Run(async () =>
             {
                 HttpResponseMessage response;
@@ -44,7 +44,7 @@ namespace ShaosilBot.SlashCommands
                 try
                 {
                     var option = command.Data.Options.FirstOrDefault(o => o.Name == "comic-num");
-                    int requestedNum = option == null ? Random.Shared.Next(data.num) : int.Parse(option.Value.ToString()); // Null = get random
+                    int requestedNum = option == null ? Random.Shared.Next(1, data.num + 1) : int.Parse(option.Value.ToString()); // Null = get random
                     string description;
 
                     if (requestedNum > 0)

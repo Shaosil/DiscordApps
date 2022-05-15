@@ -5,6 +5,7 @@ using Discord;
 using Discord.WebSocket;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.DependencyInjection;
 using ShaosilBot.SlashCommands;
 
 namespace ShaosilBot
@@ -32,7 +33,7 @@ namespace ShaosilBot
             foreach (var subscriber in currentSubscribers)
             {
                 var user = await _socketClient.GetUserAsync(subscriber.IDNum);
-                await user.SendMessageAsync($"Heyo neighbor! It's time for your hourly cat fact digest! *Did you know?*\n\n**\"{CatFactsCommand.RandomCatFact}\"**\n\nSee you next time!\nText STOP to unsubscribe at any time.");
+                await user.SendMessageAsync($"Heyo neighbor! It's time for your hourly cat fact digest! *Did you know?*\n\n**\"{DataBlobProvider.RandomCatFact}\"**\n\nSee you next time!\nText STOP to unsubscribe at any time.");
             }
         }
     }
