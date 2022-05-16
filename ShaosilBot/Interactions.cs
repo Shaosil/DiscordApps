@@ -70,8 +70,9 @@ namespace ShaosilBot
                     {
                         case "test-command": response.WriteString(await new TestCommand(_logger).HandleCommandAsync(slash)); break;
                         case "wow": response.WriteString(await new WowCommand(_logger, _httpClient).HandleCommandAsync(slash)); break;
-                        case "cat-fact": response.WriteString(await new CatFactsCommand(_logger, _httpClient).HandleCommandAsync(slash)); break;
+                        case "cat-fact": response.WriteString(await new CatFactsCommand(_logger).HandleCommandAsync(slash)); break;
                         case "xkcd": response.WriteString(await new XkcdCommand(_logger, _httpClient).HandleCommandAsync(slash)); break;
+                        case "git-blame": response.WriteString(await new GitBlameCommand(_logger).HandleCommandAsync(slash)); break;
                         default: response.StatusCode = System.Net.HttpStatusCode.NotFound; break;
                     }
                     break;

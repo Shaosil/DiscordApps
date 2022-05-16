@@ -1,5 +1,6 @@
 ﻿using Azure.Storage.Blobs;
 using System;
+using System.Threading.Tasks;
 
 namespace ShaosilBot.DependencyInjection
 {
@@ -8,18 +9,19 @@ namespace ShaosilBot.DependencyInjection
         private readonly static BlobServiceClient _serviceProvider = new BlobServiceClient(Environment.GetEnvironmentVariable("AzureWebJobsStorage"));
         private readonly static BlobContainerClient _dataBlobContainer = _serviceProvider.GetBlobContainerClient("data");
 
-        public static string RandomCatFact
-        {
-            get
-            {
-                var _catFacts = _dataBlobContainer.GetBlobClient("CatFacts.txt").DownloadContent().Value.Content.ToString().Split(Environment.NewLine);
-                return _catFacts[Random.Shared.Next(_catFacts.Length)];
-            }
-        }
-
         public static BlobServiceClient GetBlobProvider(IServiceProvider provider)
         {
             return _serviceProvider;
+        }
+
+        public static async Task<string> GetBlobText(string filename)
+        {
+            return (await _dataBlobContainer.GetBlobClient(filename).DownloadContentAsync()).Value.Content.ToString();
+        }
+
+        public static async Task SaveBlobText(string filename, string content)
+        {
+            await _dataBlobContainer.GetBlobClient(filename).UploadAsync(new BinaryData(content));
         }
     }
 }
