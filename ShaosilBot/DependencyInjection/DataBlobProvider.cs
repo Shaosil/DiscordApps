@@ -21,7 +21,7 @@ namespace ShaosilBot.DependencyInjection
 
         public static async Task SaveBlobText(string filename, string content)
         {
-            await _dataBlobContainer.GetBlobClient(filename).UploadAsync(new BinaryData(content));
+            await _dataBlobContainer.GetBlobClient(filename).UploadAsync(new BinaryData(content), overwrite: true);
         }
     }
 }

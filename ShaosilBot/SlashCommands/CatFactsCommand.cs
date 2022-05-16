@@ -43,7 +43,7 @@ namespace ShaosilBot.SlashCommands
 
         public static async Task UpdateSubscribersAsync(List<Subscriber> subscribers)
         {
-            string json = JsonSerializer.Serialize(subscribers);
+            string json = JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true });
             await DataBlobProvider.SaveBlobText("CatFactsSubscribers.json", json);
         }
 
