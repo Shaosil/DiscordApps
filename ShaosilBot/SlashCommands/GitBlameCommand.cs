@@ -26,8 +26,13 @@ namespace ShaosilBot.SlashCommands
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)
         {
             var subscribers = JsonSerializer.Deserialize<List<Subscriber>>(await _dataBlobProvider.GetBlobTextAsync("GitBlameables.json"));
-            var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as RestGuildUser;
+            bool isList = command.Data.Options.FirstOrDefault(o => o.Name == "list-blameables") != null;
             bool parsedEdit = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "edit-subscription")?.Value.ToString(), out var subscription);
+            var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as RestGuildUser;
+
+            // List blameables is handled by itself
+            if (isList)
+                return command.Respond($"Current blameables:\n\n{string.Join("\n", subscribers.Select(s => "* " + s.FriendlyName))}");
 
             // Edit subscription is handled by itself
             if (parsedEdit && command.User is RestGuildUser requestor)

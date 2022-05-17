@@ -108,7 +108,8 @@ namespace ShaosilBot.Singletons
                                 new ApplicationCommandOptionChoiceProperties { Name = "Subscribe", Value = 0 },
                                 new ApplicationCommandOptionChoiceProperties { Name = "Unsubscribe", Value = 1 }
                             }
-                        }
+                        },
+                        new SlashCommandOptionBuilder { Name = "list-blameables", Type = ApplicationCommandOptionType.Boolean, Description = "Self explanatory."}
                     }
                 }.Build());
             }
