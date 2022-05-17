@@ -85,7 +85,7 @@ namespace ShaosilBot.SlashCommands
 
                 // Get a random response line from the blob
                 var responses = (await _dataBlobProvider.GetBlobTextAsync("GitBlameResponses.txt")).Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-                string response = responses[Random.Shared.Next(responses.Length)].Replace("{USER}", targetUser.Mention);
+                string response = responses[Random.Shared.Next(responses.Length)];
 
                 var channel = await command.Guild.GetChannelAsync(command.Channel.Id);
                 if (targetUser == null)
@@ -109,7 +109,7 @@ namespace ShaosilBot.SlashCommands
                     response += " *(targeted)*";
                 }
 
-                return await command.FollowupAsync($"{response}\n\n{selectedImage}");
+                return await command.FollowupAsync($"{response.Replace("{USER}", targetUser.Mention)}\n\n{selectedImage}");
             });
 
             // Immediately return a defer, respond using the task above
