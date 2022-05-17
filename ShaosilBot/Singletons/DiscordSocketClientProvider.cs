@@ -102,14 +102,13 @@ namespace ShaosilBot.Singletons
                     Options = new List<SlashCommandOptionBuilder>
                     {
                         new SlashCommandOptionBuilder { Name = "target-user", Type = ApplicationCommandOptionType.User, Description = "Blame someone specific" },
-                        new SlashCommandOptionBuilder { Name = "edit-subscription", Type = ApplicationCommandOptionType.Integer, Description = "Edit your ability to be randomly selected",
+                        new SlashCommandOptionBuilder { Name = "functions", Type = ApplicationCommandOptionType.Integer, Description = "Extra utility functions",
                             Choices = new List<ApplicationCommandOptionChoiceProperties>
                             {
-                                new ApplicationCommandOptionChoiceProperties { Name = "Subscribe", Value = 0 },
-                                new ApplicationCommandOptionChoiceProperties { Name = "Unsubscribe", Value = 1 }
+                                new ApplicationCommandOptionChoiceProperties { Name = "Toggle Subscription", Value = 0 },
+                                new ApplicationCommandOptionChoiceProperties { Name = "List Blameables", Value = 1 }
                             }
-                        },
-                        new SlashCommandOptionBuilder { Name = "list-blameables", Type = ApplicationCommandOptionType.Boolean, Description = "Self explanatory."}
+                        }
                     }
                 }.Build());
             }

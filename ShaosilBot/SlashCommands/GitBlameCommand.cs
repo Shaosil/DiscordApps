@@ -26,50 +26,46 @@ namespace ShaosilBot.SlashCommands
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)
         {
             var subscribers = JsonSerializer.Deserialize<List<Subscriber>>(await _dataBlobProvider.GetBlobTextAsync("GitBlameables.json"));
-            bool isList = command.Data.Options.FirstOrDefault(o => o.Name == "list-blameables") != null;
-            bool parsedEdit = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "edit-subscription")?.Value.ToString(), out var subscription);
             var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as RestGuildUser;
+            bool parsedFunctions = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "functions")?.Value.ToString(), out var functions);
 
-            // List blameables is handled by itself
-            if (isList)
-                return command.Respond($"Current blameables:\n\n{string.Join("\n", subscribers.Select(s => "* " + s.FriendlyName))}");
-
-            // Edit subscription is handled by itself
-            if (parsedEdit && command.User is RestGuildUser requestor)
+            // Functions are handled by themselves
+            if (parsedFunctions && command.User is RestGuildUser requestor)
             {
                 if (targetUser == null)
                     targetUser = requestor;
 
-                var highestRequestorRole = command.Guild.Roles.Where(r => requestor.RoleIds.Any(ur => ur == r.Id)).OrderByDescending(r => r.Position).FirstOrDefault();
-                var highestTargetRole = command.Guild.Roles.Where(r => targetUser.RoleIds.Any(ur => ur == r.Id)).OrderByDescending(r => r.Position).FirstOrDefault();
-
-                // Only allow subscription edits to a target user if the requestor is administrator or their highest role is greater than the target's highest role
-                if (targetUser.Id == requestor.Id || !targetUser.GuildPermissions.Administrator && (requestor.GuildPermissions.Administrator || highestRequestorRole.Position > highestTargetRole.Position))
+                switch (functions)
                 {
-                    // Edit subscribers blob
-                    if (subscription == 0)
-                    {
-                        // Subscribe
-                        if (subscribers.Any(s => s.ID == targetUser.Id)) return command.Respond($"{targetUser.Username} is already a blameable.", ephemeral: true);
-                        subscribers.Add(new Subscriber { ID = targetUser.Id, FriendlyName = targetUser.Username });
-                    }
-                    else
-                    {
-                        // Unsubscribe
-                        if (!subscribers.Any(s => s.ID == targetUser.Id)) return command.Respond($"{targetUser.Username} is already not a blameable.", ephemeral: true);
-                        subscribers.Remove(subscribers.First(s => s.ID == targetUser.Id));
-                    }
-                    await _dataBlobProvider.SaveBlobTextAsync("GitBlameables.json", JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
+                    case 0: // Toggle subscription
+                        var highestRequestorRole = command.Guild.Roles.Where(r => requestor.RoleIds.Any(ur => ur == r.Id)).OrderByDescending(r => r.Position).FirstOrDefault();
+                        var highestTargetRole = command.Guild.Roles.Where(r => targetUser.RoleIds.Any(ur => ur == r.Id)).OrderByDescending(r => r.Position).FirstOrDefault();
 
-                    return command.Respond($"{targetUser.Username} successfully {(subscription == 0 ? "added" : "removed")} as a blameable");
-                }
-                else
-                {
-                    return command.Respond($"You do not have sufficient permissions to edit {targetUser.Username}'s subscription. Ask someone more important than you to do it.", ephemeral: true);
+                        // Only allow subscription edits to a target user if the requestor is administrator or their highest role is greater than the target's highest role
+                        if (targetUser.Id == requestor.Id || !targetUser.GuildPermissions.Administrator && (requestor.GuildPermissions.Administrator || highestRequestorRole.Position > highestTargetRole.Position))
+                        {
+                            int oldCount = subscribers.Count;
+
+                            // Edit subscribers blob
+                            if (subscribers.Any(s => s.ID == targetUser.Id))
+                                subscribers.Remove(subscribers.First(s => s.ID == targetUser.Id));
+                            else
+                                subscribers.Add(new Subscriber { ID = targetUser.Id, FriendlyName = targetUser.Username });
+
+                            await _dataBlobProvider.SaveBlobTextAsync("GitBlameables.json", JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
+                            return command.Respond($"{targetUser.Username} successfully {(oldCount < subscribers.Count ? "added" : "removed")} as a blameable");
+                        }
+                        else
+                        {
+                            return command.Respond($"You do not have sufficient permissions to edit {targetUser.Username}'s subscription. Ask someone more important than you to do it.", ephemeral: true);
+                        }
+
+                    case 1: // List blameables
+                        return command.Respond($"Current blameables:\n\n{string.Join("\n", subscribers.Select(s => "* " + s.FriendlyName))}");
                 }
             }
 
-            // Run asynchronously
+            // Run blame functionality asynchronously
             _ = Task.Run(async () =>
             {
                 // Get a list of all images in my gitblame album and pick a random one
