@@ -1,23 +1,19 @@
 ﻿using Discord.Rest;
 using Microsoft.Extensions.Logging;
-using ShaosilBot.DependencyInjection;
+using ShaosilBot.Providers;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
     public class CatFactsCommand : BaseCommand
     {
-        public CatFactsCommand(ILogger logger) : base(logger) { }
+        private readonly CatFactsProvider _catFactsProvider;
 
-        public static async Task<string> GetRandomCatFact()
+        public CatFactsCommand(ILogger logger, CatFactsProvider catFactsProvider) : base(logger)
         {
-            var _catFacts = (await DataBlobProvider.GetBlobText("CatFacts.txt")).Split(Environment.NewLine);
-            return _catFacts[Random.Shared.Next(_catFacts.Length)];
+            _catFactsProvider = catFactsProvider;
         }
 
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)
@@ -25,44 +21,15 @@ namespace ShaosilBot.SlashCommands
             // Get current subscribers asynchronously and add this one to the list if they do not exist
             _ = Task.Run(async () =>
             {
-                var currentSubscribers = await GetSubscribersAsync();
-                if (!currentSubscribers.Any(s => s.IDNum == command.User.Id))
+                var currentSubscribers = await _catFactsProvider.GetSubscribersAsync();
+                if (!currentSubscribers.Any(s => s.ID == command.User.Id))
                 {
-                    currentSubscribers.Add(new Subscriber { ID = command.User.Id.ToString(), FriendlyName = command.User.Username, DateSubscribed = DateTimeOffset.Now, TimesUnsubscribed = 0 });
-                    await UpdateSubscribersAsync(currentSubscribers);
+                    currentSubscribers.Add(new CatFactsProvider.Subscriber { ID = command.User.Id, FriendlyName = command.User.Username, DateSubscribed = DateTimeOffset.Now, TimesUnsubscribed = 0 });
+                    await _catFactsProvider.UpdateSubscribersAsync(currentSubscribers);
                 }
             });
 
-            return await Task.FromResult(command.Respond(await GetRandomCatFact()));
-        }
-
-        public static async Task<List<Subscriber>> GetSubscribersAsync()
-        {
-            return JsonSerializer.Deserialize<List<Subscriber>>(await DataBlobProvider.GetBlobText("CatFactsSubscribers.json"));
-        }
-
-        public static async Task UpdateSubscribersAsync(List<Subscriber> subscribers)
-        {
-            string json = JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true });
-            await DataBlobProvider.SaveBlobText("CatFactsSubscribers.json", json);
-        }
-
-        public class Subscriber
-        {
-            [JsonPropertyName("id")]
-            public string ID { get; set; } // Store this as a string because jsonblob.com is zeroing out the end of ulongs for some reason
-
-            [JsonIgnore]
-            public ulong IDNum => ulong.Parse(ID);
-
-            [JsonPropertyName("friendlyName")]
-            public string FriendlyName { get; set; }
-
-            [JsonPropertyName("dateSubscribed")]
-            public DateTimeOffset DateSubscribed { get; set; }
-
-            [JsonPropertyName("timesUnsubscribed")]
-            public int TimesUnsubscribed { get; set; }
+            return command.Respond(await _catFactsProvider.GetRandomCatFact());
         }
     }
 }

@@ -1,42 +1,166 @@
 ﻿using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Singletons;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
     public class GitBlameCommand : BaseCommand
     {
-        public GitBlameCommand(ILogger logger) : base(logger) { }
+        private readonly HttpClient _httpClient;
+        private readonly DataBlobProvider _dataBlobProvider;
 
-        public override Task<string> HandleCommandAsync(RestSlashCommand command)
+        public GitBlameCommand(ILogger logger, HttpClient httpClient, DataBlobProvider dataBlobProvider) : base(logger)
         {
-            // Temp - Store the possible responses here until the command is more customizable
-            var tempUsers = new Dictionary<string, string[]> 
-            {
-                { "<@!421853674709712896>", new[] { "https://i.imgur.com/bMReYaR.jpg", "https://i.imgur.com/WxR0p0x.jpg", "https://i.imgur.com/J7VVgSi.jpg", "https://i.imgur.com/3gF0vc4.jpg", "https://i.imgur.com/cUqgBzL.jpg" } },
-                { "<@!369997507373301760>", new[] { "https://i.imgur.com/jCIgXOU.jpg", "https://i.imgur.com/ftmlpAJ.jpg", "https://i.imgur.com/A73raTH.jpg", "https://i.imgur.com/NaP4yVc.jpg", "https://i.imgur.com/0ba8AKt.jpg" } },
-                { "<@!392127164570664962>", new[] { "https://i.imgur.com/nfVC3k6.jpg", "https://i.imgur.com/bkMFgyU.jpg", "https://i.imgur.com/bcJaksW.jpg", "https://i.imgur.com/bl3TmLE.jpg", "https://i.imgur.com/ucfYKFW.jpg" } },
-                { "<@!291343459565043712>", new[] { "https://i.imgur.com/wejgFBH.jpg", "https://i.imgur.com/v3IVTPq.jpg", "https://i.imgur.com/aVEIuPi.jpg", "https://i.imgur.com/g4w3SvF.jpg", "https://i.imgur.com/Ba4l5xw.jpg" } }
-            };
-            var tempResponses = new[]
-            {
-                "Come on {USER}, what were you thinking dude?",
-                "{USER}, I literally can't even...",
-                "Hey guys, {USER} did a bad thing.",
-                "Seriously {USER}? You just had to go there.",
-                "Hey {USER}! The odds have ruled against you. Better luck next time.",
-                "Why, {USER}, just why?",
-                "This is obviously {USER}'s fault."
-            };
+            _httpClient = httpClient;
+            _dataBlobProvider = dataBlobProvider;
+        }
 
-            string winner = tempUsers.Keys.ElementAt(Random.Shared.Next(tempUsers.Count));
-            string response = tempResponses[Random.Shared.Next(tempResponses.Length)].Replace("{USER}", winner);
-            string image = tempUsers[winner][Random.Shared.Next(tempUsers[winner].Length)];
+        public override async Task<string> HandleCommandAsync(RestSlashCommand command)
+        {
+            var subscribers = JsonSerializer.Deserialize<List<Subscriber>>(await _dataBlobProvider.GetBlobTextAsync("GitBlameables.json"));
+            var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as RestGuildUser;
+            bool parsedEdit = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "edit-subscription")?.Value.ToString(), out var subscription);
 
-            return Task.FromResult(command.Respond($"{response}\n\n{image}"));
+            // Edit subscription is handled by itself
+            if (parsedEdit && command.User is RestGuildUser requestor)
+            {
+                if (targetUser == null)
+                    targetUser = requestor;
+
+                var highestRequestorRole = command.Guild.Roles.Where(r => requestor.RoleIds.Any(ur => ur == r.Id)).OrderByDescending(r => r.Position).FirstOrDefault();
+                var highestTargetRole = command.Guild.Roles.Where(r => targetUser.RoleIds.Any(ur => ur == r.Id)).OrderByDescending(r => r.Position).FirstOrDefault();
+
+                // Only allow subscription edits to a target user if the requestor is administrator or their highest role is greater than the target's highest role
+                if (targetUser == requestor || !targetUser.GuildPermissions.Administrator && (requestor.GuildPermissions.Administrator || highestRequestorRole.Position > highestTargetRole.Position))
+                {
+                    // Edit subscribers blob
+                    if (subscription == 0)
+                    {
+                        // Subscribe
+                        if (subscribers.Any(s => s.ID == targetUser.Id)) return command.Respond($"{targetUser.Username} is already a blameable.", ephemeral: true);
+                        subscribers.Add(new Subscriber { ID = targetUser.Id, FriendlyName = targetUser.Username });
+                    }
+                    else
+                    {
+                        // Unsubscribe
+                        if (!subscribers.Any(s => s.ID == targetUser.Id)) return command.Respond($"{targetUser.Username} is already not a blameable.", ephemeral: true);
+                        subscribers.Remove(subscribers.First(s => s.ID == targetUser.Id));
+                    }
+                    await _dataBlobProvider.SaveBlobTextAsync("GitBlameables.json", JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
+
+                    return command.Respond($"{targetUser.Username} successfully {(subscription == 0 ? "added" : "removed")} as a blameable");
+                }
+                else
+                {
+                    return command.Respond($"You do not have sufficient permissions to edit {targetUser.Username}'s subscription. Ask someone more important than you to do it.", ephemeral: true);
+                }
+            }
+
+            // Run asynchronously
+            _ = Task.Run(async () =>
+            {
+                // Get a list of all images in my gitblame album and pick a random one
+                string selectedImage;
+                try
+                {
+                    var req = new HttpRequestMessage(HttpMethod.Get, Environment.GetEnvironmentVariable("ImgurGitBlameAlbum"));
+                    req.Headers.Add("Authorization", $"Client-ID {Environment.GetEnvironmentVariable("ImgurClientID")}");
+                    var albumResponse = await (await _httpClient.SendAsync(req)).Content.ReadAsStringAsync();
+                    var allImages = JsonSerializer.Deserialize<ImgurRoot>(albumResponse).Images;
+
+                    selectedImage = allImages[Random.Shared.Next(allImages.Count)].link;
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error fetching images from Imgur");
+                    return await command.FollowupAsync("Error fetching images from Imgur");
+                }
+
+                // Get a random response line from the blob
+                var responses = (await _dataBlobProvider.GetBlobTextAsync("GitBlameResponses.txt")).Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+                string response = responses[Random.Shared.Next(responses.Length)].Replace("{USER}", targetUser.Mention);
+
+                var channel = await command.Guild.GetChannelAsync(command.Channel.Id);
+                if (targetUser == null)
+                {
+                    // Blame one of the current subscribers, removing anyone who can not view the current channel
+                    subscribers = subscribers.Where(s => command.Guild.GetUserAsync(s.ID).GetAwaiter().GetResult().GetPermissions(channel).ViewChannel).ToList();
+                    if (subscribers.Count == 0) return await command.FollowupAsync("There are no blameable users who have access to this channel!");
+
+                    ulong randomId = subscribers[Random.Shared.Next(subscribers.Count)].ID;
+                    targetUser = await command.Guild.GetUserAsync(randomId);
+                }
+                else
+                {
+                    // Custom responses based on our findings on targetUser
+                    if (!targetUser.GetPermissions(channel).ViewChannel)
+                        return await command.FollowupAsync($"{command.User.Mention} tried to blame {targetUser.Mention}, but that user was not found in this channel, so {command.User.Mention} is to blame!");
+                    if (targetUser.Id == command.User.Id)
+                        return await command.FollowupAsync($"{command.User.Mention} has rightfully and humbly blamed themselves for the latest wrongdoing. Good on them.");
+
+                    // Notify everyone they specified a person
+                    response += " *(targeted)*";
+                }
+
+                return await command.FollowupAsync($"{response}\n\n{selectedImage}");
+            });
+
+            // Immediately return a defer, respond using the task above
+            return command.Defer();
+        }
+
+        public class Subscriber
+        {
+            public ulong ID { get; set; }
+
+            public string FriendlyName { get; set; }
+        }
+
+        private class ImgurRoot
+        {
+            [JsonPropertyName("data")]
+            public List<ImgurImage> Images { get; set; }
+
+            public class ImgurImage
+            {
+                public string id { get; set; }
+                public string title { get; set; }
+                public string description { get; set; }
+                public int datetime { get; set; }
+                public string type { get; set; }
+                public bool animated { get; set; }
+                public int width { get; set; }
+                public int height { get; set; }
+                public int size { get; set; }
+                public int views { get; set; }
+                public int bandwidth { get; set; }
+                public string vote { get; set; }
+                public bool favorite { get; set; }
+                public bool? nsfw { get; set; }
+                public string section { get; set; }
+                public string account_url { get; set; }
+                public string account_id { get; set; }
+                public bool is_ad { get; set; }
+                public bool in_most_viral { get; set; }
+                public bool has_sound { get; set; }
+                public List<string> tags { get; set; }
+                public int ad_type { get; set; }
+                public string ad_url { get; set; }
+                public string edited { get; set; }
+                public bool in_gallery { get; set; }
+                public string link { get; set; }
+                public string gifv { get; set; }
+                public string mp4 { get; set; }
+                public int? mp4_size { get; set; }
+                public bool? looping { get; set; }
+            }
         }
     }
 }

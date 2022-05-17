@@ -19,7 +19,7 @@ namespace ShaosilBot.SlashCommands
             _client = client;
         }
 
-        public override async Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(RestSlashCommand command)
         {
             _ = Task.Run(async () =>
             {
@@ -44,7 +44,7 @@ namespace ShaosilBot.SlashCommands
             });
 
             // Immediately acknowledge, and let the async task above decide how to followup
-            return await Task.FromResult(command.Defer());
+            return Task.FromResult(command.Defer());
         }
 
         private class WowResponse

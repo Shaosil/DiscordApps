@@ -18,7 +18,7 @@ namespace ShaosilBot.SlashCommands
             _client = client;
         }
 
-        public override async Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(RestSlashCommand command)
         {
             // Get current comic asynchronously and defer the response for later
             _ = Task.Run(async () =>
@@ -71,7 +71,7 @@ namespace ShaosilBot.SlashCommands
                 }
             });
 
-            return await Task.FromResult(command.Defer());
+            return Task.FromResult(command.Defer());
         }
 
         public class Xkcd

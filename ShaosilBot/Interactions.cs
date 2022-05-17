@@ -11,7 +11,8 @@ using Microsoft.Azure.Functions.Worker.Http;
 using System.Linq;
 using System.Net.Http;
 using Discord.WebSocket;
-using Azure.Storage.Blobs;
+using ShaosilBot.Singletons;
+using ShaosilBot.Providers;
 
 namespace ShaosilBot
 {
@@ -19,18 +20,27 @@ namespace ShaosilBot
     {
         private readonly ILogger<Interactions> _logger;
         private readonly HttpClient _httpClient;
-        private readonly BlobServiceClient _blobClient; // Ensures DI keeps the blob connection active
-        private readonly DiscordSocketClient _socketClient; // Ensures DI spins up a new websocket connection
-        private readonly DiscordRestClient _restClient = null;
+        private readonly CatFactsProvider _catFactsProvider;
 
-        public Interactions(ILogger<Interactions> logger, IHttpClientFactory httpClientFactory, BlobServiceClient blobServiceClient, DiscordSocketClient socketClient, DiscordRestClient restClient)
+        // The following are singletons and unused but leaving them here ensures DI will keep them around
+        private readonly DataBlobProvider _blobClient;
+        private readonly DiscordSocketClientProvider _socketClientProvider;
+        private readonly DiscordRestClientProvider _restClientProvider;
+
+        public Interactions(ILogger<Interactions> logger,
+            IHttpClientFactory httpClientFactory,
+            CatFactsProvider catFactsProvider,
+            DataBlobProvider blobProvider,
+            DiscordSocketClientProvider socketClientProvider,
+            DiscordRestClientProvider restClientProvider)
         {
-            // Initialize bot and login
             _logger = logger;
             _httpClient = httpClientFactory.CreateClient();
-            _blobClient = blobServiceClient;
-            _socketClient = socketClient;
-            _restClient = restClient;
+            _catFactsProvider = catFactsProvider;
+
+            _blobClient = blobProvider;
+            _socketClientProvider = socketClientProvider;
+            _restClientProvider = restClientProvider;
         }
 
         [Function("interactions")]
@@ -49,7 +59,7 @@ namespace ShaosilBot
             response.Headers.Add("Content-Type", MediaTypeNames.Application.Json);
             try
             {
-                interaction = await _restClient.ParseHttpInteractionAsync(Environment.GetEnvironmentVariable("PublicKey"), signature, timestamp, body);
+                interaction = await _restClientProvider.Client.ParseHttpInteractionAsync(Environment.GetEnvironmentVariable("PublicKey"), signature, timestamp, body);
             }
             catch (Exception ex) when (ex is BadSignatureException || ex is ArgumentException)
             {
@@ -70,9 +80,9 @@ namespace ShaosilBot
                     {
                         case "test-command": response.WriteString(await new TestCommand(_logger).HandleCommandAsync(slash)); break;
                         case "wow": response.WriteString(await new WowCommand(_logger, _httpClient).HandleCommandAsync(slash)); break;
-                        case "cat-fact": response.WriteString(await new CatFactsCommand(_logger).HandleCommandAsync(slash)); break;
+                        case "cat-fact": response.WriteString(await new CatFactsCommand(_logger, _catFactsProvider).HandleCommandAsync(slash)); break;
                         case "xkcd": response.WriteString(await new XkcdCommand(_logger, _httpClient).HandleCommandAsync(slash)); break;
-                        case "git-blame": response.WriteString(await new GitBlameCommand(_logger).HandleCommandAsync(slash)); break;
+                        case "git-blame": response.WriteString(await new GitBlameCommand(_logger, _httpClient, _blobClient).HandleCommandAsync(slash)); break;
                         default: response.StatusCode = System.Net.HttpStatusCode.NotFound; break;
                     }
                     break;

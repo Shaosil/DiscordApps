@@ -1,22 +1,24 @@
 using System;
 using System.Threading.Tasks;
 using Discord;
-using Discord.WebSocket;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
-using ShaosilBot.SlashCommands;
+using ShaosilBot.Providers;
+using ShaosilBot.Singletons;
 
 namespace ShaosilBot
 {
     public class CatFactTimer
     {
         private readonly ILogger _logger;
-        private readonly DiscordSocketClient _socketClient;
+        private readonly DiscordSocketClientProvider _socketClientProvider;
+        private readonly CatFactsProvider _catFactsProvider;
 
-        public CatFactTimer(ILogger<CatFactTimer> logger, DiscordSocketClient socketClient)
+        public CatFactTimer(ILogger<CatFactTimer> logger, DiscordSocketClientProvider socketClientProvider, CatFactsProvider catFactsProvider)
         {
             _logger = logger;
-            _socketClient = socketClient;
+            _socketClientProvider = socketClientProvider;
+            _catFactsProvider = catFactsProvider;
         }
 
         [Function("CatFactTimer")]
@@ -25,11 +27,11 @@ namespace ShaosilBot
             _logger.LogInformation($"CatFactTimer triggered at: {DateTime.Now}");
 
             // Broadcast cat facts to all!
-            var currentSubscribers = await CatFactsCommand.GetSubscribersAsync();
+            var currentSubscribers = await _catFactsProvider.GetSubscribersAsync();
             foreach (var subscriber in currentSubscribers)
             {
-                var user = await _socketClient.GetUserAsync(subscriber.IDNum);
-                string randomCatFact = await CatFactsCommand.GetRandomCatFact();
+                var user = await _socketClientProvider.Client.GetUserAsync(subscriber.ID);
+                string randomCatFact = await _catFactsProvider.GetRandomCatFact();
                 await user.SendMessageAsync($"Heyo neighbor! It's time for your hourly cat fact digest! *Did you know?*\n\n**\"{randomCatFact}\"**\n\nSee you next time!\nText STOP to unsubscribe at any time.");
             }
         }

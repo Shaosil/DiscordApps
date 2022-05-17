@@ -2,8 +2,9 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using ShaosilBot.DependencyInjection;
-using System;
+using Microsoft.Extensions.Logging;
+using ShaosilBot.Providers;
+using ShaosilBot.Singletons;
 using System.Threading.Tasks;
 
 namespace ShaosilBot
@@ -14,14 +15,21 @@ namespace ShaosilBot
         {
             var host = new HostBuilder()
                 .ConfigureFunctionsWorkerDefaults()
+                .ConfigureLogging(builder =>
+                {
+                    builder.AddConsole();
+                })
                 .ConfigureServices((context, services) =>
                 {
-                    services.AddHttpClient();
+                    // Scoped
+                    services.AddScoped<CatFactsProvider>();
+                    services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });
 
-                    services.AddSingleton(sp => DataBlobProvider.GetBlobProvider(sp));
-                    services.AddScoped((d) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.DirectMessages });
-                    services.AddSingleton(sp => DiscordSocketClientProvider.GetSocketClient(sp));
-                    services.AddSingleton(sp => DiscordRestClientProvider.GetRestClient(sp));
+                    // Singletons
+                    services.AddHttpClient();
+                    services.AddSingleton<DataBlobProvider>();
+                    services.AddSingleton<DiscordSocketClientProvider>();
+                    services.AddSingleton<DiscordRestClientProvider>();
                 })
                 .Build();
 
