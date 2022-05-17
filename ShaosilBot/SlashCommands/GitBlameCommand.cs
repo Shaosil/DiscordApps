@@ -1,4 +1,5 @@
-﻿using Discord.Rest;
+﻿using Discord;
+using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Singletons;
 using System;
@@ -38,7 +39,7 @@ namespace ShaosilBot.SlashCommands
                 var highestTargetRole = command.Guild.Roles.Where(r => targetUser.RoleIds.Any(ur => ur == r.Id)).OrderByDescending(r => r.Position).FirstOrDefault();
 
                 // Only allow subscription edits to a target user if the requestor is administrator or their highest role is greater than the target's highest role
-                if (targetUser == requestor || !targetUser.GuildPermissions.Administrator && (requestor.GuildPermissions.Administrator || highestRequestorRole.Position > highestTargetRole.Position))
+                if (targetUser.Id == requestor.Id || !targetUser.GuildPermissions.Administrator && (requestor.GuildPermissions.Administrator || highestRequestorRole.Position > highestTargetRole.Position))
                 {
                     // Edit subscribers blob
                     if (subscription == 0)
@@ -106,7 +107,7 @@ namespace ShaosilBot.SlashCommands
                         return await command.FollowupAsync($"{command.User.Mention} has rightfully and humbly blamed themselves for the latest wrongdoing. Good on them.");
 
                     // Notify everyone they specified a person
-                    response += " *(targeted)*";
+                    response += "\n\n* *Targeted*";
                 }
 
                 return await command.FollowupAsync($"{response.Replace("{USER}", targetUser.Mention)}\n\n{selectedImage}");
