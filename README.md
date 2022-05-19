@@ -34,7 +34,7 @@ First of all, I assume you plan on using this code for your own bot, because run
 
 	"ClientID": "<YOUR BOT'S CLIENT/APP ID>",
 	"PublicKey": "<YOUR BOT'S PUBLIC KEY>",
-	"BotToken": "<YOUR BOT'S PUBLIC SECRET (DO NOT SHARE!)>",
+	"BotToken": "<YOUR BOT'S SECRET TOKEN (DO NOT SHARE!)>",
 
 	"RandomWowURL": "https://owen-wilson-wow-api.herokuapp.com/wows/random",
 	"ImgurClientID": "<IF YOU WANT /git-blame TO WORK, CREATE AN IMGUR APP AND USE ITS CLIENT ID HERE>",
