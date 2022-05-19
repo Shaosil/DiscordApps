@@ -44,10 +44,10 @@ namespace ShaosilBot.Providers
                 return await (await _httpClient.SendAsync(request)).Content.ReadAsStringAsync();
             };
 
-            Func<string, Task<RestUserMessage>> getLastMessage = async (twitchUserId) =>
+            Func<string, Task<RestUserMessage>> getLastActiveStreamMessage = async (twitchUserId) =>
             {
                 var messages = await channel.GetMessagesAsync(25).FlattenAsync();
-                return messages.OrderByDescending(m => m.Timestamp).FirstOrDefault(m => m.Author.IsBot && m.Embeds.First().Title.Contains(twitchUserId)) as RestUserMessage;
+                return messages.OrderByDescending(m => m.Timestamp).FirstOrDefault(m => m.Author.Username == "ShaosilBot" && m.Embeds.First().Title.StartsWith($"🔴 [LIVE] {twitchUserId}")) as RestUserMessage;
             };
 
             // Always get current channel information
@@ -91,7 +91,7 @@ namespace ShaosilBot.Providers
 
                 case "stream.offline":
                     // Get most recent message from bot in channel for broadcaster name
-                    var lastMessage = await getLastMessage(channelData.broadcaster_name);
+                    var lastMessage = await getLastActiveStreamMessage(channelData.broadcaster_name);
 
                     // Update embed details
                     string startTimeEpoch = Regex.Match(lastMessage.Embeds.First().Title, "<t:(\\d+):R>").Groups[1].Value;
@@ -116,7 +116,10 @@ namespace ShaosilBot.Providers
 
                 case "channel.update":
                     // Get most recent message from bot in channel for broadcaster name
-                    lastMessage = await getLastMessage(channelData.broadcaster_name);
+                    lastMessage = await getLastActiveStreamMessage(channelData.broadcaster_name);
+
+                    // If none was found, nevermind
+                    if (lastMessage == null) break;
 
                     // Get current game URL
                     responseBody = await getHttpResponse($"https://api.twitch.tv/helix/games?id={payload.@event.category_id}");
