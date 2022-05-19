@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Middleware;
 using ShaosilBot.Providers;
 using ShaosilBot.Singletons;
 using System.Threading.Tasks;
@@ -14,7 +15,10 @@ namespace ShaosilBot
         public static async Task Main()
         {
             var host = new HostBuilder()
-                .ConfigureFunctionsWorkerDefaults()
+                .ConfigureFunctionsWorkerDefaults(app =>
+                {
+                    app.UseWhen<TwitchMiddleware>(context => context.FunctionDefinition.EntryPoint == $"{typeof(TwitchCallback).FullName}.Run");
+                })
                 .ConfigureLogging(builder =>
                 {
                     builder.AddConsole();
@@ -22,6 +26,7 @@ namespace ShaosilBot
                 .ConfigureServices((context, services) =>
                 {
                     // Scoped
+                    services.AddScoped<TwitchProvider>();
                     services.AddScoped<CatFactsProvider>();
                     services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });
 
