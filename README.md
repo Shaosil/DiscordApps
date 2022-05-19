@@ -19,32 +19,33 @@ First of all, I assume you plan on using this code for your own bot, because run
 	<li>Depending on what your bot will do and what permissions you gave it, you may need to enable some priviledged gateway intents on the bot page.</li>
 	<li>Add a new settings file underneath the ShaosilBot project, and call it <b>local.settings.json</b>.<img src="https://user-images.githubusercontent.com/12295139/169352687-3f5d5982-e97e-4fad-9083-cbf6531cce28.png"></img></li>
 	<li>You will need to add the following keys and values to said file:</li>
+	
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+	"AzureWebJobsStorage": "UseDevelopmentStorage=true",
+	"FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+	"FUNCTIONS_EXTENSION_VERSION": "~4",
+	"APPLICATIONINSIGHTS_CONNECTION_STRING": "",
+	"ApplicationInsightsAgent_EXTENSION_VERSION": "~2",
+	"DiagnosticServices_EXTENSION_VERSION": "~3",
+	"APPINSIGHTS_PROFILERFEATURE_VERSION": "1.0.0",
 
-	```json
-	{
-	  "IsEncrypted": false,
-	  "Values": {
-		"AzureWebJobsStorage": "UseDevelopmentStorage=true",
-		"FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
-		"FUNCTIONS_EXTENSION_VERSION": "~4",
-		"APPLICATIONINSIGHTS_CONNECTION_STRING": "",
-		"ApplicationInsightsAgent_EXTENSION_VERSION": "~2",
-		"DiagnosticServices_EXTENSION_VERSION": "~3",
-		"APPINSIGHTS_PROFILERFEATURE_VERSION": "1.0.0",
+	"ClientID": "<YOUR BOT'S CLIENT/APP ID>",
+	"PublicKey": "<YOUR BOT'S PUBLIC KEY>",
+	"BotToken": "<YOUR BOT'S PUBLIC SECRET (DO NOT SHARE!)>",
 
-		"ClientID": "<YOUR BOT'S CLIENT/APP ID>",
-		"PublicKey": "<YOUR BOT'S PUBLIC KEY>",
-		"BotToken": "<YOUR BOT'S PUBLIC SECRET (DO NOT SHARE!)>",
+	"RandomWowURL": "https://owen-wilson-wow-api.herokuapp.com/wows/random",
+	"ImgurClientID": "<IF YOU WANT /git-blame TO WORK, CREATE AN IMGUR APP AND USE ITS CLIENT ID HERE>",
+	"ImgurGitBlameAlbum": "https://api.imgur.com/3/album/1IzijHj/images",
+	"TwitchClientID": "<MY TWITCH APP'S CLIENT ID. YOU MAY IGNORE THIS>",
+	"TwitchClientSecret": "<MY TWITCH APP'S CLIENT SECRET. YOU MAY IGNORE THIS>",
+	"TwitchAPISecret": "<MY TWITCH APP'S API SECRET. YOU MAY IGNORE THIS>"
+  }
+}
+```
 
-		"RandomWowURL": "https://owen-wilson-wow-api.herokuapp.com/wows/random",
-		"ImgurClientID": "<IF YOU WANT /git-blame TO WORK, CREATE AN IMGUR APP AND USE ITS CLIENT ID HERE>",
-		"ImgurGitBlameAlbum": "https://api.imgur.com/3/album/1IzijHj/images",
-		"TwitchClientID": "<MY TWITCH APP'S CLIENT ID. YOU MAY IGNORE THIS>",
-		"TwitchClientSecret": "<MY TWITCH APP'S CLIENT SECRET. YOU MAY IGNORE THIS>",
-		"TwitchAPISecret": "<MY TWITCH APP'S API SECRET. YOU MAY IGNORE THIS>"
-	  }
-	}			
-	```
 </ul>
 
 Now in theory you should be able run it, and the bot would even show as online and have registered slash commands on your server(s). However, those slash commands punch out to your bot's Interactions Endpoint URL, which you haven't set up yet if you've been following these instructions.
