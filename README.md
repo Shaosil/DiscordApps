@@ -17,7 +17,7 @@ First of all, I assume you plan on using this code for your own bot, because run
 	<li>Make an account on <a href="ngrok.com">ngrok.com</a>, then follow the <a href="https://dashboard.ngrok.com/get-started/setup">instructions</a> for downloading and connecting to your account. More on this later.</li>
 	<li>Set up your own <a href="https://discord.com/developers/docs/getting-started#creating-an-app">Discord application/bot.</a> Don't follow the instructions they provide for setting up your project with Glitch and the JS libraries. We'll get to hosting down below.</li>
 	<li>Depending on what your bot will do and what permissions you gave it, you may need to enable some priviledged gateway intents on the bot page.</li>
-	<li>Add a new settings file underneath the ShaosilBot project, and call it <b>local.settings.json</b>.<img src="https://user-images.githubusercontent.com/12295139/169352687-3f5d5982-e97e-4fad-9083-cbf6531cce28.png"></img></li>
+	<li>Add a new JSON file underneath the ShaosilBot project, and call it <b>local.settings.json</b>.<img src="https://user-images.githubusercontent.com/12295139/169375709-24d3181d-d002-4f23-9ae9-0c9998e3fd58.png"></img></li>
 	<li>You will need to add the following keys and values to said file:</li>
 	
 ```json
