@@ -89,7 +89,7 @@ namespace ShaosilBot.Singletons
                     }
                     else if (containsResub)
                     {
-                        matchingSubscriber.CurrentlySubbed = false;
+                        matchingSubscriber.CurrentlySubbed = true;
                         await socketMessage.Author.SendMessageAsync($"Successfully resubscribed. Welcome back to the wonderful world of cat facts! Here's a bonus one to kickstart you again: {await _catFactsProvider.GetRandomCatFact()}");
                         await _catFactsProvider.UpdateSubscribersAsync(currentSubscribers);
                     }
