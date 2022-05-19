@@ -41,6 +41,7 @@ namespace ShaosilBot.Providers
             public DateTimeOffset DateSubscribed { get; set; }
 
             public int TimesUnsubscribed { get; set; }
+            public bool CurrentlySubbed { get; set; }
         }
     }
 }

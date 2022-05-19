@@ -60,18 +60,40 @@ namespace ShaosilBot.Singletons
 
         private async Task MessageHandler(SocketMessage socketMessage)
         {
-            if (socketMessage.Channel.GetChannelType() == ChannelType.DM && !socketMessage.Author.IsBot && socketMessage.Content.ToUpper().Contains("STOP"))
+            bool containsStop = socketMessage.Content.ToUpper().Contains("STOP");
+            bool containsUnsub = socketMessage.Content.ToUpper().Contains("UNSUB");
+            bool containsResub = socketMessage.Content.ToUpper().Contains("RESUB");
+
+            if (socketMessage.Channel.GetChannelType() == ChannelType.DM && !socketMessage.Author.IsBot)
             {
                 // Update times unsubscribed lol
                 var currentSubscribers = await _catFactsProvider.GetSubscribersAsync();
                 var matchingSubscriber = currentSubscribers.FirstOrDefault(s => s.ID == socketMessage.Author.Id);
                 if (matchingSubscriber != null)
                 {
-                    matchingSubscriber.TimesUnsubscribed++;
-                    await _catFactsProvider.UpdateSubscribersAsync(currentSubscribers);
+                    if (matchingSubscriber.CurrentlySubbed)
+                    {
+                        if (containsUnsub)
+                        {
+                            matchingSubscriber.CurrentlySubbed = false;
+                            await socketMessage.Author.SendMessageAsync("Successfully unsubscribed. Text RESUB at any time to resubscribe. Take care meow!");
+                            await _catFactsProvider.UpdateSubscribersAsync(currentSubscribers);
+                        }
+                        else if (containsStop)
+                        {
+                            matchingSubscriber.TimesUnsubscribed++;
+                            string extraMessage = matchingSubscriber?.TimesUnsubscribed > 1 ? $" (Wowza! You have subscribed {matchingSubscriber.TimesUnsubscribed} times!) " : string.Empty;
+                            await socketMessage.Author.SendMessageAsync($"Thanks for subscribing to Cat Facts Digest (CFD){extraMessage}! Be prepared to boost that feline knowledge every hour, on the hour, between the hours of 10:00 AM and 10:00 PM EST! *Meow!*");
+                            await _catFactsProvider.UpdateSubscribersAsync(currentSubscribers);
+                        }
+                    }
+                    else if (containsResub)
+                    {
+                        matchingSubscriber.CurrentlySubbed = false;
+                        await socketMessage.Author.SendMessageAsync($"Successfully resubscribed. Welcome back to the wonderful world of cat facts! Here's a bonus one to kickstart you again: {await _catFactsProvider.GetRandomCatFact()}");
+                        await _catFactsProvider.UpdateSubscribersAsync(currentSubscribers);
+                    }
                 }
-                string extraMessage = matchingSubscriber?.TimesUnsubscribed > 1 ? $" (Wowza! You have subscribed {matchingSubscriber.TimesUnsubscribed} times!) " : string.Empty;
-                await socketMessage.Author.SendMessageAsync($"Thanks for subscribing to Cat Facts Digest (CFD){extraMessage}! Be prepared to boost that feline knowledge every hour, on the hour, between the hours of 10:00 AM and 10:00 PM EST! *Meow!*");
             }
         }
 
