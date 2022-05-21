@@ -67,7 +67,7 @@ namespace ShaosilBot.Singletons
             if (socketMessage.Channel.GetChannelType() == ChannelType.DM && !socketMessage.Author.IsBot)
             {
                 // Update times unsubscribed lol
-                var currentSubscribers = await _catFactsProvider.GetSubscribersAsync();
+                var currentSubscribers = await _catFactsProvider.GetSubscribersAsync(true);
                 var matchingSubscriber = currentSubscribers.FirstOrDefault(s => s.ID == socketMessage.Author.Id);
                 if (matchingSubscriber != null)
                 {

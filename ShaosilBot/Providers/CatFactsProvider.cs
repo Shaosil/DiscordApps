@@ -1,6 +1,7 @@
 ﻿using ShaosilBot.Singletons;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -21,9 +22,10 @@ namespace ShaosilBot.Providers
             return _catFacts[Random.Shared.Next(_catFacts.Length)];
         }
 
-        public async Task<List<Subscriber>> GetSubscribersAsync()
+        public async Task<List<Subscriber>> GetSubscribersAsync(bool includeUnsubbed = false)
         {
-            return JsonSerializer.Deserialize<List<Subscriber>>(await _blobProvider.GetBlobTextAsync("CatFactsSubscribers.json"));
+            var subText = await _blobProvider.GetBlobTextAsync("CatFactsSubscribers.json");
+            return JsonSerializer.Deserialize<List<Subscriber>>(subText).Where(s => includeUnsubbed || s.CurrentlySubbed).ToList();
         }
 
         public async Task UpdateSubscribersAsync(List<Subscriber> subscribers)
