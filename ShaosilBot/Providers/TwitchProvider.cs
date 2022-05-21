@@ -30,12 +30,21 @@ namespace ShaosilBot.Providers
 
         public async Task HandleNotification(TwitchPayload payload)
         {
-            _logger.LogInformation($"Received twitch payload type '{payload.subscription.type}'.");
+            _logger.LogInformation($"Received twitch payload type '{payload.subscription.type}' for streamer '{payload.event_type.broadcaster_user_login}'.");
 
+            // Prep some variables
             string oauthToken = await GetOAuthAccessToken();
             string clientId = Environment.GetEnvironmentVariable("TwitchClientID");
-            var channel = await _restClientProvider.Client.GetChannelAsync(786668753407705160) as RestTextChannel;
+            var discordChannel = await _restClientProvider.Client.GetChannelAsync(786668753407705160) as RestTextChannel;
+            RestUserMessage lastMessage = null;
+            string twitchLink = $"https://twitch.tv/{payload.event_type.broadcaster_user_login}";
+            var embed = new EmbedBuilder
+            {
+                Color = new Color(0x7c0089),
+                Url = twitchLink
+            };
 
+            // Helper API call function
             Func<string, Task<string>> getHttpResponse = async (url) =>
             {
                 var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -44,101 +53,90 @@ namespace ShaosilBot.Providers
                 return await (await _httpClient.SendAsync(request)).Content.ReadAsStringAsync();
             };
 
-            Func<string, Task<RestUserMessage>> getLastActiveStreamMessage = async (twitchUserId) =>
+            // Set embed properties as needed
+            bool isOnlineEvent = payload.subscription.type == "stream.online";
+            bool isOfflineEvent = payload.subscription.type == "stream.offline";
+            bool isChannelUpdateEvent = payload.subscription.type == "channel.update";
+
+            // Get channel and game info for online and update events
+            if (isOnlineEvent || isChannelUpdateEvent)
             {
-                var messages = await channel.GetMessagesAsync(25).FlattenAsync();
-                return messages.OrderByDescending(m => m.Timestamp).FirstOrDefault(m => m.Author.Username == "ShaosilBot" && m.Embeds.First().Title.StartsWith($"🔴 [LIVE] {twitchUserId}")) as RestUserMessage;
-            };
+                // Channel info for game name and ID
+                _logger.LogInformation("Getting channel and game information for image and description.");
+                string channelResponse = await getHttpResponse($"https://api.twitch.tv/helix/channels?broadcaster_id={payload.event_type.broadcaster_user_id}");
+                var channelInfo = JsonSerializer.Deserialize<ChannelInfoRoot>(channelResponse).Channels.First();
 
-            // Always get current channel information
-            string responseBody = await getHttpResponse($"https://api.twitch.tv/helix/channels?broadcaster_id={payload.@event.broadcaster_user_id}");
-            var channelData = JsonSerializer.Deserialize<ChannelInfoRoot>(responseBody).Channels.First();
-            string channelUrl = $"https://twitch.tv/{channelData.broadcaster_login}";
+                // Game image URL
+                string gameResponse = await getHttpResponse($"https://api.twitch.tv/helix/games?id={payload.event_type.category_id ?? channelInfo.game_id}");
+                string gameUrl = JsonDocument.Parse(gameResponse).RootElement.GetProperty("data")[0].GetProperty("box_art_url").GetString().Replace("-{width}x{height}", string.Empty);
 
-            // Pre-build the embed since we need it in all cases
-            var embed = new EmbedBuilder
+                // Always set image and description from these events
+                embed.ImageUrl = gameUrl;
+                embed.Description = $"**{payload.event_type.category_name ?? channelInfo.game_name}**\n\n{payload.event_type.title ?? channelInfo.title}";
+            }
+
+            // Load last message's embed information if this is an update
+            if (isOfflineEvent || isChannelUpdateEvent)
             {
-                Color = new Color(0x7c0089),
-                Description = $"**{channelData.game_name}**\n\n{channelData.title}",
-                Url = channelUrl
-            };
+                // Load last live message for this Twitch user
+                _logger.LogInformation("Attempting to find existing [LIVE] message to edit.");
+                var messages = (await discordChannel.GetMessagesAsync(25).FlattenAsync()).OrderByDescending(m => m.Timestamp).ToList();
+                lastMessage = messages.FirstOrDefault(m => m.Author.Username == "ShaosilBot" && m.Embeds.First().Title.StartsWith($"🔴 [LIVE] {payload.event_type.broadcaster_user_name}")) as RestUserMessage;
+            }
 
-            switch (payload.subscription.type)
+            if (isOnlineEvent)
             {
-                case "stream.online":
-                    // Get current game URL
-                    responseBody = await getHttpResponse($"https://api.twitch.tv/helix/games?id={channelData.game_id}");
-                    var gameUrl = JsonDocument.Parse(responseBody).RootElement.GetProperty("data")[0].GetProperty("box_art_url").GetString().Replace("-{width}x{height}", string.Empty);
+                // Get user thumbnail URL
+                _logger.LogInformation("Getting user information for thumbnail.");
+                string userResponse = await getHttpResponse($"https://api.twitch.tv/helix/users?id={payload.event_type.broadcaster_user_id}");
+                string userThumbnail = JsonDocument.Parse(userResponse).RootElement.GetProperty("data")[0].GetProperty("profile_image_url").GetString();
 
-                    // Get user thumbnail URL
-                    responseBody = await getHttpResponse($"https://api.twitch.tv/helix/users?id={channelData.broadcaster_id}");
-                    var userThumbnail = JsonDocument.Parse(responseBody).RootElement.GetProperty("data")[0].GetProperty("profile_image_url").GetString();
+                // Online-specific embed details
+                embed.Title = $"🔴 [LIVE] {payload.event_type.broadcaster_user_name} started streaming on Twitch <t:{DateTimeOffset.Parse(payload.event_type.started_at).ToUnixTimeSeconds()}:R>!";
+                embed.ThumbnailUrl = userThumbnail;
+            }
+            else if (isOfflineEvent)
+            {
+                // Get time spent description
+                string startTimeEpoch = Regex.Match(lastMessage.Embeds.First().Title, "<t:(\\d+):R>").Groups[1].Value;
+                var startDate = DateTimeOffset.FromUnixTimeSeconds(long.Parse(startTimeEpoch));
+                var streamLength = DateTimeOffset.UtcNow - startDate;
+                int hours = 0, minutes = (int)Math.Round(streamLength.TotalMinutes);
+                while (minutes >= 60)
+                {
+                    hours++;
+                    minutes -= 60;
+                }
+                string timeDesc = $"{(hours > 0 ? ($"{hours} hour{(hours == 1 ? string.Empty : "s")} and ") : string.Empty)}{minutes} minute{(minutes == 1 ? string.Empty : "s")}";
+                embed.Title = $"{payload.event_type.broadcaster_user_name} was live on Twitch <t:{startTimeEpoch}:R> for {timeDesc}.";
+            }
 
-                    // Build response
-                    var components = new ComponentBuilder { ActionRows = new List<ActionRowBuilder> { new ActionRowBuilder { Components = new List<IMessageComponent>
-                    {
-                        ButtonBuilder.CreateLinkButton($"{channelData.broadcaster_name}'s Channel", channelUrl, new Emoji("📺")).Build()
-                    } } } }.Build();
+            // Persist old embed info in new builder where needed
+            var lastEmbed = lastMessage?.Embeds.First();
+            embed.Title = embed.Title ?? lastEmbed?.Title;
+            embed.Description = embed.Description ?? lastEmbed?.Description;
+            embed.ImageUrl = embed.ImageUrl ?? lastEmbed?.Image.Value.Url;
+            embed.ThumbnailUrl = embed.ThumbnailUrl ?? lastEmbed?.Thumbnail.Value.Url;
 
-                    // Add details to embed
-                    embed.Title = $"🔴 [LIVE] {channelData.broadcaster_name} started streaming on Twitch <t:{DateTimeOffset.Parse(payload.@event.started_at).ToUnixTimeSeconds()}:R>!";
-                    embed.ThumbnailUrl = userThumbnail;
-                    embed.ImageUrl = gameUrl;
+            // Send or update message
+            if (isOnlineEvent)
+            {
+                // Build button component
+                var component = ComponentBuilder.FromComponents(new[] { ButtonBuilder.CreateLinkButton($"{payload.event_type.broadcaster_user_name}'s Channel", twitchLink, new Emoji("📺")).Build() }).Build();
 
-                    // Send a message to the #twitch-golives channel (hardcoded but... meh)
-                    await channel.SendMessageAsync(components: components, embed: embed.Build());
-                    break;
-
-                case "stream.offline":
-                    // Get most recent message from bot in channel for broadcaster name
-                    var lastMessage = await getLastActiveStreamMessage(channelData.broadcaster_name);
-
-                    // Update embed details
-                    string startTimeEpoch = Regex.Match(lastMessage.Embeds.First().Title, "<t:(\\d+):R>").Groups[1].Value;
-                    var startDate = DateTimeOffset.FromUnixTimeSeconds(long.Parse(startTimeEpoch));
-                    var streamLength = DateTimeOffset.UtcNow - startDate;
-                    int hours = 0, minutes = (int)Math.Round(streamLength.TotalMinutes);
-                    while (minutes >= 60)
-                    {
-                        hours++;
-                        minutes -= 60;
-                    }
-
-                    // Persist the other embed information
-                    embed.Title = $"{channelData.broadcaster_name} was live on Twitch <t:{startTimeEpoch}:R> for {($"{(hours > 0 ? $"{hours} hours and " : "")}{minutes} minutes")}!";
-                    embed.ThumbnailUrl = lastMessage.Embeds.First().Thumbnail.Value.Url;
-                    embed.ImageUrl = lastMessage.Embeds.First().Image.Value.Url;
-                    await lastMessage.ModifyAsync(properties =>
-                    {
-                        properties.Embed = embed.Build();
-                    });
-                    break;
-
-                case "channel.update":
-                    // Get most recent message from bot in channel for broadcaster name
-                    lastMessage = await getLastActiveStreamMessage(channelData.broadcaster_name);
-
-                    // If none was found, nevermind
-                    if (lastMessage == null) break;
-
-                    // Get current game URL
-                    responseBody = await getHttpResponse($"https://api.twitch.tv/helix/games?id={payload.@event.category_id}");
-                    gameUrl = JsonDocument.Parse(responseBody).RootElement.GetProperty("data")[0].GetProperty("box_art_url").GetString().Replace("-{width}x{height}", string.Empty);
-
-                    // Update embed details
-                    embed.Title = lastMessage.Embeds.First().Title;
-                    embed.Description = $"**{payload.@event.category_name}**\n\n{payload.@event.title}";
-                    embed.ThumbnailUrl = lastMessage.Embeds.First().Thumbnail.Value.Url;
-                    embed.ImageUrl = gameUrl;
-                    await lastMessage.ModifyAsync(properties =>
-                    {
-                        properties.Embed = embed.Build();
-                    });
-                    break;
-
-                default:
-                    _logger.LogError("No handler exists for subscription type!");
-                    break;
+                // Send a message to the #twitch-golives channel (hardcoded but... meh)
+                _logger.LogInformation("Sending new announcement message");
+                await discordChannel.SendMessageAsync(components: component, embed: embed.Build());
+            }
+            else if (isChannelUpdateEvent || isOfflineEvent)
+            {
+                if (lastMessage != null)
+                {
+                    _logger.LogInformation("Sending update message");
+                    await (lastMessage.ModifyAsync(p => { p.Embed = embed.Build(); }) ?? Task.CompletedTask);
+                }
+                else
+                    _logger.LogInformation("Existing message not found. End processing.");
             }
         }
 
@@ -177,7 +175,8 @@ namespace ShaosilBot.Providers
         {
             public string challenge { get; set; }
             public Subscription subscription { get; set; }
-            public Event @event { get; set; }
+            [JsonPropertyName("event")]
+            public Event event_type { get; set; }
 
             public class Subscription
             {
@@ -220,7 +219,7 @@ namespace ShaosilBot.Providers
         public class ChannelInfoRoot
         {
             [JsonPropertyName("data")]
-            public List<ChannelInfo> Channels { get; set; }
+            public List<ChannelInfo> Channels { get; set; } = new List<ChannelInfo>();
 
             public class ChannelInfo
             {
