@@ -133,6 +133,9 @@ namespace ShaosilBot.Singletons
                         }
                     }
                 }.Build());
+                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "whackabot", Description = "Starts or continues an epic smackdown!",
+                    Options = new List<SlashCommandOptionBuilder> { new SlashCommandOptionBuilder { Name = "weapon-change", Type = ApplicationCommandOptionType.String, Description = "Choose your weapon" } }
+                }.Build());
             }
         }
     }

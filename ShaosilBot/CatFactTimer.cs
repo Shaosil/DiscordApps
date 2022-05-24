@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Discord;
 using Microsoft.Azure.Functions.Worker;
@@ -24,6 +25,9 @@ namespace ShaosilBot
         [Function("CatFactTimer")]
         public async Task Run([TimerTrigger("0 0 0-2,14-23 * * *", RunOnStartup = false)] TimerInfo myTimer)
         {
+            // Skip while debugging
+            if (Debugger.IsAttached) return;
+
             _logger.LogInformation($"CatFactTimer triggered at: {DateTime.Now}");
 
             // Broadcast cat facts to all!

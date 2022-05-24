@@ -21,7 +21,7 @@ namespace ShaosilBot
             _restClientProvider = restClientProvider;
         }
 
-        // Pinging this every X minutes (see functioTimeout in host.json) should guarantee we stay online
+        // Called by a Google Cloud scheduled job every 5 minutes
         [Function("KeepAlive")]
         public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Function, "get", Route = null)] HttpRequestData req)
         {
