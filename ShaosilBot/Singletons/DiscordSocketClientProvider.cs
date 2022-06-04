@@ -37,7 +37,7 @@ namespace ShaosilBot.Singletons
 
         public async Task KeepAlive()
         {
-            await Client.SetGameAsync("with his robot junk");
+            await Client.SetGameAsync("favorites");
         }
 
         private void LogSocketMessage(LogMessage message)
