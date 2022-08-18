@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Discord.Rest;
@@ -26,7 +27,7 @@ namespace ShaosilBot
             _logger.LogInformation($"Send text function executed at: {DateTime.Now}");
 
             // Default to the bot-test channel unless specified in Text-Channel header
-            if (!ulong.TryParse(req.Headers.GetValues("Text-Channel").ToString(), out var channelId))
+            if (!ulong.TryParse(req.Headers.GetValues("Text-Channel").FirstOrDefault(), out var channelId))
                 channelId = 971047774311288983;
 
             // Return no content if no message was provided
