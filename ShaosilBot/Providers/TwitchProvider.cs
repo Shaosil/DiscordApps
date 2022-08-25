@@ -75,16 +75,13 @@ namespace ShaosilBot.Providers
                 embed.Description = $"**{payload.event_type.category_name ?? channelInfo.game_name}**\n\n{payload.event_type.title ?? channelInfo.title}";
             }
 
-            // Load last message's embed information if this is an update
-            if (isOfflineEvent || isChannelUpdateEvent)
-            {
-                // Load last live message for this Twitch user
-                _logger.LogInformation("Attempting to find existing [LIVE] message to edit.");
-                var messages = (await discordChannel.GetMessagesAsync(25).FlattenAsync()).OrderByDescending(m => m.Timestamp).ToList();
-                lastMessage = messages.FirstOrDefault(m => m.Author.Username == "ShaosilBot" && m.Embeds.First().Title.StartsWith($"🔴 [LIVE] {payload.event_type.broadcaster_user_name}")) as RestUserMessage;
-            }
+            // Load last live message for this Twitch user
+            _logger.LogInformation("Attempting to find last announcement message for this streamer.");
+            var messages = (await discordChannel.GetMessagesAsync(25).FlattenAsync()).OrderByDescending(m => m.Timestamp).ToList();
+            lastMessage = messages.FirstOrDefault(m => m.Author.Username == "ShaosilBot" && new Regex($"^(🔴 \\[LIVE\\] )?{payload.event_type.broadcaster_user_name} ").IsMatch(m.Embeds.First().Title)) as RestUserMessage;
+            double hoursSinceLastMessage = (DateTimeOffset.UtcNow - (lastMessage?.Timestamp.UtcDateTime ?? new DateTimeOffset())).TotalHours;
 
-            if (isOnlineEvent)
+            if (isOnlineEvent && hoursSinceLastMessage >= 1)
             {
                 // Get user thumbnail URL
                 _logger.LogInformation("Getting user information for thumbnail.");
@@ -118,8 +115,8 @@ namespace ShaosilBot.Providers
             embed.ImageUrl = embed.ImageUrl ?? lastEmbed?.Image.Value.Url;
             embed.ThumbnailUrl = embed.ThumbnailUrl ?? lastEmbed?.Thumbnail.Value.Url;
 
-            // Send or update message
-            if (isOnlineEvent)
+            // Send new message if the last one was over an hour ago, otherwise update the existing one if found
+            if (isOnlineEvent && hoursSinceLastMessage >= 1)
             {
                 // Build button component
                 var component = ComponentBuilder.FromComponents(new[] { ButtonBuilder.CreateLinkButton($"{payload.event_type.broadcaster_user_name}'s Channel", twitchLink, new Emoji("📺")).Build() }).Build();
@@ -128,16 +125,14 @@ namespace ShaosilBot.Providers
                 _logger.LogInformation("Sending new announcement message");
                 await discordChannel.SendMessageAsync(components: component, embed: embed.Build());
             }
-            else if (isChannelUpdateEvent || isOfflineEvent)
+            // Update any existing one within an hour unless this is a channel update even without a live channel message
+            else if (lastMessage != null && (!isChannelUpdateEvent || embed.Title.Contains("[LIVE]")))
             {
-                if (lastMessage != null)
-                {
-                    _logger.LogInformation("Sending update message");
-                    await (lastMessage.ModifyAsync(p => { p.Embed = embed.Build(); }) ?? Task.CompletedTask);
-                }
-                else
-                    _logger.LogInformation("Existing message not found. End processing.");
+                _logger.LogInformation("Sending update message");
+                await (lastMessage.ModifyAsync(p => { p.Embed = embed.Build(); }) ?? Task.CompletedTask);
             }
+            else
+                _logger.LogInformation("Either existing message not found, or channel updated without LIVE message. End processing.");
         }
 
         private async Task<string> GetOAuthAccessToken()
