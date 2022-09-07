@@ -43,8 +43,9 @@ namespace ShaosilBot.SlashCommands
 
                 try
                 {
-                    var option = command.Data.Options.FirstOrDefault(o => o.Name == "comic-num");
-                    int requestedNum = option == null ? Random.Shared.Next(1, data.num + 1) : int.Parse(option.Value.ToString()); // Null = get random
+                    var latest = command.Data.Options.FirstOrDefault(o => o.Name == "latest");
+                    var comicNum = command.Data.Options.FirstOrDefault(o => o.Name == "comic-num");
+                    int requestedNum = latest != null ? 0 : comicNum == null ? Random.Shared.Next(1, data.num + 1) : int.Parse(comicNum.Value.ToString()); // Null = get random
                     string description;
 
                     if (requestedNum > 0)
@@ -54,7 +55,7 @@ namespace ShaosilBot.SlashCommands
                         if (!response.IsSuccessStatusCode) throw new Exception();
                         data = JsonSerializer.Deserialize<Xkcd>(await response.Content.ReadAsStringAsync());
 
-                        description = $"{command.User.Mention} used {(option == null ? "random" : $"#{requestedNum}")}! It's super effective!";
+                        description = $"{command.User.Mention} used {(comicNum == null ? "random" : $"#{requestedNum}")}! It's super effective!";
                     }
                     else
                         description = $"{command.User.Mention} used current! It's super effective!";

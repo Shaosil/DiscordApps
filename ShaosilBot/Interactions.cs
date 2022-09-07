@@ -21,6 +21,7 @@ namespace ShaosilBot
         private readonly ILogger<Interactions> _logger;
         private readonly HttpClient _httpClient;
         private readonly CatFactsProvider _catFactsProvider;
+        private TwitchProvider _twitchProvider;
 
         // The following are singletons and unused but leaving them here ensures DI will keep them around
         private readonly DataBlobProvider _blobClient;
@@ -30,6 +31,7 @@ namespace ShaosilBot
         public Interactions(ILogger<Interactions> logger,
             IHttpClientFactory httpClientFactory,
             CatFactsProvider catFactsProvider,
+            TwitchProvider twitchProvider,
             DataBlobProvider blobProvider,
             DiscordSocketClientProvider socketClientProvider,
             DiscordRestClientProvider restClientProvider)
@@ -41,6 +43,7 @@ namespace ShaosilBot
             _blobClient = blobProvider;
             _socketClientProvider = socketClientProvider;
             _restClientProvider = restClientProvider;
+            _twitchProvider = twitchProvider;
         }
 
         [Function("interactions")]
@@ -84,6 +87,7 @@ namespace ShaosilBot
                         case "xkcd": response.WriteString(await new XkcdCommand(_logger, _httpClient).HandleCommandAsync(slash)); break;
                         case "git-blame": response.WriteString(await new GitBlameCommand(_logger, _httpClient, _blobClient).HandleCommandAsync(slash)); break;
                         case "whackabot": response.WriteString(await new WhackabotCommand(_logger, _blobClient).HandleCommandAsync(slash)); break;
+                        case "twitch": response.WriteString(await new TwitchCommand(_logger, _twitchProvider).HandleCommandAsync(slash)); break;
                         default: response.StatusCode = System.Net.HttpStatusCode.NotFound; break;
                     }
                     break;
