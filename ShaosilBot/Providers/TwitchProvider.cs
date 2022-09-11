@@ -115,7 +115,7 @@ namespace ShaosilBot.Providers
 
                 // Send a message to the #twitch-golives channel (hardcoded but... meh)
                 _logger.LogInformation("Sending new announcement message");
-                await discordChannel.SendMessageAsync(components: component, embed: embed.Build());
+                await discordChannel.SendMessageAsync("<@&1018601398839037992>", components: component, embed: embed.Build());
             }
             // Update any existing one within an hour unless this is a channel update even without a live channel message
             else if (lastMessage != null && (!isChannelUpdateEvent || embed.Title.Contains("[LIVE]")))
