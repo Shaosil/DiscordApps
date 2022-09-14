@@ -13,6 +13,7 @@ using System.Net.Http;
 using Discord.WebSocket;
 using ShaosilBot.Singletons;
 using ShaosilBot.Providers;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ShaosilBot
 {
@@ -79,19 +80,23 @@ namespace ShaosilBot
                     break;
 
                 case RestSlashCommand slash:
+                    BaseCommand command;
+
+                    // Todo: Avoid the service locator pattern, but find a way to avoid passing DI parameters manually...
                     switch (slash.Data.Name)
                     {
-                        case "test-command": response.WriteString(await new TestCommand(_logger).HandleCommandAsync(slash)); break;
-                        case "wow": response.WriteString(await new WowCommand(_logger, _httpClient).HandleCommandAsync(slash)); break;
-                        case "cat-fact": response.WriteString(await new CatFactsCommand(_logger, _catFactsProvider).HandleCommandAsync(slash)); break;
-                        case "xkcd": response.WriteString(await new XkcdCommand(_logger, _httpClient).HandleCommandAsync(slash)); break;
-                        case "git-blame": response.WriteString(await new GitBlameCommand(_logger, _httpClient, _blobClient).HandleCommandAsync(slash)); break;
-                        case "random": response.WriteString(await new RandomCommand(_logger).HandleCommandAsync(slash)); break;
-                        case "magic8ball": response.WriteString(await new Magic8BallCommand(_logger).HandleCommandAsync(slash)); break;
-                        case "whackabot": response.WriteString(await new WhackabotCommand(_logger, _blobClient).HandleCommandAsync(slash)); break;
-                        case "twitch": response.WriteString(await new TwitchCommand(_logger, _twitchProvider).HandleCommandAsync(slash)); break;
-                        default: response.StatusCode = System.Net.HttpStatusCode.NotFound; break;
+                        case "test-command": command = new TestCommand(_logger); break;
+                        case "wow": command = new WowCommand(_logger, _httpClient); break;
+                        case "cat-fact": command = new CatFactsCommand(_logger, _catFactsProvider); break;
+                        case "xkcd": command = new XkcdCommand(_logger, _httpClient); break;
+                        case "git-blame": command = new GitBlameCommand(_logger, _httpClient, _blobClient); break;
+                        case "random": command = new RandomCommand(_logger); break;
+                        case "magic8ball": command = new Magic8BallCommand(_logger); break;
+                        case "whackabot": command = new WhackabotCommand(_logger, _blobClient); break;
+                        case "twitch": command = new TwitchCommand(_logger, _twitchProvider); break;
+                        default: response.StatusCode = System.Net.HttpStatusCode.NotFound; return response;
                     }
+                    response.WriteString(await command.HandleCommandAsync(slash));
                     break;
 
                 default:

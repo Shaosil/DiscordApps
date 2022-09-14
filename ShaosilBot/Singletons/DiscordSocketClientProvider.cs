@@ -151,7 +151,8 @@ namespace ShaosilBot.Singletons
                 var randomChoices = new List<SlashCommandOptionBuilder>();
                 for (int i = 1; i <= 20; i++) randomChoices.Add(new SlashCommandOptionBuilder { Name = $"choice{i}", Description = "A chooseable option", Type = ApplicationCommandOptionType.String });
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "random", Description = $"Flips a coin, or picks a random item from a list of up to {randomChoices.Count} provided choices.",
-                    Options = randomChoices }.Build());
+                    Options = new[] { new SlashCommandOptionBuilder { Name = "question", Description = "An optional statement describing your specified choices", Type = ApplicationCommandOptionType.String } }
+                        .Concat(randomChoices).ToList() }.Build());
 
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "magic8ball", Description = "Oh magic 8 ball, what is your wisdom?",
                     Options = new[] { new SlashCommandOptionBuilder { Name = "question", Type = ApplicationCommandOptionType.String, Description = "Ask me a question.", IsRequired = true } }.ToList()
