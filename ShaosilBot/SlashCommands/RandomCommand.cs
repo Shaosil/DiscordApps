@@ -31,19 +31,19 @@ namespace ShaosilBot.SlashCommands
             }
 
             // List picker
-            int selectionIndex = Random.Shared.Next(0, command.Data.Options.Count);
+            int selectionIndex = Random.Shared.Next(0, choicesGiven.Count);
             var sb = new StringBuilder();
             if (!string.IsNullOrWhiteSpace(questionVal))
                 sb.AppendLine(questionVal);
             else
                 sb.AppendLine($"I have chosen #{selectionIndex + 1} from the following options:");
             sb.AppendLine();
-            for (int i = 0; i < command.Data.Options.Count; i++)
+            for (int i = 0; i < choicesGiven.Count; i++)
             {
                 if (i == selectionIndex) sb.Append("**");
-                sb.Append($"{(i + 1).ToString().PadLeft(2)}) {command.Data.Options.ElementAt(i).Value}");
+                sb.Append($"{(i + 1).ToString().PadLeft(2)}) {choicesGiven[i].Value}");
                 if (i == selectionIndex) sb.Append("**");
-                if (i < command.Data.Options.Count - 1) sb.AppendLine();
+                if (i < choicesGiven.Count - 1) sb.AppendLine();
             }
             return Task.FromResult(command.Respond(sb.ToString()));
         }
