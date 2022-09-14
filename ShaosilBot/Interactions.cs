@@ -86,6 +86,8 @@ namespace ShaosilBot
                         case "cat-fact": response.WriteString(await new CatFactsCommand(_logger, _catFactsProvider).HandleCommandAsync(slash)); break;
                         case "xkcd": response.WriteString(await new XkcdCommand(_logger, _httpClient).HandleCommandAsync(slash)); break;
                         case "git-blame": response.WriteString(await new GitBlameCommand(_logger, _httpClient, _blobClient).HandleCommandAsync(slash)); break;
+                        case "random": response.WriteString(await new RandomCommand(_logger).HandleCommandAsync(slash)); break;
+                        case "magic8ball": response.WriteString(await new Magic8BallCommand(_logger).HandleCommandAsync(slash)); break;
                         case "whackabot": response.WriteString(await new WhackabotCommand(_logger, _blobClient).HandleCommandAsync(slash)); break;
                         case "twitch": response.WriteString(await new TwitchCommand(_logger, _twitchProvider).HandleCommandAsync(slash)); break;
                         default: response.StatusCode = System.Net.HttpStatusCode.NotFound; break;

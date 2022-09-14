@@ -110,9 +110,13 @@ namespace ShaosilBot.Singletons
                 if (existingCommands.Count > 0) continue;
 
                 await guild.DeleteApplicationCommandsAsync();
+                
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "test-command", Description = "Getting closer to world domination", DefaultMemberPermissions = GuildPermission.Administrator }.Build());
+                
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "wow", Description = "Wow." }.Build());
+                
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "cat-fact", Description = "Thank you for subscribing to cat facts! Text STOP to unsubscribe." }.Build());
+                
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder
                 {
                     Name = "xkcd",
@@ -126,6 +130,7 @@ namespace ShaosilBot.Singletons
                         }
                     }.ToList()
                 }.Build());
+
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder
                 { 
                     Name = "git-blame",
@@ -142,9 +147,20 @@ namespace ShaosilBot.Singletons
                         }
                     }.ToList()
                 }.Build());
+
+                var randomChoices = new List<SlashCommandOptionBuilder>();
+                for (int i = 1; i <= 20; i++) randomChoices.Add(new SlashCommandOptionBuilder { Name = $"choice{i}", Description = "A chooseable option", Type = ApplicationCommandOptionType.String });
+                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "random", Description = $"Flips a coin, or picks a random item from a list of up to {randomChoices.Count} provided choices.",
+                    Options = randomChoices }.Build());
+
+                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "magic8ball", Description = "Oh magic 8 ball, what is your wisdom?",
+                    Options = new[] { new SlashCommandOptionBuilder { Name = "question", Type = ApplicationCommandOptionType.String, Description = "Ask me a question.", IsRequired = true } }.ToList()
+                }.Build());
+
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "whackabot", Description = "Starts or continues an epic smackdown!",
                     Options = new[] { new SlashCommandOptionBuilder { Name = "weapon-change", Type = ApplicationCommandOptionType.String, Description = "Choose your weapon" } }.ToList()
                 }.Build());
+
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "twitch", Description = "Manage all twitch hooks", DefaultMemberPermissions = GuildPermission.ManageMessages,
                     Options = new[] {
                         new SlashCommandOptionBuilder { Name = "subs", Description = "Manage all twitch go-live subscriptions", Type = ApplicationCommandOptionType.SubCommandGroup, Options = new[]
