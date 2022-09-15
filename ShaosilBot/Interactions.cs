@@ -21,7 +21,6 @@ namespace ShaosilBot
     {
         private readonly ILogger<Interactions> _logger;
         private readonly HttpClient _httpClient;
-        private readonly CatFactsProvider _catFactsProvider;
         private TwitchProvider _twitchProvider;
 
         // The following are singletons and unused but leaving them here ensures DI will keep them around
@@ -31,7 +30,6 @@ namespace ShaosilBot
 
         public Interactions(ILogger<Interactions> logger,
             IHttpClientFactory httpClientFactory,
-            CatFactsProvider catFactsProvider,
             TwitchProvider twitchProvider,
             DataBlobProvider blobProvider,
             DiscordSocketClientProvider socketClientProvider,
@@ -39,7 +37,6 @@ namespace ShaosilBot
         {
             _logger = logger;
             _httpClient = httpClientFactory.CreateClient();
-            _catFactsProvider = catFactsProvider;
 
             _blobClient = blobProvider;
             _socketClientProvider = socketClientProvider;
@@ -87,7 +84,7 @@ namespace ShaosilBot
                     {
                         case "test-command": command = new TestCommand(_logger); break;
                         case "wow": command = new WowCommand(_logger, _httpClient); break;
-                        case "cat-fact": command = new CatFactsCommand(_logger, _catFactsProvider); break;
+                        case "cat-fact": command = new CatFactsCommand(_logger, _blobClient); break;
                         case "xkcd": command = new XkcdCommand(_logger, _httpClient); break;
                         case "git-blame": command = new GitBlameCommand(_logger, _httpClient, _blobClient); break;
                         case "random": command = new RandomCommand(_logger); break;

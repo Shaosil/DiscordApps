@@ -29,6 +29,16 @@ namespace ShaosilBot.SlashCommands
             var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as RestGuildUser;
             bool parsedFunctions = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "functions")?.Value.ToString(), out var functions);
 
+            // Always update subscriber availability and names based on user list
+            var users = (await command.Guild.GetUsersAsync().FlattenAsync()).ToList();
+            int subscribersToEdit = subscribers.Count(s => !users.Any(u => u.Id == s.ID) || users.First(u => u.Id == s.ID).DisplayName != s.FriendlyName);
+            if (subscribersToEdit > 0)
+            {
+                subscribers.RemoveAll(s => !users.Any(u => u.Id == s.ID));
+                subscribers.ForEach(s => s.FriendlyName = users.First(u => u.Id == s.ID).DisplayName);
+                await _dataBlobProvider.SaveBlobTextAsync("GitBlameables.json", JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
+            }
+
             // Functions are handled by themselves
             if (parsedFunctions && command.User is RestGuildUser requestor)
             {

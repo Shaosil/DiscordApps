@@ -27,7 +27,6 @@ namespace ShaosilBot
                 {
                     // Scoped
                     services.AddScoped<TwitchProvider>();
-                    services.AddScoped<CatFactsProvider>();
                     services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });
 
                     // Singletons

@@ -15,13 +15,11 @@ namespace ShaosilBot.Singletons
     public class DiscordSocketClientProvider
     {
         private readonly ILogger<DiscordSocketClientProvider> _logger;
-        private readonly CatFactsProvider _catFactsProvider;
         public DiscordSocketClient Client { get; private set; }
 
-        public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger, DiscordSocketConfig config, CatFactsProvider catFactsProvider)
+        public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger, DiscordSocketConfig config)
         {
             _logger = logger;
-            _catFactsProvider = catFactsProvider;
             Client = new DiscordSocketClient(config);
 
             // Initialize bot and login
@@ -31,7 +29,7 @@ namespace ShaosilBot.Singletons
                 await KeepAlive();
                 await SyncCommands();
             };
-            Client.MessageReceived += MessageHandler;
+            //Client.MessageReceived += MessageHandler;
 
             Client.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("BotToken")).GetAwaiter().GetResult();
             Client.StartAsync().GetAwaiter().GetResult();
@@ -56,45 +54,6 @@ namespace ShaosilBot.Singletons
                     case LogSeverity.Info: _logger.LogInformation(sb.ToString()); break;
                     case LogSeverity.Warning: _logger.LogWarning(sb.ToString()); break;
                     case LogSeverity.Error: _logger.LogError(sb.ToString()); break;
-                }
-            }
-        }
-
-        private async Task MessageHandler(SocketMessage socketMessage)
-        {
-            bool containsStop = socketMessage.Content.ToUpper().Contains("STOP");
-            bool containsUnsub = socketMessage.Content.ToUpper().Contains("UNSUB");
-            bool containsResub = socketMessage.Content.ToUpper().Contains("RESUB");
-
-            if (socketMessage.Channel.GetChannelType() == ChannelType.DM && !socketMessage.Author.IsBot)
-            {
-                // Update times unsubscribed lol
-                var currentSubscribers = await _catFactsProvider.GetSubscribersAsync(true);
-                var matchingSubscriber = currentSubscribers.FirstOrDefault(s => s.ID == socketMessage.Author.Id);
-                if (matchingSubscriber != null)
-                {
-                    if (matchingSubscriber.CurrentlySubbed)
-                    {
-                        if (containsUnsub)
-                        {
-                            matchingSubscriber.CurrentlySubbed = false;
-                            await socketMessage.Author.SendMessageAsync("Successfully unsubscribed. Text RESUB at any time to resubscribe. Take care meow!");
-                            await _catFactsProvider.UpdateSubscribersAsync(currentSubscribers);
-                        }
-                        else if (containsStop)
-                        {
-                            matchingSubscriber.TimesUnsubscribed++;
-                            string extraMessage = matchingSubscriber?.TimesUnsubscribed > 1 ? $" (Wowza! You have subscribed {matchingSubscriber.TimesUnsubscribed} times!) " : string.Empty;
-                            await socketMessage.Author.SendMessageAsync($"Thanks for subscribing to Cat Facts Digest (CFD){extraMessage}! Be prepared to boost that feline knowledge every hour, on the hour, between the hours of 10:00 AM and 10:00 PM EST! *Meow!*");
-                            await _catFactsProvider.UpdateSubscribersAsync(currentSubscribers);
-                        }
-                    }
-                    else if (containsResub)
-                    {
-                        matchingSubscriber.CurrentlySubbed = true;
-                        await socketMessage.Author.SendMessageAsync($"Successfully resubscribed. Welcome back to the wonderful world of cat facts! Here's a bonus one to kickstart you again: {await _catFactsProvider.GetRandomCatFact()}");
-                        await _catFactsProvider.UpdateSubscribersAsync(currentSubscribers);
-                    }
                 }
             }
         }
@@ -173,6 +132,8 @@ namespace ShaosilBot.Singletons
                                 { new SlashCommandOptionBuilder { Name = "user", Description = "Unsubscribe to a twitch user's stream events", Type = ApplicationCommandOptionType.String, IsRequired = true } }.ToList() }
                         }.ToList() }
                     }.ToList() }.Build());
+
+                //await guild.CreateApplicationCommandAsync
             }
         }
     }
