@@ -72,23 +72,29 @@ namespace ShaosilBot.Providers
             var messages = (await discordChannel.GetMessagesAsync(25).FlattenAsync()).OrderByDescending(m => m.Timestamp).ToList();
             lastMessage = messages.FirstOrDefault(m => m.Author.Username == "ShaosilBot" && new Regex($"^(🔴 \\[LIVE\\] )?{payload.event_type.broadcaster_user_name} ").IsMatch(m.Embeds.First().Title)) as RestUserMessage;
             double hoursSinceLastMessage = (DateTimeOffset.UtcNow - (lastMessage?.Timestamp.UtcDateTime ?? new DateTimeOffset())).TotalHours;
+            string originalStartTime = lastMessage != null ? Regex.Match(lastMessage.Embeds.First().Title, "<t:(\\d+):R>").Groups[1].Value : string.Empty;
 
-            if (isOnlineEvent && hoursSinceLastMessage >= 1)
+            if (isOnlineEvent)
             {
-                // Get user thumbnail URL
-                _logger.LogInformation("Getting user information for thumbnail.");
-                var userResponse = await GetUsers(true, payload.event_type.broadcaster_user_id);
-                string userThumbnail = userResponse.data.First().profile_image_url;
+                if (hoursSinceLastMessage >= 1)
+                {
+                    // Get user thumbnail URL
+                    _logger.LogInformation("Getting user information for thumbnail.");
+                    var userResponse = await GetUsers(true, payload.event_type.broadcaster_user_id);
+                    string userThumbnail = userResponse.data.First().profile_image_url;
 
-                // Online-specific embed details
-                embed.Title = $"🔴 [LIVE] {payload.event_type.broadcaster_user_name} started streaming on Twitch <t:{DateTimeOffset.Parse(payload.event_type.started_at).ToUnixTimeSeconds()}:R>!";
-                embed.ThumbnailUrl = userThumbnail;
+                    // Online-specific embed details
+                    embed.ThumbnailUrl = userThumbnail;
+
+                    originalStartTime = payload.event_type.started_at;
+                }
+
+                embed.Title = $"🔴 [LIVE] {payload.event_type.broadcaster_user_name} started streaming on Twitch <t:{DateTimeOffset.Parse(originalStartTime).ToUnixTimeSeconds()}:R>!";
             }
             else if (isOfflineEvent)
             {
                 // Get time spent description
-                string startTimeEpoch = Regex.Match(lastMessage.Embeds.First().Title, "<t:(\\d+):R>").Groups[1].Value;
-                var startDate = DateTimeOffset.FromUnixTimeSeconds(long.Parse(startTimeEpoch));
+                var startDate = DateTimeOffset.FromUnixTimeSeconds(long.Parse(originalStartTime));
                 var streamLength = DateTimeOffset.UtcNow - startDate;
                 int hours = 0, minutes = (int)Math.Round(streamLength.TotalMinutes);
                 while (minutes >= 60)
@@ -97,7 +103,7 @@ namespace ShaosilBot.Providers
                     minutes -= 60;
                 }
                 string timeDesc = $"{(hours > 0 ? ($"{hours} hour{(hours == 1 ? string.Empty : "s")} and ") : string.Empty)}{minutes} minute{(minutes == 1 ? string.Empty : "s")}";
-                embed.Title = $"{payload.event_type.broadcaster_user_name} was live on Twitch <t:{startTimeEpoch}:R> for {timeDesc}.";
+                embed.Title = $"{payload.event_type.broadcaster_user_name} was live on Twitch <t:{originalStartTime}:R> for {timeDesc}.";
             }
 
             // Persist old embed info in new builder where needed
@@ -117,7 +123,7 @@ namespace ShaosilBot.Providers
                 _logger.LogInformation("Sending new announcement message");
                 await discordChannel.SendMessageAsync("<@&1018601398839037992>", components: component, embed: embed.Build());
             }
-            // Update any existing one within an hour unless this is a channel update even without a live channel message
+            // Update any existing one within an hour unless this is a channel update without a live channel message
             else if (lastMessage != null && (!isChannelUpdateEvent || embed.Title.Contains("[LIVE]")))
             {
                 _logger.LogInformation("Sending update message");
