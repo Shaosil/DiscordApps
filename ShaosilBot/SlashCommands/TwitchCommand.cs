@@ -1,4 +1,5 @@
-﻿using Discord.Rest;
+﻿using Discord;
+using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Providers;
 using System;
@@ -13,9 +14,78 @@ namespace ShaosilBot.SlashCommands
     {
         private readonly TwitchProvider _twitchProvider;
 
-        public TwitchCommand(ILogger logger, TwitchProvider twitchProvider) : base(logger)
+        public TwitchCommand(ILogger<TwitchCommand> logger, TwitchProvider twitchProvider) : base(logger)
         {
             _twitchProvider = twitchProvider;
+        }
+
+        public override string HelpSummary => "View or manage Twitch go-live notifications for desired users.";
+
+        public override string HelpDetails => @"/twitch subs (list | add (string user) | remove (string user))
+
+SUBCOMMANDS:
+* subs list
+    Returns a list of every Twitch user this server is currently subscribed to.
+
+* subs add (user)
+    Subscribes to a Twitch user (exact login name, case insenitive) to get notifications in this server.
+
+* subs remove (user)
+    Unsubscribes from an existing Twitch user's (exact login name, case insenitive) notifications in this server.";
+
+        public override SlashCommandProperties BuildCommand()
+        {
+            return new SlashCommandBuilder
+            {
+                Name = "twitch",
+                Description = "Manage all twitch hooks",
+                DefaultMemberPermissions = GuildPermission.ManageMessages,
+                Options = new[]
+                {
+                    new SlashCommandOptionBuilder
+                    {
+                        Name = "subs",
+                        Description = "Manage all twitch go-live subscriptions",
+                        Type = ApplicationCommandOptionType.SubCommandGroup,
+                        Options = new[]
+                        {
+                            new SlashCommandOptionBuilder { Name = "list", Description = "View all current subscriptions", Type = ApplicationCommandOptionType.SubCommand },
+                            new SlashCommandOptionBuilder
+                            {
+                                Name = "add",
+                                Description = "Add new subscription",
+                                Type = ApplicationCommandOptionType.SubCommand,
+                                Options = new[]
+                                {
+                                    new SlashCommandOptionBuilder
+                                    {
+                                        Name = "user",
+                                        Description = "Subscribe to a twitch user's stream events",
+                                        Type = ApplicationCommandOptionType.String,
+                                        IsRequired = true
+                                    }
+                                }.ToList()
+                            },
+                            new SlashCommandOptionBuilder
+                            {
+                                Name = "remove",
+                                Description = "Remove existing subsscription",
+                                Type = ApplicationCommandOptionType.SubCommand,
+                                Options = new[]
+                                {
+                                    new SlashCommandOptionBuilder
+                                    {
+                                        Name = "user",
+                                        Description = "Unsubscribe to a twitch user's stream events",
+                                        Type = ApplicationCommandOptionType.String,
+                                        IsRequired = true
+                                    }
+                                }.ToList()
+                            }
+                        }.ToList()
+                    }
+                }.ToList()
+            }.Build();
         }
 
         public override Task<string> HandleCommandAsync(RestSlashCommand command)

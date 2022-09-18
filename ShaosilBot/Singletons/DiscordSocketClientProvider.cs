@@ -1,12 +1,8 @@
 ﻿using Discord;
-using Discord.Interactions;
 using Discord.WebSocket;
-using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Providers;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -15,29 +11,29 @@ namespace ShaosilBot.Singletons
     public class DiscordSocketClientProvider
     {
         private readonly ILogger<DiscordSocketClientProvider> _logger;
-        public DiscordSocketClient Client { get; private set; }
+        private readonly DiscordSocketClient _client;
 
-        public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger, DiscordSocketConfig config)
+        public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger, DiscordSocketConfig config, SlashCommandProvider slashCommandProvider)
         {
             _logger = logger;
-            Client = new DiscordSocketClient(config);
+            _client = new DiscordSocketClient(config);
 
             // Initialize bot and login
-            Client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
-            Client.Ready += async () =>
+            _client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
+            _client.Ready += async () =>
             {
-                await KeepAlive();
-                await SyncCommands();
+                KeepAlive();
+                await slashCommandProvider.BuildGuildCommands(_client);
             };
             //Client.MessageReceived += MessageHandler;
 
-            Client.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("BotToken")).GetAwaiter().GetResult();
-            Client.StartAsync().GetAwaiter().GetResult();
+            _client.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("BotToken")).GetAwaiter().GetResult();
+            _client.StartAsync().GetAwaiter().GetResult();
         }
 
-        public async Task KeepAlive()
+        public void KeepAlive()
         {
-            await Client.SetGameAsync("favorites");
+            _client.SetGameAsync("/help").GetAwaiter().GetResult();
         }
 
         private void LogSocketMessage(LogMessage message)
@@ -55,85 +51,6 @@ namespace ShaosilBot.Singletons
                     case LogSeverity.Warning: _logger.LogWarning(sb.ToString()); break;
                     case LogSeverity.Error: _logger.LogError(sb.ToString()); break;
                 }
-            }
-        }
-
-        private async Task SyncCommands()
-        {
-            var guilds = Client.Guilds;
-
-            foreach (var guild in guilds)
-            {
-                // For now, just create all commands if the guild has none
-                var existingCommands = await guild.GetApplicationCommandsAsync();
-                if (existingCommands.Count > 0) continue;
-
-                await guild.DeleteApplicationCommandsAsync();
-                
-                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "test-command", Description = "Getting closer to world domination", DefaultMemberPermissions = GuildPermission.Administrator }.Build());
-                
-                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "wow", Description = "Wow." }.Build());
-                
-                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "cat-fact", Description = "Thank you for subscribing to cat facts! Text STOP to unsubscribe." }.Build());
-                
-                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder
-                {
-                    Name = "xkcd",
-                    Description = "Get a random XKCD comic, or optionally a specific one!",
-                    Options = new[] {
-                        new SlashCommandOptionBuilder { Name = "latest", Type = ApplicationCommandOptionType.SubCommand, Description = "Pulls the latest comic (equivalent to /xkcd comic num 0)" },
-                        new SlashCommandOptionBuilder { Name = "comic", Type = ApplicationCommandOptionType.SubCommand, Description = "Get a specific comic", Options = new[]
-                            {
-                                new SlashCommandOptionBuilder { IsRequired = true, Name = "num", Type = ApplicationCommandOptionType.Integer, MinValue = 0, Description = "The number of the comic to pull. 0 for current. Omit for random." }
-                            }.ToList()
-                        }
-                    }.ToList()
-                }.Build());
-
-                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder
-                { 
-                    Name = "git-blame",
-                    Description = "Blame a random or specific user.",
-                    Options = new[]
-                    {
-                        new SlashCommandOptionBuilder { Name = "target-user", Type = ApplicationCommandOptionType.User, Description = "Blame someone specific" },
-                        new SlashCommandOptionBuilder { Name = "functions", Type = ApplicationCommandOptionType.Integer, Description = "Extra utility functions",
-                            Choices = new[]
-                            {
-                                new ApplicationCommandOptionChoiceProperties { Name = "Toggle Subscription", Value = 0 },
-                                new ApplicationCommandOptionChoiceProperties { Name = "List Blameables", Value = 1 }
-                            }.ToList()
-                        }
-                    }.ToList()
-                }.Build());
-
-                var randomChoices = new List<SlashCommandOptionBuilder>();
-                for (int i = 1; i <= 20; i++) randomChoices.Add(new SlashCommandOptionBuilder { Name = $"choice{i}", Description = "A chooseable option", Type = ApplicationCommandOptionType.String });
-                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "random", Description = $"Flips a coin, or picks a random item from a list of up to {randomChoices.Count} provided choices.",
-                    Options = new[] { new SlashCommandOptionBuilder { Name = "question", Description = "An optional statement describing your specified choices", Type = ApplicationCommandOptionType.String } }
-                        .Concat(randomChoices).ToList() }.Build());
-
-                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "magic8ball", Description = "Oh magic 8 ball, what is your wisdom?",
-                    Options = new[] { new SlashCommandOptionBuilder { Name = "question", Type = ApplicationCommandOptionType.String, Description = "Ask me a question.", IsRequired = true } }.ToList()
-                }.Build());
-
-                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "whackabot", Description = "Starts or continues an epic smackdown!",
-                    Options = new[] { new SlashCommandOptionBuilder { Name = "weapon-change", Type = ApplicationCommandOptionType.String, Description = "Choose your weapon" } }.ToList()
-                }.Build());
-
-                await guild.CreateApplicationCommandAsync(new SlashCommandBuilder { Name = "twitch", Description = "Manage all twitch hooks", DefaultMemberPermissions = GuildPermission.ManageMessages,
-                    Options = new[] {
-                        new SlashCommandOptionBuilder { Name = "subs", Description = "Manage all twitch go-live subscriptions", Type = ApplicationCommandOptionType.SubCommandGroup, Options = new[]
-                        {
-                            new SlashCommandOptionBuilder { Name = "list", Description = "View all current subscriptions", Type = ApplicationCommandOptionType.SubCommand },
-                            new SlashCommandOptionBuilder { Name = "add", Description = "Add new subscription", Type = ApplicationCommandOptionType.SubCommand, Options = new[]
-                                { new SlashCommandOptionBuilder { Name = "user", Description = "Subscribe to a twitch user's stream events", Type = ApplicationCommandOptionType.String, IsRequired = true } }.ToList() },
-                            new SlashCommandOptionBuilder { Name = "remove", Description = "Remove existing subsscription", Type = ApplicationCommandOptionType.SubCommand, Options = new[]
-                                { new SlashCommandOptionBuilder { Name = "user", Description = "Unsubscribe to a twitch user's stream events", Type = ApplicationCommandOptionType.String, IsRequired = true } }.ToList() }
-                        }.ToList() }
-                    }.ToList() }.Build());
-
-                //await guild.CreateApplicationCommandAsync
             }
         }
     }

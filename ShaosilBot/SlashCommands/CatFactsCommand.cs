@@ -1,4 +1,5 @@
-﻿using Discord.Rest;
+﻿using Discord;
+using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Singletons;
 using System;
@@ -10,9 +11,18 @@ namespace ShaosilBot.SlashCommands
     {
         private readonly DataBlobProvider _blobProvider;
 
-        public CatFactsCommand(ILogger logger, DataBlobProvider blobProvider) : base(logger)
+        public CatFactsCommand(ILogger<CatFactsCommand> logger, DataBlobProvider blobProvider) : base(logger)
         {
             _blobProvider = blobProvider;
+        }
+
+        public override string HelpSummary => "Pulls a random cat fact out of the database of many cat facts.";
+
+        public override string HelpDetails => "Simply use the command to hear a cat fact! There's nothin' to it, as they say.";
+
+        public override SlashCommandProperties BuildCommand()
+        {
+            return new SlashCommandBuilder { Name = "cat-fact", Description = "Meows a random cat fact to everyone." }.Build();
         }
 
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)

@@ -13,9 +13,51 @@ namespace ShaosilBot.SlashCommands
     {
         private readonly HttpClient _client;
 
-        public XkcdCommand(ILogger logger, HttpClient client) : base(logger)
+        public XkcdCommand(ILogger<XkcdCommand> logger, IHttpClientFactory httpClientFactory) : base(logger)
         {
-            _client = client;
+            _client = httpClientFactory.CreateClient();
+        }
+
+        public override string HelpSummary => "Displays a random (or specified) comic from XKCD.";
+
+        public override string HelpDetails => @"/xkcd [latest] | [int comic]
+
+Passing no arguments will pull a random comic.
+
+OPTIONAL ARGUMENTS:
+* latest
+    Shorthand for pulling the latest comic (as opposed to /xkcd comic num 0)
+
+* comic
+    - num
+        Pass a specific index of the comic you want to see. 0 = current, 1 = first, and so on.";
+
+        public override SlashCommandProperties BuildCommand()
+        {
+            return new SlashCommandBuilder
+            {
+                Name = "xkcd",
+                Description = "Get a random XKCD comic, or optionally a specific one!",
+                Options = new[]
+                {
+                    new SlashCommandOptionBuilder { Name = "latest", Type = ApplicationCommandOptionType.SubCommand, Description = "Pulls the latest comic (equivalent to /xkcd comic num 0)" },
+                    new SlashCommandOptionBuilder
+                    {
+                        Name = "comic", Type = ApplicationCommandOptionType.SubCommand, Description = "Get a specific comic",
+                        Options = new[]
+                        {
+                            new SlashCommandOptionBuilder
+                            {
+                                IsRequired = true,
+                                Name = "num",
+                                Type = ApplicationCommandOptionType.Integer,
+                                MinValue = 0,
+                                Description = "The number of the comic to pull. 0 for current. Omit for random."
+                            }
+                        }.ToList()
+                    }
+                }.ToList()
+            }.Build();
         }
 
         public override Task<string> HandleCommandAsync(RestSlashCommand command)

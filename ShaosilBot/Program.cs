@@ -6,6 +6,8 @@ using Microsoft.Extensions.Logging;
 using ShaosilBot.Middleware;
 using ShaosilBot.Providers;
 using ShaosilBot.Singletons;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace ShaosilBot
@@ -19,21 +21,23 @@ namespace ShaosilBot
                 {
                     app.UseWhen<TwitchMiddleware>(context => context.FunctionDefinition.EntryPoint == $"{typeof(TwitchCallback).FullName}.Run");
                 })
-                .ConfigureLogging(builder =>
-                {
-                    builder.AddConsole();
-                })
                 .ConfigureServices((context, services) =>
                 {
-                    // Scoped
-                    services.AddScoped<TwitchProvider>();
-                    services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });
-
                     // Singletons
                     services.AddHttpClient();
                     services.AddSingleton<DataBlobProvider>();
                     services.AddSingleton<DiscordSocketClientProvider>();
                     services.AddSingleton<DiscordRestClientProvider>();
+                    services.AddSingleton<SlashCommandProvider>();
+
+                    // Add scoped services of all derivitives of BaseCommand
+                    services.AddScoped<TwitchProvider>();
+                    services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });
+                    var derivedCommandTypes = Assembly.GetExecutingAssembly().DefinedTypes.Where(t => t.BaseType == typeof(SlashCommands.BaseCommand)).ToList();
+                    foreach (var commandType in derivedCommandTypes)
+                    {
+                        services.AddScoped(commandType);
+                    }
                 })
                 .Build();
 

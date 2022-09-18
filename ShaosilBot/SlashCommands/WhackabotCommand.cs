@@ -1,4 +1,5 @@
-﻿using Discord.Rest;
+﻿using Discord;
+using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Singletons;
 using System;
@@ -17,19 +18,44 @@ namespace ShaosilBot.SlashCommands
         private const string GameFilename = "WhackabotInfo.json";
 
         private readonly DataBlobProvider _dataBlobProvider;
-        private readonly EquipmentList _equipmentList;
-        private readonly GameInfo _gameInfo;
+        private EquipmentList _equipmentList;
+        private GameInfo _gameInfo;
 
-        public WhackabotCommand(ILogger logger, DataBlobProvider dataBlobProvider) : base(logger)
+        public WhackabotCommand(ILogger<WhackabotCommand> logger, DataBlobProvider dataBlobProvider) : base(logger)
         {
             _dataBlobProvider = dataBlobProvider;
-            _equipmentList = JsonSerializer.Deserialize<EquipmentList>(_dataBlobProvider.GetBlobTextAsync(EquipmentFilename).GetAwaiter().GetResult());
-            _gameInfo = JsonSerializer.Deserialize<GameInfo>(_dataBlobProvider.GetBlobTextAsync(GameFilename, true).GetAwaiter().GetResult());
+        }
+
+        public override string HelpSummary => "Relieve stress by partaking in a festive game of whack-a-bot.";
+
+        public override string HelpDetails => @"/whackabot [string weapon-change]
+
+Passing no arguments will either start a new fight (if one is ongoing), or continue one.
+You will use whatever weapon you are currently equipped with to attack.
+After the bot is downed, everyone must rest a minute before starting another battle.
+Features behind-the-scenes armor, equipment stats, an extremely basic RNG battle system, etc!
+
+OPTIONAL ARGS:
+[weapon-change]
+    Instead of attacking, specify a weapon that you wish to use for your next attack. You can type anything here.
+    If it is not a valid choice, a list of valid weapons will be shown.";
+
+        public override SlashCommandProperties BuildCommand()
+        {
+            return new SlashCommandBuilder
+            {
+                Name = "whackabot",
+                Description = "Starts or continues an epic smackdown!",
+                Options = new[] { new SlashCommandOptionBuilder { Name = "weapon-change", Type = ApplicationCommandOptionType.String, Description = "Choose your weapon" } }.ToList()
+            }.Build();
         }
 
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)
         {
             Logger.LogInformation($"Whackabot Command executed at {DateTime.Now}");
+
+            _equipmentList = JsonSerializer.Deserialize<EquipmentList>(_dataBlobProvider.GetBlobTextAsync(EquipmentFilename).GetAwaiter().GetResult());
+            _gameInfo = JsonSerializer.Deserialize<GameInfo>(_dataBlobProvider.GetBlobTextAsync(GameFilename, true).GetAwaiter().GetResult());
 
             var sb = new StringBuilder();
             var playerWeapon = _gameInfo.PlayerWeapons.FirstOrDefault(p => p.PlayerID == command.User.Id);

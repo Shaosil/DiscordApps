@@ -14,18 +14,62 @@ namespace ShaosilBot.SlashCommands
 {
     public class GitBlameCommand : BaseCommand
     {
+        private const string BlameablesFileName = "GitBlameables.json";
+
         private readonly HttpClient _httpClient;
         private readonly DataBlobProvider _dataBlobProvider;
 
-        public GitBlameCommand(ILogger logger, HttpClient httpClient, DataBlobProvider dataBlobProvider) : base(logger)
+        public GitBlameCommand(ILogger<GitBlameCommand> logger, IHttpClientFactory httpClientFactory, DataBlobProvider dataBlobProvider) : base(logger)
         {
-            _httpClient = httpClient;
+            _httpClient = httpClientFactory.CreateClient();
             _dataBlobProvider = dataBlobProvider;
+        }
+
+        public override string HelpSummary => "Randomly chooses from a list of blameable users and says everything is their fault.";
+
+        public override string HelpDetails => @"/git-blame [user target-user] | [int functions]
+
+Passing no arguments will randomly select a user defined in the blameable list.
+
+OPTIONAL ARGS:
+* target-user:
+    Blames a specific user (others will see they were targeted). This can be used with any user except ones not in the current channel.
+
+* functions:
+    - Toggle Subscription
+        Adds or removes the calling user to the list of blameable users. If combined with the target-user arg, it will add or remove that user, provided the requsting user has a higher role.
+    
+    - List Blameables
+        Displays a list of all users who are currently able to be randomly selected for blame.
+";
+
+        public override SlashCommandProperties BuildCommand()
+        {
+            return new SlashCommandBuilder
+            {
+                Name = "git-blame",
+                Description = "Blame a random or specific user.",
+                Options = new[]
+                {
+                    new SlashCommandOptionBuilder { Name = "target-user", Type = ApplicationCommandOptionType.User, Description = "Blame someone specific" },
+                    new SlashCommandOptionBuilder
+                    {
+                        Name = "functions",
+                        Type = ApplicationCommandOptionType.Integer,
+                        Description = "Extra utility functions",
+                        Choices = new[]
+                        {
+                            new ApplicationCommandOptionChoiceProperties { Name = "Toggle Subscription", Value = 0 },
+                            new ApplicationCommandOptionChoiceProperties { Name = "List Blameables", Value = 1 }
+                        }.ToList()
+                    }
+                }.ToList()
+            }.Build();
         }
 
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)
         {
-            var subscribers = JsonSerializer.Deserialize<List<Subscriber>>(await _dataBlobProvider.GetBlobTextAsync("GitBlameables.json"));
+            var subscribers = JsonSerializer.Deserialize<List<Subscriber>>(await _dataBlobProvider.GetBlobTextAsync(BlameablesFileName, true));
             var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as RestGuildUser;
             bool parsedFunctions = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "functions")?.Value.ToString(), out var functions);
 
@@ -36,7 +80,7 @@ namespace ShaosilBot.SlashCommands
             {
                 subscribers.RemoveAll(s => !users.Any(u => u.Id == s.ID));
                 subscribers.ForEach(s => s.FriendlyName = users.First(u => u.Id == s.ID).DisplayName);
-                await _dataBlobProvider.SaveBlobTextAsync("GitBlameables.json", JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
+                await _dataBlobProvider.SaveBlobTextAsync(BlameablesFileName, JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }), false);
             }
 
             // Functions are handled by themselves
@@ -62,7 +106,7 @@ namespace ShaosilBot.SlashCommands
                             else
                                 subscribers.Add(new Subscriber { ID = targetUser.Id, FriendlyName = targetUser.Username });
 
-                            await _dataBlobProvider.SaveBlobTextAsync("GitBlameables.json", JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
+                            await _dataBlobProvider.SaveBlobTextAsync(BlameablesFileName, JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
                             return command.Respond($"{targetUser.Username} successfully {(oldCount < subscribers.Count ? "added" : "removed")} as a blameable");
                         }
                         else
@@ -71,6 +115,8 @@ namespace ShaosilBot.SlashCommands
                         }
 
                     case 1: // List blameables
+                    default:
+                        _dataBlobProvider.ReleaseFileLease(BlameablesFileName);
                         return command.Respond($"Current blameables:\n\n{string.Join("\n", subscribers.Select(s => "* " + s.FriendlyName))}");
                 }
             }

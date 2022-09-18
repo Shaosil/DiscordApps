@@ -1,4 +1,5 @@
-﻿using Discord.Rest;
+﻿using Discord;
+using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
@@ -14,9 +15,18 @@ namespace ShaosilBot.SlashCommands
     {
         private readonly HttpClient _client;
 
-        public WowCommand(ILogger logger, HttpClient client) : base(logger)
+        public WowCommand(ILogger<WowCommand> logger, IHttpClientFactory httpClientFactory) : base(logger)
         {
-            _client = client;
+            _client = httpClientFactory.CreateClient();
+        }
+
+        public override string HelpSummary => "Wow (featuring Owen Wilson).";
+
+        public override string HelpDetails => "Picks a random scene from a giant list of every time Owen Wilson has ever said 'wow' in a movie and clips it.";
+
+        public override SlashCommandProperties BuildCommand()
+        {
+            return new SlashCommandBuilder { Name = "wow", Description = "Wow." }.Build();
         }
 
         public override Task<string> HandleCommandAsync(RestSlashCommand command)

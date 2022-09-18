@@ -54,7 +54,7 @@ namespace ShaosilBot.Singletons
             return (await blobClient.DownloadContentAsync(requestConditions)).Value.Content.ToString();
         }
 
-        public async Task SaveBlobTextAsync(string filename, string content)
+        public async Task SaveBlobTextAsync(string filename, string content, bool releaseLease = true)
         {
             _logger.LogInformation($"Saving '{filename}' to data blob");
 
@@ -66,7 +66,8 @@ namespace ShaosilBot.Singletons
             await blobClient.UploadAsync(new BinaryData(content), uploadOptions);
 
             // If lease exists, release after successfully overwriting blob
-            ReleaseFileLease(filename);
+            if (releaseLease)
+                ReleaseFileLease(filename);
         }
 
         public void ReleaseFileLease(string filename)

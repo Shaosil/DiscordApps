@@ -1,6 +1,8 @@
-﻿using Discord.Rest;
+﻿using Discord;
+using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,7 +11,37 @@ namespace ShaosilBot.SlashCommands
 {
     public class RandomCommand : BaseCommand
     {
-        public RandomCommand(ILogger logger) : base(logger) { }
+        public RandomCommand(ILogger<RandomCommand> logger) : base(logger) { }
+
+        public override string HelpSummary => "Flips a coin or randomly choose an item from a list, depending on what arguments you provide.";
+
+        public override string HelpDetails => @"/random [string question] [string choice1... choice20]
+
+Passing no arguments will simply flip a coin for a quick heads or tails decision.
+
+OPTIONAL ARGUMENTS:
+* question:
+    Adds some flavor text to the choices. Eg: ""What color shirt should I wear today?""
+
+* choice1 - choice20:
+    Specifying two or more choices will make this command pick from a list of the choices you supplied instead of flipping a coin.";
+
+        public override SlashCommandProperties BuildCommand()
+        {
+            var randomChoices = new List<SlashCommandOptionBuilder>();
+            for (int i = 1; i <= 20; i++)
+                randomChoices.Add(new SlashCommandOptionBuilder { Name = $"choice{i}", Description = "A chooseable option", Type = ApplicationCommandOptionType.String });
+
+            return new SlashCommandBuilder
+            {
+                Name = "random",
+                Description = $"Flips a coin, or picks a random item from a list of up to {randomChoices.Count} provided choices.",
+                Options = new[]
+                {
+                    new SlashCommandOptionBuilder { Name = "question", Description = "An optional statement describing your specified choices", Type = ApplicationCommandOptionType.String }
+                }.Concat(randomChoices).ToList()
+            }.Build();
+        }
 
         public override Task<string> HandleCommandAsync(RestSlashCommand command)
         {

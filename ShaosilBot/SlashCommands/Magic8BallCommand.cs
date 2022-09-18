@@ -1,4 +1,5 @@
-﻿using Discord.Rest;
+﻿using Discord;
+using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
@@ -33,7 +34,28 @@ namespace ShaosilBot.SlashCommands
             "Very doubtful."
         };
 
-        public Magic8BallCommand(ILogger logger) : base(logger) { }
+        public Magic8BallCommand(ILogger<Magic8BallCommand> logger) : base(logger) { }
+
+        public override string HelpSummary => "Ask a question and the 8 ball will randomly choose a traditional 8-ball answer.";
+
+        public override string HelpDetails => @"/magic8ball (string question)
+
+REQUIRED ARGUMENTS:
+* question:
+    The question to ask the 8-ball. Try to provide simple yes or no questions for the most clarity.";
+
+        public override SlashCommandProperties BuildCommand()
+        {
+            return new SlashCommandBuilder
+            {
+                Name = "magic8ball",
+                Description = "Oh magic 8 ball, what is your wisdom?",
+                Options = new[]
+                {
+                    new SlashCommandOptionBuilder { Name = "question", Type = ApplicationCommandOptionType.String, Description = "Ask me a question.", IsRequired = true }
+                }.ToList()
+            }.Build();
+        }
 
         public override Task<string> HandleCommandAsync(RestSlashCommand command)
         {

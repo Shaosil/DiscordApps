@@ -10,38 +10,32 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using System.Linq;
 using System.Net.Http;
-using Discord.WebSocket;
 using ShaosilBot.Singletons;
 using ShaosilBot.Providers;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace ShaosilBot
 {
     public class Interactions
     {
         private readonly ILogger<Interactions> _logger;
-        private readonly HttpClient _httpClient;
-        private TwitchProvider _twitchProvider;
+        private readonly SlashCommandProvider _slashCommandProvider;
 
         // The following are singletons and unused but leaving them here ensures DI will keep them around
-        private readonly DataBlobProvider _blobClient;
         private readonly DiscordSocketClientProvider _socketClientProvider;
         private readonly DiscordRestClientProvider _restClientProvider;
 
         public Interactions(ILogger<Interactions> logger,
-            IHttpClientFactory httpClientFactory,
-            TwitchProvider twitchProvider,
-            DataBlobProvider blobProvider,
+            SlashCommandProvider slashCommandProvider,
             DiscordSocketClientProvider socketClientProvider,
             DiscordRestClientProvider restClientProvider)
         {
             _logger = logger;
-            _httpClient = httpClientFactory.CreateClient();
 
-            _blobClient = blobProvider;
             _socketClientProvider = socketClientProvider;
             _restClientProvider = restClientProvider;
-            _twitchProvider = twitchProvider;
+            _slashCommandProvider = slashCommandProvider;
+
+            _socketClientProvider.KeepAlive();
         }
 
         [Function("interactions")]
@@ -77,23 +71,11 @@ namespace ShaosilBot
                     break;
 
                 case RestSlashCommand slash:
-                    BaseCommand command;
-
-                    // Todo: Avoid the service locator pattern, but find a way to avoid passing DI parameters manually...
-                    switch (slash.Data.Name)
-                    {
-                        case "test-command": command = new TestCommand(_logger); break;
-                        case "wow": command = new WowCommand(_logger, _httpClient); break;
-                        case "cat-fact": command = new CatFactsCommand(_logger, _blobClient); break;
-                        case "xkcd": command = new XkcdCommand(_logger, _httpClient); break;
-                        case "git-blame": command = new GitBlameCommand(_logger, _httpClient, _blobClient); break;
-                        case "random": command = new RandomCommand(_logger); break;
-                        case "magic8ball": command = new Magic8BallCommand(_logger); break;
-                        case "whackabot": command = new WhackabotCommand(_logger, _blobClient); break;
-                        case "twitch": command = new TwitchCommand(_logger, _twitchProvider); break;
-                        default: response.StatusCode = System.Net.HttpStatusCode.NotFound; return response;
-                    }
-                    response.WriteString(await command.HandleCommandAsync(slash));
+                    var commandHandler = _slashCommandProvider.GetSlashCommandHandler(slash.Data.Name);
+                    if (commandHandler != null)
+                        response.WriteString(await commandHandler.HandleCommandAsync(slash));
+                    else
+                        response.StatusCode = System.Net.HttpStatusCode.NotFound;
                     break;
 
                 default:

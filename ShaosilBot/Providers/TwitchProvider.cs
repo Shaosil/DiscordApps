@@ -18,6 +18,8 @@ namespace ShaosilBot.Providers
 {
     public class TwitchProvider
     {
+        private const string OAuthFileName = "TwitchOAuth.json";
+
         private readonly ILogger<TwitchProvider> _logger;
         private readonly DiscordRestClientProvider _restClientProvider;
         private readonly DataBlobProvider _blobProvider;
@@ -208,7 +210,7 @@ namespace ShaosilBot.Providers
 
         private async Task<string> GetOAuthAccessToken()
         {
-            var oauthInfo = JsonSerializer.Deserialize<OAuthInfo>(await _blobProvider.GetBlobTextAsync("TwitchOAuth.json"));
+            var oauthInfo = JsonSerializer.Deserialize<OAuthInfo>(await _blobProvider.GetBlobTextAsync(OAuthFileName, true));
             if (oauthInfo.Expires.UtcDateTime.AddSeconds(-10) < DateTime.UtcNow)
             {
                 // Request new token and save
@@ -224,8 +226,10 @@ namespace ShaosilBot.Providers
                 var bodyData = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
                 oauthInfo.Token = bodyData.GetProperty("access_token").GetString();
                 oauthInfo.Expires = DateTimeOffset.Now.AddSeconds(bodyData.GetProperty("expires_in").GetInt32());
-                await _blobProvider.SaveBlobTextAsync("TwitchOAuth.json", JsonSerializer.Serialize(oauthInfo));
+                await _blobProvider.SaveBlobTextAsync(OAuthFileName, JsonSerializer.Serialize(oauthInfo));
             }
+            else
+                _blobProvider.ReleaseFileLease(OAuthFileName);
 
             return oauthInfo.Token;
         }
