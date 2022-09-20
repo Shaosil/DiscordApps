@@ -4,8 +4,10 @@ using Microsoft.Extensions.Logging;
 using ShaosilBot.SlashCommands;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.Providers
@@ -17,8 +19,9 @@ namespace ShaosilBot.Providers
         private Dictionary<string, SlashCommandProperties> _commandProperties = new Dictionary<string, SlashCommandProperties>();
         private readonly Dictionary<string, Type> _commandToTypeMappings = new Dictionary<string, Type>();
 
+        private bool _allCommandsBuilt = false;
+
         public IReadOnlyDictionary<string, SlashCommandProperties> CommandProperties => _commandProperties;
-        public IReadOnlyDictionary<string, Type> CommandToTypeMappings => _commandToTypeMappings;
 
         public SlashCommandProvider(ILogger<SlashCommandProvider> logger, IServiceProvider serviceProvider)
         {
@@ -31,15 +34,17 @@ namespace ShaosilBot.Providers
             var guilds = client.Guilds;
 
             // Store each type's command properties by calling BuildCommand on each type. Build HelpCommand last so it has access to everything else
-            var nonHelpCommandTypes = Assembly.GetExecutingAssembly().DefinedTypes.Where(t => t.BaseType == typeof(BaseCommand) && t != typeof(HelpCommand)).ToList();
-            foreach (var commandTypeMapping in nonHelpCommandTypes.Concat(new[] {typeof(HelpCommand)}))
+            var derivedTypes = Assembly.GetExecutingAssembly().DefinedTypes.Where(t => t.BaseType == typeof(BaseCommand)).ToList();
+            foreach (var derivedType in derivedTypes.Where(t => t != typeof(HelpCommand)).Concat(derivedTypes.Where(t => t == typeof(HelpCommand))))
             {
-                var instance = _serviceProvider.GetService(commandTypeMapping) as BaseCommand;
-                var commandBuild = instance.BuildCommand();
-                string commandName = commandBuild.Name.Value;
+                // Store the types to command names for the service locator
+                var instance = _serviceProvider.GetService(derivedType) as BaseCommand;
+                _commandToTypeMappings[instance.CommandName] = derivedType;
 
-                _commandProperties[commandName] = commandBuild; // Map the type to each build property
-                _commandToTypeMappings[commandName] = commandTypeMapping; // Map the type to each command name for later service retrieval
+                // Store the properties to command names
+                var builtCommand = instance.BuildCommand();
+                builtCommand.Name = instance.CommandName;
+                _commandProperties[instance.CommandName] = builtCommand;
             }
 
             foreach (var guild in guilds)
@@ -71,6 +76,8 @@ namespace ShaosilBot.Providers
                     }
                 }
             }
+
+            _allCommandsBuilt = true;
         }
 
         private bool CommandsEqual(IApplicationCommand existingCommand, SlashCommandProperties newCommand)
@@ -147,7 +154,8 @@ namespace ShaosilBot.Providers
                 for (int i = 0; i < existingChoicesCount; i++)
                 {
                     if (orderedExistingChoices[i].Name != orderedNewChoices[i].Name
-                        || orderedExistingChoices[i].Value != orderedNewChoices[i].Value)
+                        || (orderedExistingChoices[i].Value is string existingString && existingString != orderedNewChoices[i].Value as string)
+                        || long.Parse(orderedExistingChoices[i].Value.ToString()) != long.Parse(orderedNewChoices[i].Value.ToString()))
                     {
                         return false;
                     }
@@ -165,6 +173,9 @@ namespace ShaosilBot.Providers
 
         public BaseCommand GetSlashCommandHandler(string name)
         {
+            // If not yet initialized, wait until we are
+            while (!_allCommandsBuilt) Thread.Sleep(250);
+
             _logger.LogDebug($"Resolving service of type {name}...");
             var service = _commandToTypeMappings.ContainsKey(name)
                 ? _serviceProvider.GetService(_commandToTypeMappings[name]) as BaseCommand

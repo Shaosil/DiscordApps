@@ -16,13 +16,15 @@ namespace ShaosilBot.SlashCommands
             _blobProvider = blobProvider;
         }
 
+        public override string CommandName => "cat-fact";
+
         public override string HelpSummary => "Pulls a random cat fact out of the database of many cat facts.";
 
-        public override string HelpDetails => "Simply use the command to hear a cat fact! There's nothin' to it, as they say.";
+        public override string HelpDetails => $"/{CommandName}\n\nSimply use the command to hear a cat fact! There's nothin' to it, as they say.";
 
         public override SlashCommandProperties BuildCommand()
         {
-            return new SlashCommandBuilder { Name = "cat-fact", Description = "Meows a random cat fact to everyone." }.Build();
+            return new SlashCommandBuilder { Description = "Meows a random cat fact to everyone." }.Build();
         }
 
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)

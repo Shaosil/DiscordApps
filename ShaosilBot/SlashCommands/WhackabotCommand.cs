@@ -26,9 +26,11 @@ namespace ShaosilBot.SlashCommands
             _dataBlobProvider = dataBlobProvider;
         }
 
+        public override string CommandName => "whackabot";
+
         public override string HelpSummary => "Relieve stress by partaking in a festive game of whack-a-bot.";
 
-        public override string HelpDetails => @"/whackabot [string weapon-change]
+        public override string HelpDetails => @$"/{CommandName} [string weapon-change]
 
 Passing no arguments will either start a new fight (if one is ongoing), or continue one.
 You will use whatever weapon you are currently equipped with to attack.
@@ -44,7 +46,6 @@ OPTIONAL ARGS:
         {
             return new SlashCommandBuilder
             {
-                Name = "whackabot",
                 Description = "Starts or continues an epic smackdown!",
                 Options = new[] { new SlashCommandOptionBuilder { Name = "weapon-change", Type = ApplicationCommandOptionType.String, Description = "Choose your weapon" } }.ToList()
             }.Build();

@@ -18,29 +18,29 @@ namespace ShaosilBot.SlashCommands
             _client = httpClientFactory.CreateClient();
         }
 
+        public override string CommandName => "xkcd";
+
         public override string HelpSummary => "Displays a random (or specified) comic from XKCD.";
 
-        public override string HelpDetails => @"/xkcd [latest] | [int comic]
+        public override string HelpDetails => @$"/{CommandName} [latest] | [int comic]
 
 Passing no arguments will pull a random comic.
 
-OPTIONAL ARGUMENTS:
+SUBCOMMANDS
 * latest
-    Shorthand for pulling the latest comic (as opposed to /xkcd comic num 0)
+    Shorthand for pulling the latest comic (as opposed to /{CommandName} comic num 0)
 
-* comic
-    - num
-        Pass a specific index of the comic you want to see. 0 = current, 1 = first, and so on.";
+* comic (int num)
+    Pass a specific index of the comic you want to see. 0 = current, 1 = first, and so on.";
 
         public override SlashCommandProperties BuildCommand()
         {
             return new SlashCommandBuilder
             {
-                Name = "xkcd",
                 Description = "Get a random XKCD comic, or optionally a specific one!",
                 Options = new[]
                 {
-                    new SlashCommandOptionBuilder { Name = "latest", Type = ApplicationCommandOptionType.SubCommand, Description = "Pulls the latest comic (equivalent to /xkcd comic num 0)" },
+                    new SlashCommandOptionBuilder { Name = "latest", Type = ApplicationCommandOptionType.SubCommand, Description = $"Pulls the latest comic (equivalent to /{CommandName} comic num 0)" },
                     new SlashCommandOptionBuilder
                     {
                         Name = "comic", Type = ApplicationCommandOptionType.SubCommand, Description = "Get a specific comic",

@@ -13,9 +13,11 @@ namespace ShaosilBot.SlashCommands
     {
         public RandomCommand(ILogger<RandomCommand> logger) : base(logger) { }
 
+        public override string CommandName => "random";
+
         public override string HelpSummary => "Flips a coin or randomly choose an item from a list, depending on what arguments you provide.";
 
-        public override string HelpDetails => @"/random [string question] [string choice1... choice20]
+        public override string HelpDetails => @$"/{CommandName} [string question] [string choice1... choice20]
 
 Passing no arguments will simply flip a coin for a quick heads or tails decision.
 
@@ -34,7 +36,6 @@ OPTIONAL ARGUMENTS:
 
             return new SlashCommandBuilder
             {
-                Name = "random",
                 Description = $"Flips a coin, or picks a random item from a list of up to {randomChoices.Count} provided choices.",
                 Options = new[]
                 {

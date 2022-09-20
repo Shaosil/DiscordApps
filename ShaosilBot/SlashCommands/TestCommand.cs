@@ -10,6 +10,8 @@ namespace ShaosilBot.SlashCommands
     {
         public TestCommand(ILogger<TestCommand> logger) : base(logger) { }
 
+        public override string CommandName => "test-command";
+
         public override string HelpSummary => "Needs no introduction.";
 
         public override string HelpDetails => "Needs no explanation.";
@@ -18,7 +20,6 @@ namespace ShaosilBot.SlashCommands
         {
             return new SlashCommandBuilder
             {
-                Name = "test-command",
                 Description = "Getting closer to world domination",
                 DefaultMemberPermissions = GuildPermission.Administrator
             }.Build();

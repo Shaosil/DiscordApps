@@ -19,9 +19,11 @@ namespace ShaosilBot.SlashCommands
             _twitchProvider = twitchProvider;
         }
 
+        public override string CommandName => "twitch";
+
         public override string HelpSummary => "View or manage Twitch go-live notifications for desired users.";
 
-        public override string HelpDetails => @"/twitch subs (list | add (string user) | remove (string user))
+        public override string HelpDetails => @$"/{CommandName} subs (list | add (string user) | remove (string user))
 
 SUBCOMMANDS:
 * subs list
@@ -37,7 +39,6 @@ SUBCOMMANDS:
         {
             return new SlashCommandBuilder
             {
-                Name = "twitch",
                 Description = "Manage all twitch hooks",
                 DefaultMemberPermissions = GuildPermission.ManageMessages,
                 Options = new[]
@@ -90,7 +91,7 @@ SUBCOMMANDS:
 
         public override Task<string> HandleCommandAsync(RestSlashCommand command)
         {
-            Logger.LogInformation($"Twitch Work-In-Progress command executed at {DateTime.Now}");
+            Logger.LogInformation($"Twitch command executed at {DateTime.Now}");
 
             string commandGroup = command.Data.Options.FirstOrDefault()?.Name;
             var subCommand = commandGroup != null ? command.Data.Options.First().Options.FirstOrDefault() : null;
@@ -114,7 +115,7 @@ SUBCOMMANDS:
                         switch (subCommand.Name)
                         {
                             case "list":
-                                if (subs.data.Count < 1) await command.FollowupAsync("There are no current twitch subscriptions. Use `/twitch subs add [username]` to create one.");
+                                if (subs.data.Count < 1) await command.FollowupAsync($"There are no current twitch subscriptions. Use `/{CommandName} subs add [username]` to create one.");
 
                                 // Display usernames of all subscribed twitch users
                                 var sb = new StringBuilder();
@@ -132,7 +133,7 @@ SUBCOMMANDS:
                                 // Make sure the requested user doesn't already exist
                                 if (users?.data.Any(u => u.login.ToLower() == userArg.Trim().ToLower()) ?? false)
                                 {
-                                    await command.FollowupAsync($"User {userArg} is already in the subscriptions list. Use `/twitch subs list` to view all subscriptions.");
+                                    await command.FollowupAsync($"User {userArg} is already in the subscriptions list. Use `/{CommandName} subs list` to view all subscriptions.");
                                     return;
                                 }
 
@@ -159,7 +160,7 @@ SUBCOMMANDS:
                                 var userToUnsubscribe = users?.data.FirstOrDefault(u => u.login.ToLower() == userArg.Trim().ToLower());
                                 if (userToUnsubscribe == null)
                                 {
-                                    await command.FollowupAsync($"User {userArg} is not currently in the subscriptions list. User `/twitch subs list` to view all subscriptions.");
+                                    await command.FollowupAsync($"User {userArg} is not currently in the subscriptions list. User `/{CommandName} subs list` to view all subscriptions.");
                                     return;
                                 }
 

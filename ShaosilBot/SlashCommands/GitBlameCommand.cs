@@ -25,9 +25,11 @@ namespace ShaosilBot.SlashCommands
             _dataBlobProvider = dataBlobProvider;
         }
 
+        public override string CommandName => "git-blame";
+
         public override string HelpSummary => "Randomly chooses from a list of blameable users and says everything is their fault.";
 
-        public override string HelpDetails => @"/git-blame [user target-user] | [int functions]
+        public override string HelpDetails => @$"/{CommandName} [user target-user] | [int functions]
 
 Passing no arguments will randomly select a user defined in the blameable list.
 
@@ -40,14 +42,12 @@ OPTIONAL ARGS:
         Adds or removes the calling user to the list of blameable users. If combined with the target-user arg, it will add or remove that user, provided the requsting user has a higher role.
     
     - List Blameables
-        Displays a list of all users who are currently able to be randomly selected for blame.
-";
+        Displays a list of all users who are currently able to be randomly selected for blame.";
 
         public override SlashCommandProperties BuildCommand()
         {
             return new SlashCommandBuilder
             {
-                Name = "git-blame",
                 Description = "Blame a random or specific user.",
                 Options = new[]
                 {

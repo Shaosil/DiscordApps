@@ -18,6 +18,8 @@ namespace ShaosilBot.SlashCommands
             _slashCommandProvider = slashCommandProvider;
         }
 
+        public override string CommandName => "help";
+
         // No need for help on this one
         public override string HelpSummary => throw new NotImplementedException();
         public override string HelpDetails => throw new NotImplementedException();
@@ -26,7 +28,6 @@ namespace ShaosilBot.SlashCommands
         {
             return new SlashCommandBuilder
             {
-                Name = "help",
                 Description = "Provides info about this wonderful Discord bot",
                 Options = new[]
                 {
@@ -46,8 +47,9 @@ namespace ShaosilBot.SlashCommands
         {
             var userPermissions = (command.User as RestGuildUser).GuildPermissions;
             var allowedCommands = _slashCommandProvider.CommandProperties
-                .Where(c => c.Value.Name.Value != "help" && (!c.Value.DefaultMemberPermissions.IsSpecified || userPermissions.Has(c.Value.DefaultMemberPermissions.Value)))
-                .Select(c => c.Key).ToList();
+                .Where(c => c.Value.Name.Value != CommandName && (!c.Value.DefaultMemberPermissions.IsSpecified || userPermissions.Has(c.Value.DefaultMemberPermissions.Value)))
+                .Select(c => c.Key)
+                .OrderBy(c => c).ToList();
             var sb = new StringBuilder();
 
             // If no specific command was specified, display all info summarized
@@ -60,10 +62,10 @@ namespace ShaosilBot.SlashCommands
                 {
                     var summary = _slashCommandProvider.GetSlashCommandHandler(cmd).HelpSummary;
                     sb.AppendLine();
-                    sb.AppendLine($"`* /{cmd}: {summary}`");
+                    sb.AppendLine($"`/{cmd}: {summary}`");
                 }
                 sb.AppendLine();
-                sb.AppendLine("For more details on any command, type /help (command).");
+                sb.AppendLine($"For more details on any command, type /{CommandName} (command).");
             }
             // Otherwise get that command's specific help details
             else

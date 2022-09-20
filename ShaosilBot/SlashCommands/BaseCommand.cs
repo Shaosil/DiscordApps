@@ -14,6 +14,8 @@ namespace ShaosilBot.SlashCommands
             Logger = logger;
         }
 
+        public abstract string CommandName { get; }
+
         public abstract string HelpSummary { get; }
 
         public abstract string HelpDetails { get; }

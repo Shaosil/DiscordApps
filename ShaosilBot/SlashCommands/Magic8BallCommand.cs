@@ -36,9 +36,11 @@ namespace ShaosilBot.SlashCommands
 
         public Magic8BallCommand(ILogger<Magic8BallCommand> logger) : base(logger) { }
 
+        public override string CommandName => "magic8ball";
+
         public override string HelpSummary => "Ask a question and the 8 ball will randomly choose a traditional 8-ball answer.";
 
-        public override string HelpDetails => @"/magic8ball (string question)
+        public override string HelpDetails => @$"/{CommandName} (string question)
 
 REQUIRED ARGUMENTS:
 * question:
@@ -48,7 +50,6 @@ REQUIRED ARGUMENTS:
         {
             return new SlashCommandBuilder
             {
-                Name = "magic8ball",
                 Description = "Oh magic 8 ball, what is your wisdom?",
                 Options = new[]
                 {
