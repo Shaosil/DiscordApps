@@ -73,9 +73,6 @@ OPTIONAL ARGS:
             var choiceTexts = new List<string>();
             for (int i = 0; i < choiceArgs.Count; i++)
             {
-                // Incrementing the second unicode position of the regional 'A' will correctly return the following letters
-                defaultEmoji[1] = (char)(defaultEmoji[1] + i);
-
                 // Use supplied emoji for this choice if one exists
                 var captures = Regex.Match(choiceArgs[i], "^(\\p{Cs}*)(\\P{Cs}*.*)");
                 string emoji = captures.Groups[1].Value;
@@ -96,6 +93,9 @@ OPTIONAL ARGS:
                 string choiceText = captures.Groups[2].Value?.Trim();
                 if (!string.IsNullOrWhiteSpace(choiceText))
                     choiceTexts.Add($"{emoji}: {emojiRemainder}{choiceText}");
+
+                // Incrementing the second unicode position of the regional 'A' will correctly return the following letters
+                defaultEmoji[1] = (char)(defaultEmoji[1] + 1);
             }
 
             // Thumbs up/thumbs down for no supplied choices
