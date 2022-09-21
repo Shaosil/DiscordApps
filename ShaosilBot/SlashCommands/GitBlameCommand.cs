@@ -1,7 +1,9 @@
 ﻿using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Models;
 using ShaosilBot.Singletons;
+using ShaosilBot.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class GitBlameCommand : BaseCommand
+    public partial class GitBlameCommand : BaseCommand
     {
         private const string BlameablesFileName = "GitBlameables.json";
 
@@ -69,19 +71,10 @@ OPTIONAL ARGS:
 
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)
         {
-            var subscribers = JsonSerializer.Deserialize<List<Subscriber>>(await _dataBlobProvider.GetBlobTextAsync(BlameablesFileName, true));
             var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as RestGuildUser;
             bool parsedFunctions = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "functions")?.Value.ToString(), out var functions);
-
-            // Always update subscriber availability and names based on user list
-            var users = (await command.Guild.GetUsersAsync().FlattenAsync()).ToList();
-            int subscribersToEdit = subscribers.Count(s => !users.Any(u => u.Id == s.ID) || users.First(u => u.Id == s.ID).DisplayName != s.FriendlyName);
-            if (subscribersToEdit > 0)
-            {
-                subscribers.RemoveAll(s => !users.Any(u => u.Id == s.ID));
-                subscribers.ForEach(s => s.FriendlyName = users.First(u => u.Id == s.ID).DisplayName);
-                await _dataBlobProvider.SaveBlobTextAsync(BlameablesFileName, JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }), false);
-            }
+            bool releaseLease = !parsedFunctions || functions != 0;
+            var subscribers = await SimpleDiscordUserHelper.GetAndUpdateUsers(_dataBlobProvider, command.Guild, BlameablesFileName, releaseLease);
 
             // Functions are handled by themselves
             if (parsedFunctions && command.User is RestGuildUser requestor)
@@ -92,11 +85,8 @@ OPTIONAL ARGS:
                 switch (functions)
                 {
                     case 0: // Toggle subscription
-                        var highestRequestorRole = command.Guild.Roles.Where(r => requestor.RoleIds.Any(ur => ur == r.Id)).OrderByDescending(r => r.Position).FirstOrDefault();
-                        var highestTargetRole = command.Guild.Roles.Where(r => targetUser.RoleIds.Any(ur => ur == r.Id)).OrderByDescending(r => r.Position).FirstOrDefault();
-
                         // Only allow subscription edits to a target user if the requestor is administrator or their highest role is greater than the target's highest role
-                        if (targetUser.Id == requestor.Id || !targetUser.GuildPermissions.Administrator && (requestor.GuildPermissions.Administrator || highestRequestorRole.Position > highestTargetRole.Position))
+                        if (GuildHelpers.UserCanEditTargetUser(command.Guild, requestor, targetUser))
                         {
                             int oldCount = subscribers.Count;
 
@@ -104,7 +94,7 @@ OPTIONAL ARGS:
                             if (subscribers.Any(s => s.ID == targetUser.Id))
                                 subscribers.Remove(subscribers.First(s => s.ID == targetUser.Id));
                             else
-                                subscribers.Add(new Subscriber { ID = targetUser.Id, FriendlyName = targetUser.Username });
+                                subscribers.Add(new SimpleDiscordUser { ID = targetUser.Id, FriendlyName = targetUser.Username });
 
                             await _dataBlobProvider.SaveBlobTextAsync(BlameablesFileName, JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
                             return command.Respond($"{targetUser.Username} successfully {(oldCount < subscribers.Count ? "added" : "removed")} as a blameable");
@@ -116,7 +106,6 @@ OPTIONAL ARGS:
 
                     case 1: // List blameables
                     default:
-                        _dataBlobProvider.ReleaseFileLease(BlameablesFileName);
                         return command.Respond($"Current blameables:\n\n{string.Join("\n", subscribers.Select(s => "* " + s.FriendlyName))}");
                 }
             }
@@ -172,13 +161,6 @@ OPTIONAL ARGS:
 
             // Immediately return a defer, respond using the task above
             return command.Defer();
-        }
-
-        public class Subscriber
-        {
-            public ulong ID { get; set; }
-
-            public string FriendlyName { get; set; }
         }
 
         private class ImgurRoot

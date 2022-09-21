@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Threading.Tasks;
 using ShaosilBot.Providers;
+using ShaosilBot.Models.Twitch;
 
 namespace ShaosilBot
 {
@@ -29,7 +30,7 @@ namespace ShaosilBot
             var response = req.CreateResponse(HttpStatusCode.OK);
             response.Headers.Add("Content-Type", "text/plain");
             req.Headers.TryGetValues("Twitch-Eventsub-Message-Type", out var messageType);
-            var payload = JsonSerializer.Deserialize<TwitchProvider.TwitchPayload>(req.ReadAsString());
+            var payload = JsonSerializer.Deserialize<TwitchPayload>(req.ReadAsString());
 
             // Handle the various event types
             switch (messageType.FirstOrDefault()?.ToLower())
