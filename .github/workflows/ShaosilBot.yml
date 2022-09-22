@@ -15,7 +15,7 @@ env:
   PUBLISHED_ZIP_FILE: ShaosilBot.zip
 
 jobs:
-  Build, Test, and Deploy:
+  Build-Test-Deploy:
     runs-on: windows-latest
     steps:
     - name: Checkout Code
