@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Singletons;
 using System;
 using System.Collections.Generic;
@@ -17,11 +18,11 @@ namespace ShaosilBot.SlashCommands
         private const string EquipmentFilename = "WhackabotEquipment.json";
         private const string GameFilename = "WhackabotInfo.json";
 
-        private readonly DataBlobProvider _dataBlobProvider;
+        private readonly IDataBlobProvider _dataBlobProvider;
         private EquipmentList _equipmentList;
         private GameInfo _gameInfo;
 
-        public WhackabotCommand(ILogger<WhackabotCommand> logger, DataBlobProvider dataBlobProvider) : base(logger)
+        public WhackabotCommand(ILogger<WhackabotCommand> logger, IDataBlobProvider dataBlobProvider) : base(logger)
         {
             _dataBlobProvider = dataBlobProvider;
         }

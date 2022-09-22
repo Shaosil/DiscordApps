@@ -6,16 +6,16 @@ using Discord.Rest;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
-using ShaosilBot.Singletons;
+using ShaosilBot.Interfaces;
 
 namespace ShaosilBot
 {
     public class SendText
     {
         private readonly ILogger<KeepAlive> _logger;
-        private readonly DiscordRestClientProvider _restClientProvider;
+        private readonly IDiscordRestClientProvider _restClientProvider;
 
-        public SendText(ILogger<KeepAlive> logger, DiscordRestClientProvider restClientProvider)
+        public SendText(ILogger<KeepAlive> logger, IDiscordRestClientProvider restClientProvider)
         {
             _logger = logger;
             _restClientProvider = restClientProvider;
@@ -36,7 +36,7 @@ namespace ShaosilBot
                 return req.CreateResponse(HttpStatusCode.NoContent);
 
             // Send message to channel
-            var channel = await _restClientProvider.Client.GetChannelAsync(channelId) as RestTextChannel;
+            var channel = await _restClientProvider.GetChannelAsync(channelId);
             await channel.SendMessageAsync(message);
             return req.CreateResponse(HttpStatusCode.OK);
         }

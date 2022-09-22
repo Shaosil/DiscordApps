@@ -2,9 +2,9 @@
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.Functions.Worker.Middleware;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using System;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,22 +15,22 @@ namespace ShaosilBot.Middleware
     public class TwitchMiddleware : IFunctionsWorkerMiddleware
     {
         private readonly ILogger<TwitchMiddleware> _logger;
+        private readonly ITwitchMiddlewareHelper _twitchMiddlewareHelper;
 
-        public TwitchMiddleware(ILogger<TwitchMiddleware> logger)
+        public TwitchMiddleware(ILogger<TwitchMiddleware> logger, ITwitchMiddlewareHelper twitchMiddlewareHelper)
         {
             _logger = logger;
+            _twitchMiddlewareHelper = twitchMiddlewareHelper;
         }
 
         public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
         {
-            var request = await context.GetHttpRequestDataAsync();
+            var request = await _twitchMiddlewareHelper.GetRequestData(context);
 
             // Verify signature
             if (request.Method != HttpMethod.Post.Method || !IsValidSignature(request))
             {
-                var response = request.CreateResponse(HttpStatusCode.Unauthorized);
-                await response.WriteStringAsync("Unauthorized");
-                context.GetInvocationResult().Value = response;
+                await _twitchMiddlewareHelper.SetUnauthorizedResult(context, request);
                 return;
             }
 

@@ -3,17 +3,17 @@ using System.Net;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
-using ShaosilBot.Singletons;
+using ShaosilBot.Interfaces;
 
 namespace ShaosilBot
 {
     public class KeepAlive
     {
         private readonly ILogger<KeepAlive> _logger;
-        private readonly DiscordSocketClientProvider _socketClientProvider;
-        private readonly DiscordRestClientProvider _restClientProvider;
+        private readonly IDiscordSocketClientProvider _socketClientProvider;
+        private readonly IDiscordRestClientProvider _restClientProvider;
 
-        public KeepAlive(ILogger<KeepAlive> logger, DiscordSocketClientProvider socketClientProvider, DiscordRestClientProvider restClientProvider)
+        public KeepAlive(ILogger<KeepAlive> logger, IDiscordSocketClientProvider socketClientProvider, IDiscordRestClientProvider restClientProvider)
         {
             _logger = logger;
             _socketClientProvider = socketClientProvider;

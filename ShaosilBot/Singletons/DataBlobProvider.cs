@@ -3,6 +3,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.Singletons
 {
-    public class DataBlobProvider
+    public class DataBlobProvider : IDataBlobProvider
     {
         private readonly ILogger<DataBlobProvider> _logger;
         private readonly BlobServiceClient _serviceClient;
@@ -60,7 +61,7 @@ namespace ShaosilBot.Singletons
 
             // If we have a lease ID for the specified file, use it then remove it from the dictionary if successful. No need for retries
             fileLeases.TryGetValue(filename, out var leaseId);
-            var uploadOptions = new BlobUploadOptions { Conditions = new BlobRequestConditions { LeaseId = leaseId,  } };
+            var uploadOptions = new BlobUploadOptions { Conditions = new BlobRequestConditions { LeaseId = leaseId, } };
 
             var blobClient = _dataBlobContainer.GetBlobClient(filename);
             await blobClient.UploadAsync(new BinaryData(content), uploadOptions);

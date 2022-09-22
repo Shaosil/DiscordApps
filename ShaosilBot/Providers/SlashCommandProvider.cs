@@ -1,10 +1,10 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.SlashCommands;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.Providers
 {
-    public class SlashCommandProvider
+    public class SlashCommandProvider : ISlashCommandProvider
     {
         private readonly ILogger<SlashCommandProvider> _logger;
         private readonly IServiceProvider _serviceProvider;

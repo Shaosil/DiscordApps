@@ -1,35 +1,35 @@
 name: Zip Deploy to Azure Blob Storage
+
 on:
   push:
     branches:
     - master
     paths:
-    - 'ShaosilBot/**'
+    - '*.sln'
+    - 'ShaosilBot**'
+
 env:
   CONFIGURATION: Release
-  DOTNET_CORE_VERSION: 6.0.x
   WORKING_DIRECTORY: ShaosilBot
   PUBLISH_PATH: ShaosilBot/publish
   PUBLISHED_ZIP_FILE: ShaosilBot.zip
+
 jobs:
-  build-and-deploy:
+  Build, Test, and Deploy:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: ${{ env.DOTNET_CORE_VERSION }}
-        
-    - name: Restore
-      run: dotnet restore "${{ env.WORKING_DIRECTORY }}"
+    - name: Checkout Code
+      uses: actions/checkout@v3.0.2
       
     - name: Build
-      run: dotnet build "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-restore
+      run: dotnet build "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }}
       
     - name: Publish
       run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.PUBLISH_PATH }}"
-      
+
+    - name: Run Unit Tests
+      run: dotnet test --no-restore
+
     - name: Create Zip
       uses: thedoctor0/zip-release@0.6.2
       with:

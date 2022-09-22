@@ -1,13 +1,14 @@
 ﻿using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using System;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.Singletons
 {
-    public class DiscordRestClientProvider
+    public class DiscordRestClientProvider : IDiscordRestClientProvider
     {
         private readonly ILogger<DiscordRestClientProvider> _logger;
         public DiscordRestClient Client { get; private set; }
@@ -17,7 +18,7 @@ namespace ShaosilBot.Singletons
             _logger = logger;
             Client = new DiscordRestClient();
 
-            Client.Log += async (msg) => await Task.Run(() => LogRestMessage(msg));
+            Client.Log += (msg) => Task.Run(() => LogRestMessage(msg));
             Client.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("BotToken")).GetAwaiter().GetResult();
         }
 
@@ -37,6 +38,16 @@ namespace ShaosilBot.Singletons
                     case LogSeverity.Error: _logger.LogError(sb.ToString()); break;
                 }
             }
+        }
+
+        public async Task<RestTextChannel> GetChannelAsync(ulong channelId)
+        {
+            return await Client.GetChannelAsync(channelId) as RestTextChannel;
+        }
+
+        public async Task<RestInteraction> ParseHttpInteractionAsync(string publicKey, string signature, string timestamp, string body)
+        {
+            return await Client.ParseHttpInteractionAsync(publicKey, signature, timestamp, body);
         }
     }
 }

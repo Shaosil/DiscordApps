@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Models.Twitch;
 using ShaosilBot.Singletons;
 using System;
@@ -20,11 +21,11 @@ namespace ShaosilBot.Providers
         private const string OAuthFileName = "TwitchOAuth.json";
 
         private readonly ILogger<TwitchProvider> _logger;
-        private readonly DiscordRestClientProvider _restClientProvider;
-        private readonly DataBlobProvider _blobProvider;
+        private readonly IDiscordRestClientProvider _restClientProvider;
+        private readonly IDataBlobProvider _blobProvider;
         private readonly HttpClient _httpClient;
 
-        public TwitchProvider(ILogger<TwitchProvider> logger, IHttpClientFactory httpClientFactory, DataBlobProvider blobProvider, DiscordRestClientProvider restClientProvider)
+        public TwitchProvider(ILogger<TwitchProvider> logger, IHttpClientFactory httpClientFactory, IDataBlobProvider blobProvider, IDiscordRestClientProvider restClientProvider)
         {
             _logger = logger;
             _httpClient = httpClientFactory.CreateClient();
@@ -37,7 +38,7 @@ namespace ShaosilBot.Providers
             _logger.LogInformation($"Received twitch payload type '{payload.subscription.type}' for streamer '{payload.event_type.broadcaster_user_login}'.");
 
             // Prep some variables
-            var discordChannel = await _restClientProvider.Client.GetChannelAsync(786668753407705160) as RestTextChannel;
+            var discordChannel = await _restClientProvider.GetChannelAsync(786668753407705160);
             RestUserMessage lastMessage = null;
             string twitchLink = $"https://twitch.tv/{payload.event_type.broadcaster_user_login}";
             var embed = new EmbedBuilder

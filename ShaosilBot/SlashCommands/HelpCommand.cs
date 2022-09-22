@@ -6,14 +6,15 @@ using ShaosilBot.Providers;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ShaosilBot.Interfaces;
 
 namespace ShaosilBot.SlashCommands
 {
     public class HelpCommand : BaseCommand
     {
-        private readonly SlashCommandProvider _slashCommandProvider;
+        private readonly ISlashCommandProvider _slashCommandProvider;
 
-        public HelpCommand(ILogger<HelpCommand> logger, SlashCommandProvider slashCommandProvider) : base(logger)
+        public HelpCommand(ILogger<HelpCommand> logger, ISlashCommandProvider slashCommandProvider) : base(logger)
         {
             _slashCommandProvider = slashCommandProvider;
         }

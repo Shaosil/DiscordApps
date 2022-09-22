@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Discord.Rest;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
-using ShaosilBot.Singletons;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -11,7 +11,7 @@ namespace ShaosilBot.Utilities
 {
     public static class SimpleDiscordUserHelper
     {
-        public static async Task<List<SimpleDiscordUser>> GetAndUpdateUsers(DataBlobProvider dataBlobProvider, RestGuild guild, string blobFileName, bool keepLock = false)
+        public static async Task<List<SimpleDiscordUser>> GetAndUpdateUsers(IDataBlobProvider dataBlobProvider, RestGuild guild, string blobFileName, bool keepLock = false)
         {
             var simpleUsers = JsonSerializer.Deserialize<List<SimpleDiscordUser>>(await dataBlobProvider.GetBlobTextAsync(blobFileName, keepLock));
 

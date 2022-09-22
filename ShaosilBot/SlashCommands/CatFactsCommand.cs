@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Singletons;
 using System;
 using System.Threading.Tasks;
@@ -9,9 +10,9 @@ namespace ShaosilBot.SlashCommands
 {
     public class CatFactsCommand : BaseCommand
     {
-        private readonly DataBlobProvider _blobProvider;
+        private readonly IDataBlobProvider _blobProvider;
 
-        public CatFactsCommand(ILogger<CatFactsCommand> logger, DataBlobProvider blobProvider) : base(logger)
+        public CatFactsCommand(ILogger<CatFactsCommand> logger, IDataBlobProvider blobProvider) : base(logger)
         {
             _blobProvider = blobProvider;
         }

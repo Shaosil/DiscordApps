@@ -5,29 +5,27 @@ using Microsoft.Extensions.Logging;
 using Discord.Rest;
 using System.Net.Mime;
 using System.Text;
-using ShaosilBot.SlashCommands;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using System.Linq;
-using System.Net.Http;
-using ShaosilBot.Singletons;
 using ShaosilBot.Providers;
+using ShaosilBot.Interfaces;
 
 namespace ShaosilBot
 {
     public class Interactions
     {
         private readonly ILogger<Interactions> _logger;
-        private readonly SlashCommandProvider _slashCommandProvider;
+        private readonly ISlashCommandProvider _slashCommandProvider;
 
         // The following are singletons and unused but leaving them here ensures DI will keep them around
-        private readonly DiscordSocketClientProvider _socketClientProvider;
-        private readonly DiscordRestClientProvider _restClientProvider;
+        private readonly IDiscordSocketClientProvider _socketClientProvider;
+        private readonly IDiscordRestClientProvider _restClientProvider;
 
         public Interactions(ILogger<Interactions> logger,
-            SlashCommandProvider slashCommandProvider,
-            DiscordSocketClientProvider socketClientProvider,
-            DiscordRestClientProvider restClientProvider)
+            ISlashCommandProvider slashCommandProvider,
+            IDiscordSocketClientProvider socketClientProvider,
+            IDiscordRestClientProvider restClientProvider)
         {
             _logger = logger;
 
@@ -47,19 +45,20 @@ namespace ShaosilBot
             // Get signature headers and body, client will handle the rest
             string signature = req.Headers.Contains("X-Signature-Ed25519") ? req.Headers.GetValues("X-Signature-Ed25519").First() : string.Empty;
             string timestamp = req.Headers.Contains("X-Signature-Timestamp") ? req.Headers.GetValues("X-Signature-Timestamp").First() : string.Empty;
-            string body = req.ReadAsString();
+            string body = req.ReadAsString() ?? string.Empty;
 
             RestInteraction interaction = null;
             var response = req.CreateResponse(System.Net.HttpStatusCode.OK);
             response.Headers.Add("Content-Type", MediaTypeNames.Application.Json);
             try
             {
-                interaction = await _restClientProvider.Client.ParseHttpInteractionAsync(Environment.GetEnvironmentVariable("PublicKey"), signature, timestamp, body);
+                interaction = await _restClientProvider.ParseHttpInteractionAsync(Environment.GetEnvironmentVariable("PublicKey"), signature, timestamp, body);
             }
             catch (Exception ex) when (ex is BadSignatureException || ex is ArgumentException)
             {
                 // Thrown by the client when the signature is invalid
                 response.StatusCode = System.Net.HttpStatusCode.Unauthorized;
+                response.WriteString(ex.GetType().Name);
                 return response;
             }
 

@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
 using ShaosilBot.Singletons;
 using ShaosilBot.Utilities;
@@ -16,9 +17,9 @@ namespace ShaosilBot.SlashCommands
     public class TimeoutCommand : BaseCommand
     {
         private const string OptOutsFile = "TimeoutOptOuts.json";
-        private readonly DataBlobProvider _dataBlobProvider;
+        private readonly IDataBlobProvider _dataBlobProvider;
 
-        public TimeoutCommand(ILogger<TimeoutCommand> logger, DataBlobProvider dataBlobProvider) : base(logger)
+        public TimeoutCommand(ILogger<TimeoutCommand> logger, IDataBlobProvider dataBlobProvider) : base(logger)
         {
             _dataBlobProvider = dataBlobProvider;
         }

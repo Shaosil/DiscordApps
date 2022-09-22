@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
 using ShaosilBot.Singletons;
 using ShaosilBot.Utilities;
@@ -19,9 +20,9 @@ namespace ShaosilBot.SlashCommands
         private const string BlameablesFileName = "GitBlameables.json";
 
         private readonly HttpClient _httpClient;
-        private readonly DataBlobProvider _dataBlobProvider;
+        private readonly IDataBlobProvider _dataBlobProvider;
 
-        public GitBlameCommand(ILogger<GitBlameCommand> logger, IHttpClientFactory httpClientFactory, DataBlobProvider dataBlobProvider) : base(logger)
+        public GitBlameCommand(ILogger<GitBlameCommand> logger, IHttpClientFactory httpClientFactory, IDataBlobProvider dataBlobProvider) : base(logger)
         {
             _httpClient = httpClientFactory.CreateClient();
             _dataBlobProvider = dataBlobProvider;

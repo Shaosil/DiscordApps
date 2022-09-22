@@ -2,7 +2,7 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Middleware;
 using ShaosilBot.Providers;
 using ShaosilBot.Singletons;
@@ -25,12 +25,13 @@ namespace ShaosilBot
                 {
                     // Singletons
                     services.AddHttpClient();
-                    services.AddSingleton<DataBlobProvider>();
-                    services.AddSingleton<DiscordSocketClientProvider>();
-                    services.AddSingleton<DiscordRestClientProvider>();
-                    services.AddSingleton<SlashCommandProvider>();
+                    services.AddSingleton<IDataBlobProvider, DataBlobProvider>();
+                    services.AddSingleton<IDiscordSocketClientProvider, DiscordSocketClientProvider>();
+                    services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvider>();
 
                     // Add scoped services of all derivitives of BaseCommand
+                    services.AddScoped<ISlashCommandProvider, SlashCommandProvider>();
+                    services.AddScoped<ITwitchMiddlewareHelper, TwitchMiddlewareHelper>();
                     services.AddScoped<TwitchProvider>();
                     services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });
                     var derivedCommandTypes = Assembly.GetExecutingAssembly().DefinedTypes.Where(t => t.BaseType == typeof(SlashCommands.BaseCommand)).ToList();

@@ -1,19 +1,19 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
-using ShaosilBot.Providers;
+using ShaosilBot.Interfaces;
 using System;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.Singletons
 {
-    public class DiscordSocketClientProvider
+    public class DiscordSocketClientProvider : IDiscordSocketClientProvider
     {
         private readonly ILogger<DiscordSocketClientProvider> _logger;
         private readonly DiscordSocketClient _client;
 
-        public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger, DiscordSocketConfig config, SlashCommandProvider slashCommandProvider)
+        public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger, DiscordSocketConfig config, ISlashCommandProvider slashCommandProvider)
         {
             _logger = logger;
             _client = new DiscordSocketClient(config);
