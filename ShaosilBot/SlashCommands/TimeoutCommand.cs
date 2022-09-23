@@ -3,7 +3,6 @@ using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
-using ShaosilBot.Singletons;
 using ShaosilBot.Utilities;
 using System;
 using System.Collections.Generic;
@@ -14,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class TimeoutCommand : BaseCommand
+	public class TimeoutCommand : BaseCommand
     {
         private const string OptOutsFile = "TimeoutOptOuts.json";
         private readonly IDataBlobProvider _dataBlobProvider;
@@ -98,6 +97,8 @@ OPTIONAL ARGS:
                     return command.Respond("Sorry, Shaosil doesn't want you to time out bots since that would mess with their code. Respect the code. All hail the code.", ephemeral: true);
                 if (optOuts.Any(u => u.ID == userArg.Id))
                     return command.Respond($"Sorry, ${userArg.DisplayName} has opted out of the /{CommandName} command. You'll have to pick on somebody else.", ephemeral: true);
+				if (optOuts.Any(u => u.ID == command.User.Id))
+					return command.Respond($"Sorry, you can't participate in $/{CommandName} because you are in the opt-out list. If you want to opt back in, use `/{command} user {{your username}} opt-out False`", ephemeral: true);
             }
 
             // The opt-out command is handled by itself
@@ -143,8 +144,9 @@ OPTIONAL ARGS:
             var targetUser = success ? userArg : command.User as RestGuildUser;
 
             // Apply timeout to target user - if the target user is already in a timeout, append the new minutes.
-            // If the target user is timed out and this FAILED, time out the caller with the target's remaining time
-            var timeoutSpan = (remainingTimeout.TotalSeconds > 0 && !success) ? remainingTimeout : (remainingTimeout + new TimeSpan(0, 0, seconds * (success ? 1 : 2)));
+            // If the target user is timed out and this FAILED, add the target's remaining timeout to the usual punishment
+			// If it was a self target, max it out at 10 minutes
+            var timeoutSpan = (command.User.Id != userArg.Id) ? remainingTimeout + new TimeSpan(0, 0, seconds * (success ? 1 : 2)) : new TimeSpan(0, 10, 0);
             string timeoutEndUnix = $"<t:{(DateTimeOffset.Now + timeoutSpan).ToUnixTimeSeconds()}:R>";
             await targetUser.SetTimeOutAsync(timeoutSpan);
 
@@ -172,7 +174,7 @@ OPTIONAL ARGS:
                 }
                 else
                 {
-                    if (remainingTimeout.TotalSeconds > 0) response.Append($"has to share their remaining timeout period! Both will expire {timeoutEndUnix}.");
+                    if (remainingTimeout.TotalSeconds > 0) response.Append($"has been punished with double the target duration PLUS the target user's remaining timeout! Their timeout will expire {timeoutEndUnix}.");
                     else response.Append($"has been slammed with double the target duration. Their timeout will expire {timeoutEndUnix}.");
                 }
             }

@@ -1,14 +1,17 @@
 ﻿using Discord;
+using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.Singletons
 {
-    public class DiscordSocketClientProvider : IDiscordSocketClientProvider
+	public class DiscordSocketClientProvider : IDiscordSocketClientProvider
     {
         private readonly ILogger<DiscordSocketClientProvider> _logger;
         private readonly DiscordSocketClient _client;
@@ -34,7 +37,19 @@ namespace ShaosilBot.Singletons
         public void KeepAlive()
         {
             _client.SetGameAsync("/help").GetAwaiter().GetResult();
-        }
+			CleanupNoNoZone();
+		}
+
+		private void CleanupNoNoZone()
+		{
+			// Delete all messages that are older than one hour
+			var channel = _client?.GetChannelAsync(1022371866272346112).GetAwaiter().GetResult() as RestTextChannel;
+			var messages = channel?.GetMessagesAsync().FlattenAsync().GetAwaiter().GetResult() ?? new List<RestMessage>();
+			var oldMessages = messages.Where(m => m.CreatedAt.AddHours(1) < DateTimeOffset.Now);
+
+			if (oldMessages.Any())
+				channel.DeleteMessagesAsync(oldMessages).GetAwaiter().GetResult();
+		}
 
         private void LogSocketMessage(LogMessage message)
         {
