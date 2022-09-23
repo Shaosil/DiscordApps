@@ -29,7 +29,7 @@ jobs:
       run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.PUBLISH_PATH }}"
 
     - name: Run Unit Tests
-      run: dotnet test --no-restore
+      run: dotnet test --no-restore --verbosity normal
 
     - name: Create Zip
       uses: thedoctor0/zip-release@0.6.2
