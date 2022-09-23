@@ -28,10 +28,10 @@ namespace ShaosilBot
                     services.AddSingleton<IDataBlobProvider, DataBlobProvider>();
                     services.AddSingleton<IDiscordSocketClientProvider, DiscordSocketClientProvider>();
                     services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvider>();
+					services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
 
-                    // Add scoped services of all derivitives of BaseCommand
-                    services.AddScoped<ISlashCommandProvider, SlashCommandProvider>();
-                    services.AddScoped<ITwitchMiddlewareHelper, TwitchMiddlewareHelper>();
+					// Add scoped services of all derivitives of BaseCommand
+					services.AddScoped<ITwitchMiddlewareHelper, TwitchMiddlewareHelper>();
                     services.AddScoped<TwitchProvider>();
                     services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });
                     var derivedCommandTypes = Assembly.GetExecutingAssembly().DefinedTypes.Where(t => t.BaseType == typeof(SlashCommands.BaseCommand)).ToList();

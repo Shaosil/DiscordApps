@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.Rest;
 using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
 using System.Collections.Generic;
@@ -9,14 +8,14 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.Utilities
 {
-    public static class SimpleDiscordUserHelper
+	public static class SimpleDiscordUserHelper
     {
-        public static async Task<List<SimpleDiscordUser>> GetAndUpdateUsers(IDataBlobProvider dataBlobProvider, RestGuild guild, string blobFileName, bool keepLock = false)
+        public static async Task<List<SimpleDiscordUser>> GetAndUpdateUsers(IDataBlobProvider dataBlobProvider, IGuild guild, string blobFileName, bool keepLock = false)
         {
             var simpleUsers = JsonSerializer.Deserialize<List<SimpleDiscordUser>>(await dataBlobProvider.GetBlobTextAsync(blobFileName, keepLock));
 
             // Update subscriber names based on user list
-            var guildUsers = (await guild.GetUsersAsync().FlattenAsync()).ToList();
+            var guildUsers = (await guild.GetUsersAsync()).ToList();
             int subscribersToEdit = simpleUsers.Count(s => !guildUsers.Any(u => u.Id == s.ID) || guildUsers.First(u => u.Id == s.ID).DisplayName != s.FriendlyName);
             if (subscribersToEdit > 0)
             {

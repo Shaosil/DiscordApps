@@ -1,12 +1,11 @@
-﻿using Discord.Rest;
-using Discord;
+﻿using Discord;
+using Discord.Rest;
 using ShaosilBot.Tests.Models;
 using System.Net;
-using System.Text.Json;
 
 namespace ShaosilBot.Tests.Endpoints
 {
-    [TestClass]
+	[TestClass]
     public class InteractionsTests : InteractionsTestsBase
     {
         [TestMethod]
@@ -44,7 +43,7 @@ namespace ShaosilBot.Tests.Endpoints
 
             // Assert
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
-            var responseObj = JsonSerializer.Deserialize<DiscordInteractionResponse>(GetResponseBody(response));
+			var responseObj = DeserializeResponse(response);
             Assert.AreEqual(InteractionResponseType.Pong, responseObj!.type);
         }
     }

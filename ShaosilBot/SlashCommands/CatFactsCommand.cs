@@ -2,15 +2,16 @@
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
-using ShaosilBot.Singletons;
 using System;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class CatFactsCommand : BaseCommand
+	public class CatFactsCommand : BaseCommand
     {
-        private readonly IDataBlobProvider _blobProvider;
+		public const string CatFactsFileName = "CatFacts.txt";
+
+		private readonly IDataBlobProvider _blobProvider;
 
         public CatFactsCommand(ILogger<CatFactsCommand> logger, IDataBlobProvider blobProvider) : base(logger)
         {
@@ -30,8 +31,8 @@ namespace ShaosilBot.SlashCommands
 
         public override async Task<string> HandleCommandAsync(RestSlashCommand command)
         {
-            var _catFacts = (await _blobProvider.GetBlobTextAsync("CatFacts.txt")).Split(Environment.NewLine);
-            return _catFacts[Random.Shared.Next(_catFacts.Length)];
+            var _catFacts = (await _blobProvider.GetBlobTextAsync(CatFactsFileName)).Split(Environment.NewLine);
+            return command.Respond(_catFacts[Random.Shared.Next(_catFacts.Length)]);
         }
     }
 }

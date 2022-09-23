@@ -4,13 +4,13 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NSec.Cryptography;
 using ShaosilBot.Interfaces;
-using ShaosilBot.Providers;
 using ShaosilBot.Tests.Models;
 using System.Text;
+using System.Text.Json;
 
 namespace ShaosilBot.Tests.Endpoints
 {
-    [TestClass]
+	[TestClass]
     public abstract class InteractionsTestsBase
     {
         protected Interactions InteractionsSUT { get; private set; }
@@ -54,6 +54,12 @@ namespace ShaosilBot.Tests.Endpoints
 
             return body;
         }
+
+		protected DiscordInteractionResponse DeserializeResponse(HttpResponseData response)
+		{
+			string body = GetResponseBody(response);
+			return JsonSerializer.Deserialize<DiscordInteractionResponse>(body)!;
+		}
 
         protected HttpRequestDataBag CreateInteractionRequest(DiscordInteraction interaction)
         {

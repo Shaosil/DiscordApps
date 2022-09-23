@@ -3,7 +3,6 @@ using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
-using ShaosilBot.Singletons;
 using ShaosilBot.Utilities;
 using System;
 using System.Collections.Generic;
@@ -15,9 +14,9 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public partial class GitBlameCommand : BaseCommand
+	public partial class GitBlameCommand : BaseCommand
     {
-        private const string BlameablesFileName = "GitBlameables.json";
+        public const string BlameablesFileName = "GitBlameables.json";
 
         private readonly HttpClient _httpClient;
         private readonly IDataBlobProvider _dataBlobProvider;
