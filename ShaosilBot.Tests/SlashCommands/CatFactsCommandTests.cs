@@ -21,7 +21,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var request = CreateInteractionRequest(interaction);
 
 			// Act
-			var response = await InteractionsSUT.Run(request);
+			var response = await RunInteractions(request);
 
 			// Assert
 			var responseObj = DeserializeResponse(response);

@@ -1,3 +1,4 @@
+using Discord;
 using Discord.Rest;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -5,6 +6,7 @@ using Moq;
 using NSec.Cryptography;
 using ShaosilBot.Interfaces;
 using ShaosilBot.Tests.Models;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 
@@ -13,8 +15,8 @@ namespace ShaosilBot.Tests.Endpoints
 	[TestClass]
     public abstract class InteractionsTestsBase
     {
-        protected Interactions InteractionsSUT { get; private set; }
-        protected static Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
+		private Interactions _interactionsSUT;
+        protected Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
 
         private static Mock<ILogger<Interactions>> _logger;
         private static Mock<IDiscordSocketClientProvider> _socketClientProviderMock;
@@ -24,7 +26,6 @@ namespace ShaosilBot.Tests.Endpoints
         public static void ClassInitialize(TestContext context)
         {
             _logger = new Mock<ILogger<Interactions>>();
-            SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
             _socketClientProviderMock = new Mock<IDiscordSocketClientProvider>();
             _restClientProviderMock = new Mock<IDiscordRestClientProvider>();
 
@@ -36,11 +37,51 @@ namespace ShaosilBot.Tests.Endpoints
 
         [TestInitialize]
         public virtual void TestInitialize()
-        {
-            InteractionsSUT = new Interactions(_logger.Object, SlashCommandProviderMock.Object, _socketClientProviderMock.Object, _restClientProviderMock.Object);
-        }
+		{
+			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
+			_interactionsSUT = new Interactions(_logger.Object, SlashCommandProviderMock.Object, _socketClientProviderMock.Object, _restClientProviderMock.Object);
+		}
 
-        protected string GetResponseBody(HttpResponseData response)
+		[TestMethod]
+		[DataRow(true)]
+		[DataRow(false)]
+		public async Task BadSignature_ReturnsUnauthorized(bool badSignature)
+		{
+			// Arrange - Pass a dummy request based on bad signature or argument exception (arg exception needs no extra work)
+			var request = new HttpRequestDataBag();
+			var randomSignatureBytes = new byte[badSignature ? 64 : 2];
+			var randomPublicKeyBytes = new byte[32];
+			Random.Shared.NextBytes(randomSignatureBytes);
+			Random.Shared.NextBytes(randomPublicKeyBytes);
+			Environment.SetEnvironmentVariable("PublicKey", Convert.ToHexString(randomPublicKeyBytes).ToLower());
+			request.Headers.Add("X-Signature-Ed25519", Convert.ToHexString(randomSignatureBytes).ToLower());
+			request.Headers.Add("X-Signature-Timestamp", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
+
+			// Act
+			var response = await _interactionsSUT.Run(request);
+
+			// Assert - Ensure unauthorized
+			Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+			string bodyText = GetResponseBody(response);
+			Assert.AreEqual((badSignature ? typeof(BadSignatureException) : typeof(ArgumentException)).Name, bodyText);
+		}
+
+		[TestMethod]
+		public async Task AcknowledgesPing()
+		{
+			// Arrange
+			var request = CreateInteractionRequest(DiscordInteraction.CreatePing());
+
+			// Act
+			var response = await _interactionsSUT.Run(request);
+
+			// Assert
+			Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+			var responseObj = DeserializeResponse(response);
+			Assert.AreEqual(InteractionResponseType.Pong, responseObj!.type);
+		}
+
+		protected string GetResponseBody(HttpResponseData response)
         {
             string body = string.Empty;
             using (response.Body)
@@ -84,5 +125,16 @@ namespace ShaosilBot.Tests.Endpoints
 
             return req;
         }
-    }
+
+		protected async Task<HttpResponseData> RunInteractions(HttpRequestData request)
+		{
+			return await _interactionsSUT.Run(request);
+		}
+
+		protected async Task SafelyRunInteractions(HttpRequestData request)
+		{
+			// Run interactions endpoint without caring about a result
+			try { await _interactionsSUT.Run(request); } catch { }
+		}
+	}
 }

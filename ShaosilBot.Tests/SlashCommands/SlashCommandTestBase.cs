@@ -29,11 +29,8 @@ namespace ShaosilBot.Tests.SlashCommands
         {
             base.TestInitialize();
 
-            if (SlashCommandSUT == null)
-                SlashCommandSUT = GetInstance();
-
-            if (!SlashCommandProviderMock.Setups.Any())
-                SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(It.IsAny<string>())).Returns(SlashCommandSUT);
+            SlashCommandSUT = GetInstance();
+			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(It.IsAny<string>())).Returns(SlashCommandSUT);
         }
 
         protected abstract T GetInstance();
@@ -46,7 +43,7 @@ namespace ShaosilBot.Tests.SlashCommands
             var request = CreateInteractionRequest(interaction);
 
 			// Act - ignore exceptions, we don't care if the handling actually worked
-			try { await InteractionsSUT.Run(request); } catch { }
+			await SafelyRunInteractions(request);
 
 			// Assert - Ensure it was parsed as a slash command
 			SlashCommandProviderMock.Verify(m => m.GetSlashCommandHandler(SlashCommandSUT.CommandName), Times.Once);

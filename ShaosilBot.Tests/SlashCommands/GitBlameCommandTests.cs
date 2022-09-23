@@ -29,14 +29,14 @@ namespace ShaosilBot.Tests.SlashCommands
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var request = CreateInteractionRequest(interaction);
 
-			// WIP
-
 			// Act
-			//var response = await InteractionsSUT.Run(request);
+			await SafelyRunInteractions(request);
+
+			// WIP
 
 			// Assert
 			//var responseObj = DeserializeResponse(response);
 			//Assert.IsNotNull(responseObj);
 		}
-    }
+	}
 }
