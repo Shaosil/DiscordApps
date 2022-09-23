@@ -5,13 +5,12 @@ on:
     branches:
     - master
     paths:
-    - .github\workflows\**
+    - .github/workflows/*
     - '*.sln'
     - 'ShaosilBot**'
 
 env:
   CONFIGURATION: Release
-  WORKING_DIRECTORY: ShaosilBot
   PUBLISH_PATH: ShaosilBot/publish
   PUBLISHED_ZIP_FILE: ShaosilBot.zip
 
@@ -23,13 +22,13 @@ jobs:
       uses: actions/checkout@v3.0.2
       
     - name: Build
-      run: dotnet build "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }}
+      run: dotnet build --configuration ${{ env.CONFIGURATION }}
       
     - name: Publish
-      run: dotnet publish "${{ env.WORKING_DIRECTORY }}" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.PUBLISH_PATH }}"
+      run: dotnet publish "ShaosilBot" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.PUBLISH_PATH }}"
 
     - name: Run Unit Tests
-      run: dotnet test --no-restore --verbosity normal
+      run: dotnet test --no-restore --logger "console;verbosity=detailed"
 
     - name: Create Zip
       uses: thedoctor0/zip-release@0.6.2
