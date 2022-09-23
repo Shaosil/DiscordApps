@@ -23,12 +23,12 @@ jobs:
       
     - name: Build
       run: dotnet build --configuration ${{ env.CONFIGURATION }}
-      
-    - name: Publish
-      run: dotnet publish "ShaosilBot" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.PUBLISH_PATH }}"
 
     - name: Run Unit Tests
       run: dotnet test --no-restore --logger "console;verbosity=detailed"
+      
+    - name: Publish
+      run: dotnet publish "ShaosilBot" --configuration ${{ env.CONFIGURATION }} --no-build --output "${{ env.PUBLISH_PATH }}"
 
     - name: Create Zip
       uses: thedoctor0/zip-release@0.6.2
