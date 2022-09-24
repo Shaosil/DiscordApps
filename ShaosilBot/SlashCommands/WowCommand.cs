@@ -1,6 +1,6 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Providers;
 using System;
 using System.IO;
 using System.Linq;
@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class WowCommand : BaseCommand
+	public class WowCommand : BaseCommand
     {
         private readonly HttpClient _client;
 
@@ -31,7 +31,7 @@ namespace ShaosilBot.SlashCommands
             return new SlashCommandBuilder { Description = "Wow." }.Build();
         }
 
-        public override Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             _ = Task.Run(async () =>
             {

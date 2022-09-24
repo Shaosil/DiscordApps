@@ -16,7 +16,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var fakeFacts = new List<string>();
 			for (int i = 0; i < 100; i++) fakeFacts.Add(Guid.NewGuid().ToString());
 			var serializedFacts = string.Join(Environment.NewLine, fakeFacts);
-			DataBlobProviderMock.Setup(m => m.GetBlobTextAsync("CatFacts.txt", It.IsAny<bool>())).Returns(Task.FromResult(serializedFacts));
+			DataBlobProviderMock.Setup(m => m.GetBlobTextAsync("CatFacts.txt", It.IsAny<bool>())).ReturnsAsync(serializedFacts);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var request = CreateInteractionRequest(interaction);
 

@@ -1,6 +1,6 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Providers;
 using System;
 using System.Linq;
 using System.Text;
@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class Magic8BallCommand : BaseCommand
+	public class Magic8BallCommand : BaseCommand
     {
         private readonly string[] _choices = new[]
         {
@@ -58,7 +58,7 @@ REQUIRED ARGUMENTS:
             }.Build();
         }
 
-        public override Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             if (command.Data.Options.Count != 1 || string.IsNullOrWhiteSpace(command.Data.Options.First().Value as string))
                 return Task.FromResult(command.Respond("Invalid question specified. Try again, but better.", ephemeral: true));

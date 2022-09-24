@@ -1,11 +1,11 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Providers;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public abstract class BaseCommand
+	public abstract class BaseCommand
     {
         protected ILogger Logger { get; }
 
@@ -22,6 +22,6 @@ namespace ShaosilBot.SlashCommands
 
         public abstract SlashCommandProperties BuildCommand();
 
-        public abstract Task<string> HandleCommandAsync(RestSlashCommand command);
+        public abstract Task<string> HandleCommandAsync(SlashCommandWrapper command);
     }
 }

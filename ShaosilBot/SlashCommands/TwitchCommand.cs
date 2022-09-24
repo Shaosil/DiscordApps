@@ -1,6 +1,6 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Providers;
 using System;
 using System.Linq;
@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class TwitchCommand : BaseCommand
+	public class TwitchCommand : BaseCommand
     {
         private readonly TwitchProvider _twitchProvider;
 
@@ -88,7 +88,7 @@ SUBCOMMANDS:
             }.Build();
         }
 
-        public override Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             Logger.LogInformation($"Twitch command executed at {DateTime.Now}");
 

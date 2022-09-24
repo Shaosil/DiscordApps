@@ -1,7 +1,7 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
+using ShaosilBot.Providers;
 using System;
 using System.Threading.Tasks;
 
@@ -29,7 +29,7 @@ namespace ShaosilBot.SlashCommands
             return new SlashCommandBuilder { Description = "Meows a random cat fact to everyone." }.Build();
         }
 
-        public override async Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override async Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             var _catFacts = (await _blobProvider.GetBlobTextAsync(CatFactsFileName)).Split(Environment.NewLine);
             return command.Respond(_catFacts[Random.Shared.Next(_catFacts.Length)]);

@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot
 {
-    public class Program
+	public class Program
     {
         public static async Task Main()
         {
@@ -31,6 +31,7 @@ namespace ShaosilBot
 					services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
 
 					// Add scoped services of all derivitives of BaseCommand
+					services.AddScoped<SlashCommandWrapper>();
 					services.AddScoped<ITwitchMiddlewareHelper, TwitchMiddlewareHelper>();
                     services.AddScoped<TwitchProvider>();
                     services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });

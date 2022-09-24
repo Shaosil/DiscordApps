@@ -19,20 +19,21 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Init blameables and return them serialized when asked
 			for (int i = 0; i < 10; i++)
 				_blameables.Add(new SimpleDiscordUser { ID = Random.Shared.NextULong(), FriendlyName = $"Friendly name {i + 1}" });
-			DataBlobProviderMock.Setup(m => m.GetBlobTextAsync(GitBlameCommand.BlameablesFileName, It.IsAny<bool>())).Returns(Task.FromResult(JsonSerializer.Serialize(_blameables)));
+			DataBlobProviderMock.Setup(m => m.GetBlobTextAsync(GitBlameCommand.BlameablesFileName, It.IsAny<bool>())).ReturnsAsync(JsonSerializer.Serialize(_blameables));
 		}
 
 		[TestMethod]
 		public async Task SimpleBlame_Succeeds()
 		{
-			// Arrange - Build command with no options
+			// Arrange - Build command with no options and
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var request = CreateInteractionRequest(interaction);
-
-			// Act
-			await SafelyRunInteractions(request);
+			var users = Helpers.GenerateSimpleDiscordUsers(DataBlobProviderMock, GuildMock, GitBlameCommand.BlameablesFileName);
 
 			// WIP
+
+			// Act
+			//await RunInteractions(request);
 
 			// Assert
 			//var responseObj = DeserializeResponse(response);

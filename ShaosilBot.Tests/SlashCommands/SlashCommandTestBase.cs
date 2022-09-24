@@ -1,3 +1,4 @@
+using Discord;
 using Microsoft.Extensions.Logging;
 using Moq;
 using ShaosilBot.Interfaces;
@@ -11,6 +12,7 @@ namespace ShaosilBot.Tests.SlashCommands
     public abstract class SlashCommandTestBase<T> : InteractionsTestsBase where T : BaseCommand
     {
         protected T SlashCommandSUT { get; private set; }
+		protected Mock<IGuild> GuildMock { get; private set; }
 
         protected static Mock<ILogger<T>> CommandLoggerMock { get; private set;}
 		protected static Mock<IHttpClientFactory> HttpClientFactoryMock { get; private set; }
@@ -31,6 +33,9 @@ namespace ShaosilBot.Tests.SlashCommands
 
             SlashCommandSUT = GetInstance();
 			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(It.IsAny<string>())).Returns(SlashCommandSUT);
+			
+			GuildMock = new Mock<IGuild>();
+			SlashCommandWrapperMock.Setup(m => m.Guild).Returns(GuildMock.Object);
         }
 
         protected abstract T GetInstance();

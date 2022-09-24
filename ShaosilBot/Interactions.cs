@@ -1,42 +1,45 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 using Discord.Rest;
-using System.Net.Mime;
-using System.Text;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
-using System.Linq;
-using ShaosilBot.Providers;
+using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
+using ShaosilBot.Providers;
+using System;
+using System.IO;
+using System.Linq;
+using System.Net.Mime;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace ShaosilBot
 {
-    public class Interactions
+	public class Interactions
     {
         private readonly ILogger<Interactions> _logger;
         private readonly ISlashCommandProvider _slashCommandProvider;
+		private readonly SlashCommandWrapper _slashCommandWrapper;
 
         // The following are singletons and unused but leaving them here ensures DI will keep them around
         private readonly IDiscordSocketClientProvider _socketClientProvider;
         private readonly IDiscordRestClientProvider _restClientProvider;
 
-        public Interactions(ILogger<Interactions> logger,
-            ISlashCommandProvider slashCommandProvider,
-            IDiscordSocketClientProvider socketClientProvider,
-            IDiscordRestClientProvider restClientProvider)
-        {
-            _logger = logger;
+		public Interactions(ILogger<Interactions> logger,
+			ISlashCommandProvider slashCommandProvider,
+			SlashCommandWrapper slashCommandWrapper,
+			IDiscordSocketClientProvider socketClientProvider,
+			IDiscordRestClientProvider restClientProvider)
+		{
+			_logger = logger;
 
-            _socketClientProvider = socketClientProvider;
-            _restClientProvider = restClientProvider;
-            _slashCommandProvider = slashCommandProvider;
+			_socketClientProvider = socketClientProvider;
+			_slashCommandWrapper = slashCommandWrapper;
+			_restClientProvider = restClientProvider;
+			_slashCommandProvider = slashCommandProvider;
 
-            _socketClientProvider.KeepAlive();
-        }
+			_socketClientProvider.KeepAlive();
+		}
 
-        [Function("interactions")]
+		[Function("interactions")]
         public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequestData req)
         {
             //LogHttpRequest(req);
@@ -72,7 +75,10 @@ namespace ShaosilBot
                 case RestSlashCommand slash:
                     var commandHandler = _slashCommandProvider.GetSlashCommandHandler(slash.Data.Name);
                     if (commandHandler != null)
-                        response.WriteString(await commandHandler.HandleCommandAsync(slash));
+					{
+						_slashCommandWrapper.SetSlashCommand(slash);
+						response.WriteString(await commandHandler.HandleCommandAsync(_slashCommandWrapper));
+					}
                     else
                         response.StatusCode = System.Net.HttpStatusCode.NotFound;
                     break;

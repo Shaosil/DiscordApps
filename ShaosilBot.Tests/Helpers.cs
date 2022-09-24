@@ -1,0 +1,43 @@
+﻿using Discord;
+using Moq;
+using ShaosilBot.Interfaces;
+using ShaosilBot.Models;
+using System.Text.Json;
+
+namespace ShaosilBot.Tests
+{
+	public static class Extensions
+	{
+		public static ulong NextULong(this Random random)
+		{
+			var ulongBytes = new byte[8];
+			random.NextBytes(ulongBytes);
+			return BitConverter.ToUInt64(ulongBytes);
+		}
+	}
+
+	public static class Helpers
+	{
+		public static List<SimpleDiscordUser> GenerateSimpleDiscordUsers(Mock<IDataBlobProvider> dataBlobProvider, Mock<IGuild> guild, string fileName)
+		{
+			// Generate 5-10 guild users with random IDs
+			var guildUsers = new List<IGuildUser>(Random.Shared.Next(11));
+			for (int i = 0; i < guildUsers.Capacity; i++)
+			{
+				ulong newID = Random.Shared.NextULong();
+				string name = $"User {i + 1}";
+				var guildUserMock = new Mock<IGuildUser>();
+				guildUserMock.SetupGet(m => m.Id).Returns(newID);
+				guildUserMock.SetupGet(m => m.DisplayName).Returns(name);
+				guildUsers.Add(guildUserMock.Object);
+			}
+			var simpleDiscordUsers = guildUsers.Select(u => new SimpleDiscordUser { ID = u.Id, FriendlyName = u.DisplayName }).ToList();
+
+			// Make sure both the guild and blob file return the new users when asked
+			guild.Setup(m => m.GetUsersAsync(It.IsAny<CacheMode>(), It.IsAny<RequestOptions>())).ReturnsAsync(guildUsers);
+			dataBlobProvider.Setup(m => m.GetBlobTextAsync(fileName, It.IsAny<bool>())).ReturnsAsync(JsonSerializer.Serialize(simpleDiscordUsers));
+
+			return simpleDiscordUsers;
+		}
+	}
+}

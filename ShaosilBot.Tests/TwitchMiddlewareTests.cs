@@ -11,7 +11,7 @@ using System.Text;
 
 namespace ShaosilBot.Tests
 {
-    [TestClass]
+	[TestClass]
     public class TwitchMiddlewareTests
     {
         private TwitchMiddleware SUT;
@@ -38,7 +38,7 @@ namespace ShaosilBot.Tests
         {
             // Arrange
             HttpRequestDataBag validRequest = GenerateRequest(true);
-            _twitchMiddlewareHelperMock.Setup(m => m.GetRequestData(_functionContextMock.Object)).Returns(Task.FromResult((HttpRequestData)validRequest));
+            _twitchMiddlewareHelperMock.Setup(m => m.GetRequestData(_functionContextMock.Object)).ReturnsAsync(validRequest);
 
             // Act
             await SUT.Invoke(_functionContextMock.Object, _emptyFunctionExecutionDelegate);
@@ -52,7 +52,7 @@ namespace ShaosilBot.Tests
         {
             // Arrange
             HttpRequestDataBag invalidRequest = GenerateRequest(false);
-            _twitchMiddlewareHelperMock.Setup(m => m.GetRequestData(_functionContextMock.Object)).Returns(Task.FromResult((HttpRequestData)invalidRequest));
+            _twitchMiddlewareHelperMock.Setup(m => m.GetRequestData(_functionContextMock.Object)).ReturnsAsync(invalidRequest);
 
             // Act
             await SUT.Invoke(_functionContextMock.Object, _emptyFunctionExecutionDelegate);

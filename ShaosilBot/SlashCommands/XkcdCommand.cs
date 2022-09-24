@@ -1,6 +1,6 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Providers;
 using System;
 using System.Linq;
 using System.Net.Http;
@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class XkcdCommand : BaseCommand
+	public class XkcdCommand : BaseCommand
     {
         private readonly HttpClient _client;
 
@@ -60,7 +60,7 @@ SUBCOMMANDS
             }.Build();
         }
 
-        public override Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             // Get current comic asynchronously and defer the response for later
             _ = Task.Run(async () =>

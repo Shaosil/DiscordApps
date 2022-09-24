@@ -1,16 +1,16 @@
-﻿using System;
-using Discord;
+﻿using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Providers;
+using System;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using ShaosilBot.Interfaces;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class HelpCommand : BaseCommand
+	public class HelpCommand : BaseCommand
     {
         private readonly ISlashCommandProvider _slashCommandProvider;
 
@@ -44,7 +44,7 @@ namespace ShaosilBot.SlashCommands
             }.Build();
         }
 
-        public override Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             var userPermissions = (command.User as RestGuildUser).GuildPermissions;
             var allowedCommands = _slashCommandProvider.CommandProperties

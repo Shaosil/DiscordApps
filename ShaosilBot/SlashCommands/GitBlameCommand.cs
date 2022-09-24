@@ -3,6 +3,7 @@ using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
+using ShaosilBot.Providers;
 using ShaosilBot.Utilities;
 using System;
 using System.Collections.Generic;
@@ -69,7 +70,7 @@ OPTIONAL ARGS:
             }.Build();
         }
 
-        public override async Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override async Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as RestGuildUser;
             bool parsedFunctions = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "functions")?.Value.ToString(), out var functions);
@@ -142,7 +143,7 @@ OPTIONAL ARGS:
                     if (subscribers.Count == 0) return await command.FollowupAsync("There are no blameable users who have access to this channel!");
 
                     ulong randomId = subscribers[Random.Shared.Next(subscribers.Count)].ID;
-                    targetUser = await command.Guild.GetUserAsync(randomId);
+                    targetUser = await command.Guild.GetUserAsync(randomId) as RestGuildUser;
                 }
                 else
                 {

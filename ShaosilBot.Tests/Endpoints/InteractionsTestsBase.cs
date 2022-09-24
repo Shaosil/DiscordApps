@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NSec.Cryptography;
 using ShaosilBot.Interfaces;
+using ShaosilBot.Providers;
 using ShaosilBot.Tests.Models;
 using System.Net;
 using System.Text;
@@ -17,6 +18,7 @@ namespace ShaosilBot.Tests.Endpoints
     {
 		private Interactions _interactionsSUT;
         protected Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
+        protected Mock<SlashCommandWrapper> SlashCommandWrapperMock { get; private set; }
 
         private static Mock<ILogger<Interactions>> _logger;
         private static Mock<IDiscordSocketClientProvider> _socketClientProviderMock;
@@ -39,7 +41,8 @@ namespace ShaosilBot.Tests.Endpoints
         public virtual void TestInitialize()
 		{
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
-			_interactionsSUT = new Interactions(_logger.Object, SlashCommandProviderMock.Object, _socketClientProviderMock.Object, _restClientProviderMock.Object);
+			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>();
+			_interactionsSUT = new Interactions(_logger.Object, SlashCommandProviderMock.Object, SlashCommandWrapperMock.Object, _socketClientProviderMock.Object, _restClientProviderMock.Object);
 		}
 
 		[TestMethod]

@@ -2,7 +2,7 @@
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
-using ShaosilBot.Singletons;
+using ShaosilBot.Providers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class WhackabotCommand : BaseCommand
+	public class WhackabotCommand : BaseCommand
     {
         private const string EquipmentFilename = "WhackabotEquipment.json";
         private const string GameFilename = "WhackabotInfo.json";
@@ -52,7 +52,7 @@ OPTIONAL ARGS:
             }.Build();
         }
 
-        public override async Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override async Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             Logger.LogInformation($"Whackabot Command executed at {DateTime.Now}");
 
@@ -170,7 +170,7 @@ OPTIONAL ARGS:
                 var groupedAttacks = _gameInfo.Attacks.GroupBy(a => a.PlayerID).ToDictionary(k => k.Key, v => v.ToList());
                 var loadedUsers = new List<RestGuildUser>();
                 foreach (var group in groupedAttacks)
-                    loadedUsers.Add(await command.Guild.GetUserAsync(group.Key));
+                    loadedUsers.Add(await command.Guild.GetUserAsync(group.Key) as RestGuildUser);
 
                 sb.AppendLine("\n\n**PLAYER STATS ( ATs / EVs / CRTs / GRZs / DMG / ACC )**");
                 foreach (var user in loadedUsers)

@@ -1,6 +1,6 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Providers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class RandomCommand : BaseCommand
+	public class RandomCommand : BaseCommand
     {
         public RandomCommand(ILogger<RandomCommand> logger) : base(logger) { }
 
@@ -44,7 +44,7 @@ OPTIONAL ARGUMENTS:
             }.Build();
         }
 
-        public override Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             string questionVal = command.Data.Options.FirstOrDefault(o => o.Name == "question")?.Value as string;
             var choicesGiven = command.Data.Options.Where(o => o.Name.StartsWith("choice")).ToList();

@@ -1,12 +1,12 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Providers;
 using System;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class TestCommand : BaseCommand
+	public class TestCommand : BaseCommand
     {
         public TestCommand(ILogger<TestCommand> logger) : base(logger) { }
 
@@ -25,7 +25,7 @@ namespace ShaosilBot.SlashCommands
             }.Build();
         }
 
-        public override Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             Logger.LogInformation($"Test Command executed at {DateTime.Now}");
             return Task.FromResult(command.Respond("Test command successful", ephemeral: true));

@@ -1,6 +1,6 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Providers;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-    public class PollCommand : BaseCommand
+	public class PollCommand : BaseCommand
     {
         public PollCommand(ILogger<PollCommand> logger) : base(logger) { }
 
@@ -56,7 +56,7 @@ OPTIONAL ARGS:
             }.Build();
         }
 
-        public override Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             // Validation
             string questionText = command.Data.Options.FirstOrDefault(o => o.Name == "question")?.Value as string;
@@ -122,7 +122,7 @@ OPTIONAL ARGS:
             });
 
             var embed = new EmbedBuilder() { Title = $"📊 **{questionText.Trim()}**", Description = string.Join('\n', choiceTexts), Color = new Color(0x7c0089) };
-            return Task.FromResult(command.Respond(embeds: new[] { embed.Build() }));
+            return Task.FromResult(command.Respond(embed: embed.Build()));
         }
     }
 }

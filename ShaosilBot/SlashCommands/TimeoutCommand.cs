@@ -3,6 +3,7 @@ using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
+using ShaosilBot.Providers;
 using ShaosilBot.Utilities;
 using System;
 using System.Collections.Generic;
@@ -72,7 +73,7 @@ OPTIONAL ARGS:
             }.Build();
         }
 
-        public override async Task<string> HandleCommandAsync(RestSlashCommand command)
+        public override async Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
             Logger.LogInformation($"/{CommandName} executed at {DateTime.Now}");
 
