@@ -1,6 +1,5 @@
 ﻿using Discord;
 using Microsoft.Extensions.Logging;
-using ShaosilBot.Interfaces;
 using ShaosilBot.Providers;
 using System;
 using System.Linq;
@@ -101,7 +100,7 @@ SUBCOMMANDS:
             if (new[] { "add, remove" }.Contains(subCommand.Name) && string.IsNullOrWhiteSpace(userArg))
                 return Task.FromResult(command.Respond("Missing user argument. Please try again and actually enter something this time smh.", ephemeral: true));
 
-            _ = Task.Run(async () =>
+			return command.DeferWithCodeTask(async () =>
             {
                 switch (commandGroup ?? string.Empty)
                 {
@@ -114,7 +113,11 @@ SUBCOMMANDS:
                         switch (subCommand.Name)
                         {
                             case "list":
-                                if (subs.data.Count < 1) await command.FollowupAsync($"There are no current twitch subscriptions. Use `/{CommandName} subs add [username]` to create one.");
+								if (subs.data.Count < 1)
+								{
+									await command.FollowupAsync($"There are no current twitch subscriptions. Use `/{CommandName} subs add [username]` to create one.");
+									return;
+								}
 
                                 // Display usernames of all subscribed twitch users
                                 var sb = new StringBuilder();
@@ -125,68 +128,66 @@ SUBCOMMANDS:
                                     string matchingUser = users.data.First(u => u.id == id).display_name;
                                     sb.AppendLine($"* {matchingUser}");
                                 }
-                                await command.FollowupAsync(sb.ToString());
-                                break;
+
+								await command.FollowupAsync(sb.ToString());
+								return;
 
                             case "add":
-                                // Make sure the requested user doesn't already exist
-                                if (users?.data.Any(u => u.login.ToLower() == userArg.Trim().ToLower()) ?? false)
-                                {
-                                    await command.FollowupAsync($"User {userArg} is already in the subscriptions list. Use `/{CommandName} subs list` to view all subscriptions.");
-                                    return;
-                                }
+								// Make sure the requested user doesn't already exist
+								if (users?.data.Any(u => u.login.ToLower() == userArg.Trim().ToLower()) ?? false)
+								{
+									await command.FollowupAsync($"User {userArg} is already in the subscriptions list. Use `/{CommandName} subs list` to view all subscriptions.");
+									return;
+								}
 
                                 // Try to find the user by login
                                 var newUser = await _twitchProvider.GetUsers(false, userArg);
-                                if (!newUser.data.Any())
-                                {
-                                    await command.FollowupAsync($"No user found with the login '{userArg}'. Check the spelling and try again.");
-                                    return;
-                                }
+								if (!newUser.data.Any())
+								{
+									await command.FollowupAsync($"No user found with the login '{userArg}'. Check the spelling and try again.");
+									return;
+								}
 
-                                // Attempt to subscribe
-                                if (!await _twitchProvider.PostSubscription(newUser.data.FirstOrDefault().id))
-                                {
-                                    await command.FollowupAsync($"Received unauthorized status code while attempting to subscribe to user '{userArg}'. Poke Shaosil and tell him to code better.");
-                                    return;
-                                }
+								// Attempt to subscribe
+								if (!await _twitchProvider.PostSubscription(newUser.data.FirstOrDefault().id))
+								{
+									await command.FollowupAsync($"Received unauthorized status code while attempting to subscribe to user '{userArg}'. Poke Shaosil and tell him to code better.");
+									return;
+								}
 
-                                await command.FollowupAsync($"Successfully subscribed to Twitch user '{userArg}'.");
-                                break;
+								await command.FollowupAsync($"Successfully subscribed to Twitch user '{userArg}'.");
+								return;
 
                             case "remove":
                                 // Make sure the requested user exists
                                 var userToUnsubscribe = users?.data.FirstOrDefault(u => u.login.ToLower() == userArg.Trim().ToLower());
-                                if (userToUnsubscribe == null)
-                                {
-                                    await command.FollowupAsync($"User {userArg} is not currently in the subscriptions list. User `/{CommandName} subs list` to view all subscriptions.");
-                                    return;
-                                }
+								if (userToUnsubscribe == null)
+								{
+									await command.FollowupAsync($"User {userArg} is not currently in the subscriptions list. User `/{CommandName} subs list` to view all subscriptions.");
+									return;
+								}
 
                                 // Attempt to unsubscribe
                                 var deleteUsers = subs.data.Where(d => d.condition.broadcaster_user_id == userToUnsubscribe.id).ToList();
-                                if (!await _twitchProvider.DeleteSubscriptions(deleteUsers))
-                                {
-                                    await command.FollowupAsync($"Received unauthorized status code while attempting to unsubscribe from user '{userArg}'. Poke Shaosil and tell him to code better.");
-                                    return;
-                                }
+								if (!await _twitchProvider.DeleteSubscriptions(deleteUsers))
+								{
+									await command.FollowupAsync($"Received unauthorized status code while attempting to unsubscribe from user '{userArg}'. Poke Shaosil and tell him to code better.");
+									return;
+								}
 
                                 await command.FollowupAsync($"Successfully unsubscribed from Twitch user '{userArg}'.");
-                                break;
+								return;
 
                             default:
                                 await command.FollowupAsync($"Unknown subcommmand type: '{subCommand.Name}'. Poke Shaosil and tell him to code better.");
-                                break;
+								return;
                         }
-                        break;
 
                     default:
                         await command.FollowupAsync($"Unknown commmand group: '{commandGroup}'. Poke Shaosil and tell him to code better.");
-                        break;
+						return;
                 }
             });
-
-            return Task.FromResult(command.Defer());
         }
     }
 }

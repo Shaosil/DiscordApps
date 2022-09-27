@@ -31,6 +31,7 @@ namespace ShaosilBot
 					services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
 
 					// Add scoped services of all derivitives of BaseCommand
+					services.AddScoped<IHttpUtilities, HttpUtilities>();
 					services.AddScoped<SlashCommandWrapper>();
 					services.AddScoped<ITwitchMiddlewareHelper, TwitchMiddlewareHelper>();
                     services.AddScoped<TwitchProvider>();

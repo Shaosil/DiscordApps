@@ -1,30 +1,27 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
 using ShaosilBot.Providers;
 using ShaosilBot.Utilities;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace ShaosilBot.SlashCommands
 {
-	public partial class GitBlameCommand : BaseCommand
+	public class GitBlameCommand : BaseCommand
     {
-        public const string BlameablesFileName = "GitBlameables.json";
+        public const string BlameablesFilename = "GitBlameables.json";
+		public const string ResponsesFilename = "GitBlameResponses.txt";
 
-        private readonly HttpClient _httpClient;
-        private readonly IDataBlobProvider _dataBlobProvider;
+		private readonly IHttpUtilities _httpUtilities;
+		private readonly IDataBlobProvider _dataBlobProvider;
 
-        public GitBlameCommand(ILogger<GitBlameCommand> logger, IHttpClientFactory httpClientFactory, IDataBlobProvider dataBlobProvider) : base(logger)
+        public GitBlameCommand(ILogger<GitBlameCommand> logger, IHttpUtilities httpUtilities, IDataBlobProvider dataBlobProvider) : base(logger)
         {
-            _httpClient = httpClientFactory.CreateClient();
+            _httpUtilities = httpUtilities;
             _dataBlobProvider = dataBlobProvider;
         }
 
@@ -72,22 +69,23 @@ OPTIONAL ARGS:
 
         public override async Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
-            var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as RestGuildUser;
+            var targetUser = command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as IGuildUser;
             bool parsedFunctions = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "functions")?.Value.ToString(), out var functions);
             bool releaseLease = !parsedFunctions || functions != 0;
-            var subscribers = await SimpleDiscordUserHelper.GetAndUpdateUsers(_dataBlobProvider, command.Guild, BlameablesFileName, releaseLease);
+            var subscribers = await SimpleDiscordUserHelper.GetAndUpdateUsers(_dataBlobProvider, command.Guild, BlameablesFilename, releaseLease);
 
             // Functions are handled by themselves
-            if (parsedFunctions && command.User is RestGuildUser requestor)
+            if (parsedFunctions)
             {
+				var requester = command.User as IGuildUser;
                 if (targetUser == null)
-                    targetUser = requestor;
+                    targetUser = requester;
 
                 switch (functions)
                 {
                     case 0: // Toggle subscription
                         // Only allow subscription edits to a target user if the requestor is administrator or their highest role is greater than the target's highest role
-                        if (GuildHelpers.UserCanEditTargetUser(command.Guild, requestor, targetUser))
+                        if (GuildHelpers.UserCanEditTargetUser(command.Guild, requester, targetUser))
                         {
                             int oldCount = subscribers.Count;
 
@@ -97,7 +95,7 @@ OPTIONAL ARGS:
                             else
                                 subscribers.Add(new SimpleDiscordUser { ID = targetUser.Id, FriendlyName = targetUser.Username });
 
-                            await _dataBlobProvider.SaveBlobTextAsync(BlameablesFileName, JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
+                            await _dataBlobProvider.SaveBlobTextAsync(BlameablesFilename, JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
                             return command.Respond($"{targetUser.Username} successfully {(oldCount < subscribers.Count ? "added" : "removed")} as a blameable");
                         }
                         else
@@ -112,96 +110,59 @@ OPTIONAL ARGS:
             }
 
             // Run blame functionality asynchronously
-            _ = Task.Run(async () =>
+            return command.DeferWithCode(async () =>
             {
                 // Get a list of all images in my gitblame album and pick a random one
                 string selectedImage;
                 try
                 {
-                    var req = new HttpRequestMessage(HttpMethod.Get, Environment.GetEnvironmentVariable("ImgurGitBlameAlbum"));
-                    req.Headers.Add("Authorization", $"Client-ID {Environment.GetEnvironmentVariable("ImgurClientID")}");
-                    var albumResponse = await (await _httpClient.SendAsync(req)).Content.ReadAsStringAsync();
-                    var allImages = JsonSerializer.Deserialize<ImgurRoot>(albumResponse).Images;
-
-                    selectedImage = allImages[Random.Shared.Next(allImages.Count)].link;
+					selectedImage = await _httpUtilities.GetRandomGitBlameImage();
                 }
                 catch (Exception ex)
                 {
                     Logger.LogError(ex, "Error fetching images from Imgur");
-                    return await command.FollowupAsync("Error fetching images from Imgur");
+                    await command.FollowupAsync("Error fetching images from Imgur");
+					return;
                 }
 
                 // Get a random response line from the blob
-                var responses = (await _dataBlobProvider.GetBlobTextAsync("GitBlameResponses.txt")).Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+                var responses = (await _dataBlobProvider.GetBlobTextAsync(ResponsesFilename)).Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
                 string response = responses[Random.Shared.Next(responses.Length)];
 
                 var channel = await command.Guild.GetChannelAsync(command.Channel.Id);
-                if (targetUser == null)
-                {
-                    // Blame one of the current subscribers, removing anyone who can not view the current channel
-                    subscribers = subscribers.Where(s => command.Guild.GetUserAsync(s.ID).GetAwaiter().GetResult().GetPermissions(channel).ViewChannel).ToList();
-                    if (subscribers.Count == 0) return await command.FollowupAsync("There are no blameable users who have access to this channel!");
+				if (targetUser == null)
+				{
+					// Blame one of the current subscribers, removing anyone who can not view the current channel
+					subscribers = subscribers.Where(s => command.Guild.GetUserAsync(s.ID).GetAwaiter().GetResult().GetPermissions(channel).ViewChannel).ToList();
+					if (subscribers.Count == 0)
+					{
+						await command.FollowupAsync("There are no blameable users who have access to this channel!");
+						return;
+					}
 
                     ulong randomId = subscribers[Random.Shared.Next(subscribers.Count)].ID;
-                    targetUser = await command.Guild.GetUserAsync(randomId) as RestGuildUser;
+                    targetUser = await command.Guild.GetUserAsync(randomId);
                 }
                 else
                 {
-                    // Custom responses based on our findings on targetUser
-                    if (!targetUser.GetPermissions(channel).ViewChannel)
-                        return await command.FollowupAsync($"{command.User.Mention} tried to blame {targetUser.Mention}, but that user was not found in this channel, so {command.User.Mention} is to blame!");
-                    if (targetUser.Id == command.User.Id)
-                        return await command.FollowupAsync($"{command.User.Mention} has rightfully and humbly blamed themselves for the latest wrongdoing. Good on them.");
+					// Custom responses based on our findings on targetUser
+					if (!targetUser.GetPermissions(channel).ViewChannel)
+					{
+						await command.FollowupAsync($"{command.User.Mention} tried to blame {targetUser.Mention}, but that user was not found in this channel, so {command.User.Mention} is to blame!");
+						return;
+					}
+                    else if (targetUser.Id == command.User.Id)
+					{
+						await command.FollowupAsync($"{command.User.Mention} has rightfully and humbly blamed themselves for the latest wrongdoing. Good on them.");
+						return;
+					}
 
-                    // Notify everyone they specified a person
-                    response += "\n\n* *Targeted*";
+					// Notify everyone they specified a person
+					response += "\n\n* *Targeted*";
                 }
 
-                return await command.FollowupAsync($"{response.Replace("{USER}", targetUser.Mention)}\n\n{selectedImage}");
+                await command.FollowupAsync($"{response.Replace("{USER}", targetUser.Mention)}\n\n{selectedImage}");
             });
-
-            // Immediately return a defer, respond using the task above
-            return command.Defer();
-        }
-
-        private class ImgurRoot
-        {
-            [JsonPropertyName("data")]
-            public List<ImgurImage> Images { get; set; }
-
-            public class ImgurImage
-            {
-                public string id { get; set; }
-                public string title { get; set; }
-                public string description { get; set; }
-                public int datetime { get; set; }
-                public string type { get; set; }
-                public bool animated { get; set; }
-                public int width { get; set; }
-                public int height { get; set; }
-                public int size { get; set; }
-                public int views { get; set; }
-                public int bandwidth { get; set; }
-                public string vote { get; set; }
-                public bool favorite { get; set; }
-                public bool? nsfw { get; set; }
-                public string section { get; set; }
-                public string account_url { get; set; }
-                public string account_id { get; set; }
-                public bool is_ad { get; set; }
-                public bool in_most_viral { get; set; }
-                public bool has_sound { get; set; }
-                public List<string> tags { get; set; }
-                public int ad_type { get; set; }
-                public string ad_url { get; set; }
-                public string edited { get; set; }
-                public bool in_gallery { get; set; }
-                public string link { get; set; }
-                public string gifv { get; set; }
-                public string mp4 { get; set; }
-                public int? mp4_size { get; set; }
-                public bool? looping { get; set; }
-            }
         }
     }
 }

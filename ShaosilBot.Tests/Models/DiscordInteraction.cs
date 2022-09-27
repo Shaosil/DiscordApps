@@ -36,8 +36,14 @@ namespace ShaosilBot.Tests.Models
         
         public class User
         {
-            public string id { get; private set; }
-            public string username { get; private set; }
+            public string? id { get; private set; }
+            public string? username { get; private set; }
+
+			public User (string? idArg = null, string? usernameArg = null)
+			{
+				id = idArg;
+				username = usernameArg;
+			}
         }
     }
 }

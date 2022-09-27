@@ -140,14 +140,13 @@ OPTIONAL ARGS:
             int seconds = int.Parse(command.Data.Options.FirstOrDefault(c => c.Name == "duration")?.Value.ToString() ?? "60");
             if (seconds == 0) seconds = Random.Shared.Next(30, 301);
             int toHit = 50 - (int)Math.Round(30 * ((seconds - 30) / 230f));
-            int result = Random.Shared.Next(100);
-            bool success = result < toHit;
+            int result = Random.Shared.Next(1, 101);
+            bool success = result <= toHit;
             var targetUser = success ? userArg : command.User as RestGuildUser;
 
             // Apply timeout to target user - if the target user is already in a timeout, append the new minutes.
             // If the target user is timed out and this FAILED, add the target's remaining timeout to the usual punishment
-			// If it was a self target, max it out at 10 minutes
-            var timeoutSpan = (command.User.Id != userArg.Id) ? remainingTimeout + new TimeSpan(0, 0, seconds * (success ? 1 : 2)) : new TimeSpan(0, 10, 0);
+            var timeoutSpan = remainingTimeout + new TimeSpan(0, 0, seconds * (success ? 1 : 2));
             string timeoutEndUnix = $"<t:{(DateTimeOffset.Now + timeoutSpan).ToUnixTimeSeconds()}:R>";
             await targetUser.SetTimeOutAsync(timeoutSpan);
 
@@ -155,7 +154,7 @@ OPTIONAL ARGS:
             var response = new StringBuilder();
             if (userArg.Id == command.User.Id)
             {
-                response.AppendLine($"{userArg.Mention} has decided they wish to time themselves out. Since I'm a nice cooperative bot, I shall give them the max sentance.");
+                response.AppendLine($"{userArg.Mention} has decided they wish to time themselves out for {seconds} seconds. Since I'm a nice cooperative bot, I can't refuse.");
                 response.AppendLine();
                 response.AppendLine($"Timeout expires {timeoutEndUnix}");
             }
@@ -170,7 +169,7 @@ OPTIONAL ARGS:
                 response.Append($"**{(success ? "🟢 Success" : "🔴 Fail")}!** As a result, {targetUser.Mention} ");
                 if (success)
                 {
-                    if (remainingTimeout.TotalSeconds > 0) response.Append($"has an ADDITIONAL {seconds} minutes tacked on to their timeout, which now expires {timeoutEndUnix}.");
+                    if (remainingTimeout.TotalSeconds > 0) response.Append($"has an ADDITIONAL {seconds} seconds tacked on to their timeout, which now expires {timeoutEndUnix}.");
                     else response.Append($"is now timed out with an expiration of {timeoutEndUnix}.");
                 }
                 else
