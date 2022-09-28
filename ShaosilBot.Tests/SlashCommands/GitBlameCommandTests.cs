@@ -191,13 +191,16 @@ namespace ShaosilBot.Tests.SlashCommands
 			request.Body.Position = 0;
 			var removeResponse = await RunInteractions(request);
 
-			// Assert - Verify the blob provider was called with the expected arguments, the word "success" and there is no followup message.
+			// Assert - Verify the blob provider was called with the expected arguments, the word "success" exists, and there is no followup message.
 			var addResponseObj = DeserializeResponse(addResponse);
 			var removeResponseObj = DeserializeResponse(removeResponse);
 			DataBlobProviderMock.Verify(m => m.SaveBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()), Times.Exactly(2));
 			Assert.AreEqual(2, savedBlobs.Count);
 			Assert.IsTrue(savedBlobs[0].Contains(UserMock.Object.Id.ToString()));
 			Assert.IsFalse(savedBlobs[1].Contains(targetUser.Id.ToString()));
+			Assert.IsTrue(addResponseObj.data.content.ToLower().Contains("success"));
+			Assert.IsTrue(removeResponseObj.data.content.ToLower().Contains("success"));
+			Assert.IsNull(FollowupResponseCapture);
 		}
 	}
 }

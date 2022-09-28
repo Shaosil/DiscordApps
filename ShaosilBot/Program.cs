@@ -34,7 +34,7 @@ namespace ShaosilBot
 					services.AddScoped<IHttpUtilities, HttpUtilities>();
 					services.AddScoped<SlashCommandWrapper>();
 					services.AddScoped<ITwitchMiddlewareHelper, TwitchMiddlewareHelper>();
-                    services.AddScoped<TwitchProvider>();
+                    services.AddScoped<ITwitchProvider, TwitchProvider>();
                     services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });
                     var derivedCommandTypes = Assembly.GetExecutingAssembly().DefinedTypes.Where(t => t.BaseType == typeof(SlashCommands.BaseCommand)).ToList();
                     foreach (var commandType in derivedCommandTypes)

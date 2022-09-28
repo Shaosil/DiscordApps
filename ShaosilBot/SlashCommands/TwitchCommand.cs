@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
 using ShaosilBot.Providers;
 using System;
 using System.Linq;
@@ -10,9 +11,9 @@ namespace ShaosilBot.SlashCommands
 {
 	public class TwitchCommand : BaseCommand
     {
-        private readonly TwitchProvider _twitchProvider;
+        private readonly ITwitchProvider _twitchProvider;
 
-        public TwitchCommand(ILogger<TwitchCommand> logger, TwitchProvider twitchProvider) : base(logger)
+        public TwitchCommand(ILogger<TwitchCommand> logger, ITwitchProvider twitchProvider) : base(logger)
         {
             _twitchProvider = twitchProvider;
         }

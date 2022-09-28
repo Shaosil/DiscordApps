@@ -38,7 +38,7 @@ namespace ShaosilBot.Tests.SlashCommands
             base.TestInitialize();
 
             SlashCommandSUT = GetInstance();
-			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(It.IsAny<string>())).Returns(SlashCommandSUT);
+			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(SlashCommandSUT.CommandName)).Returns(SlashCommandSUT);
 
 			string testUserName = "UnitTester";
 			UserMock = new Mock<IGuildUser>();

@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
 using ShaosilBot.Providers;
@@ -46,7 +45,7 @@ namespace ShaosilBot.SlashCommands
 
         public override Task<string> HandleCommandAsync(SlashCommandWrapper command)
         {
-            var userPermissions = (command.User as RestGuildUser).GuildPermissions;
+            var userPermissions = (command.User as IGuildUser).GuildPermissions;
             var allowedCommands = _slashCommandProvider.CommandProperties
                 .Where(c => c.Value.Name.Value != CommandName && (!c.Value.DefaultMemberPermissions.IsSpecified || userPermissions.Has(c.Value.DefaultMemberPermissions.Value)))
                 .Select(c => c.Key)
