@@ -1,21 +1,21 @@
-using System.Net;
-using System.Linq;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Interfaces;
+using ShaosilBot.Models.Twitch;
+using System.Linq;
+using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
-using ShaosilBot.Providers;
-using ShaosilBot.Models.Twitch;
 
 namespace ShaosilBot
 {
-    public class TwitchCallback
+	public class TwitchCallback
     {
         private readonly ILogger _logger;
-        private readonly TwitchProvider _twitchProvider;
+        private readonly ITwitchProvider _twitchProvider;
 
-        public TwitchCallback(ILoggerFactory loggerFactory, TwitchProvider twitchProvider)
+        public TwitchCallback(ILoggerFactory loggerFactory, ITwitchProvider twitchProvider)
         {
             _logger = loggerFactory.CreateLogger<TwitchCallback>();
             _twitchProvider = twitchProvider;
