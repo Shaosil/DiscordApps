@@ -44,7 +44,7 @@ namespace ShaosilBot.Singletons
 			// Delete all messages that are older than one hour
 			var channel = _client.GetGuild(628019972316069890)?.GetTextChannel(1022371866272346112);
 			var messages = channel?.GetMessagesAsync().FlattenAsync().GetAwaiter().GetResult() ?? new List<IMessage>();
-			var oldMessages = messages.Where(m => m.CreatedAt.AddHours(1) < DateTimeOffset.Now);
+			var oldMessages = messages.Where(m => m.CreatedAt.AddHours(6) < DateTimeOffset.Now);
 
 			if (oldMessages.Any())
 				channel.DeleteMessagesAsync(oldMessages).GetAwaiter().GetResult();
