@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace ShaosilBot.Singletons
 {
-    public class DataBlobProvider : IDataBlobProvider
+	public class DataBlobProvider : IDataBlobProvider
     {
         private readonly ILogger<DataBlobProvider> _logger;
         private readonly BlobServiceClient _serviceClient;
@@ -51,8 +51,8 @@ namespace ShaosilBot.Singletons
                 }
             }
 
-            var requestConditions = new BlobRequestConditions { LeaseId = lease?.LeaseId };
-            return (await blobClient.DownloadContentAsync(requestConditions)).Value.Content.ToString();
+            var downloadOptions = new BlobDownloadOptions { Conditions = new BlobRequestConditions { LeaseId = lease?.LeaseId } };
+            return (await blobClient.DownloadContentAsync(downloadOptions)).Value.Content.ToString();
         }
 
         public async Task SaveBlobTextAsync(string filename, string content, bool releaseLease = true)

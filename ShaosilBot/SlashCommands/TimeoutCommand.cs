@@ -97,7 +97,7 @@ OPTIONAL ARGS:
 				if (userArg.IsBot)
 					return command.Respond("Sorry, Shaosil doesn't want you to time out bots since that would mess with their code. Respect the code. All hail the code.", ephemeral: true);
 				if (optOuts.Any(u => u.ID == userArg.Id))
-					return command.Respond($"Sorry, ${userArg.DisplayName} has opted out of the /{CommandName} command. You'll have to pick on somebody else.", ephemeral: true);
+					return command.Respond($"Sorry, {userArg.DisplayName} has opted out of the /{CommandName} command. You'll have to pick on somebody else.", ephemeral: true);
 				if (optOuts.Any(u => u.ID == command.User.Id))
 					return command.Respond($"Sorry, you can't participate in $/{CommandName} because you are in the opt-out list. If you want to opt back in, use `/{command} user {{your username}} opt-out False`", ephemeral: true);
 			}
@@ -133,54 +133,58 @@ OPTIONAL ARGS:
 
 			}
 
-			// Store existing timeout check since that gives unique results
-			var remainingTimeout = userArg.TimedOutUntil.HasValue && userArg.TimedOutUntil > DateTimeOffset.UtcNow ? userArg.TimedOutUntil.Value - DateTimeOffset.UtcNow : new TimeSpan();
+			// Handle timeouts async in case it takes more than 3 seconds
+			return await command.DeferWithCodeTask(async () =>
+			{
+				// Store existing timeout check since that gives unique results
+				var remainingTimeout = userArg.TimedOutUntil.HasValue && userArg.TimedOutUntil > DateTimeOffset.UtcNow ? userArg.TimedOutUntil.Value - DateTimeOffset.UtcNow : new TimeSpan();
 
-			// Get minutes and calculate percentage of success for which user to affect
-			int seconds = int.Parse(command.Data.Options.FirstOrDefault(c => c.Name == "duration")?.Value.ToString() ?? "60");
-			if (seconds == 0) seconds = Random.Shared.Next(30, 301);
-			int toHit = 50 - (int)Math.Round(30 * ((seconds - 30) / 230f));
-			int result = Random.Shared.Next(1, 101);
-			bool success = result <= toHit;
-			var targetUser = success ? userArg : command.User as RestGuildUser;
+				// Get minutes and calculate percentage of success for which user to affect
+				int seconds = int.Parse(command.Data.Options.FirstOrDefault(c => c.Name == "duration")?.Value.ToString() ?? "60");
+				if (seconds == 0) seconds = Random.Shared.Next(30, 301);
+				int toHit = 50 - (int)Math.Round(30 * ((seconds - 30) / 230f));
+				int result = Random.Shared.Next(1, 101);
+				bool success = result <= toHit;
+				var targetUser = success ? userArg : command.User as RestGuildUser;
 
-			// Apply timeout to target user - if the target user is already in a timeout, append the new minutes.
-			// If the target user is timed out and this FAILED, add the target's remaining timeout to the usual punishment
-			bool selfTarget = userArg.Id == command.User.Id;
-			var timeoutSpan = remainingTimeout + new TimeSpan(0, 0, seconds * (selfTarget || success ? 1 : 2));
-            string timeoutEndUnix = $"<t:{(DateTimeOffset.Now + timeoutSpan).ToUnixTimeSeconds()}:R>";
-            await targetUser.SetTimeOutAsync(timeoutSpan);
+				// Apply timeout to target user - if the target user is already in a timeout, append the new minutes.
+				// If the target user is timed out and this FAILED, add the target's remaining timeout to the usual punishment
+				bool selfTarget = userArg.Id == command.User.Id;
+				var timeoutSpan = remainingTimeout + new TimeSpan(0, 0, seconds * (selfTarget || success ? 1 : 2));
+				string timeoutEndUnix = $"<t:{(DateTimeOffset.Now + timeoutSpan).ToUnixTimeSeconds()}:R>";
+				await targetUser.SetTimeOutAsync(timeoutSpan);
 
-            // Unique response texts for someone who was already timed out or targeting yourself
-            var response = new StringBuilder();
-            if (selfTarget)
-            {
-                response.AppendLine($"{userArg.Mention} has decided they wish to time themselves out for {seconds} seconds. Since I'm a nice cooperative bot, I can't refuse.");
-                response.AppendLine();
-                response.AppendLine($"Timeout expires {timeoutEndUnix}");
-            }
-            else
-            {
-                response.Append($"{command.User.Mention} has attempted to timeout {userArg.Mention} for {seconds} seconds");
-                if (remainingTimeout.TotalSeconds > 0) response.AppendLine($" even though they are already in timeout! Bold move Cotton, let's see how it pays off.");
-                else response.AppendLine(".");
-                response.AppendLine();
-                response.AppendLine($"🎲 Using a {toHit}% chance of success as a maximum roll target out of 100, they rolled a {result}.");
-                response.AppendLine();
-                response.Append($"**{(success ? "🟢 Success" : "🔴 Fail")}!** As a result, {targetUser.Mention} ");
-                if (success)
-                {
-                    if (remainingTimeout.TotalSeconds > 0) response.Append($"has an ADDITIONAL {seconds} seconds tacked on to their timeout, which now expires {timeoutEndUnix}.");
-                    else response.Append($"is now timed out with an expiration of {timeoutEndUnix}.");
-                }
-                else
-                {
-                    if (remainingTimeout.TotalSeconds > 0) response.Append($"has been punished with double the target duration PLUS the target user's remaining timeout! Their timeout will expire {timeoutEndUnix}.");
-                    else response.Append($"has been slammed with double the target duration. Their timeout will expire {timeoutEndUnix}.");
-                }
-            }
+				// Unique response texts for someone who was already timed out or targeting yourself
+				var response = new StringBuilder();
+				if (selfTarget)
+				{
+					response.AppendLine($"{userArg.Mention} has decided they wish to time themselves out for {seconds} seconds. Since I'm a nice cooperative bot, I can't refuse.");
+					response.AppendLine();
+					response.AppendLine($"Timeout expires {timeoutEndUnix}");
+				}
+				else
+				{
+					response.Append($"{command.User.Mention} has attempted to timeout {userArg.Mention} for {seconds} seconds");
+					if (remainingTimeout.TotalSeconds > 0) response.AppendLine($" even though they are already in timeout! Bold move Cotton, let's see how it pays off.");
+					else response.AppendLine(".");
+					response.AppendLine();
+					response.AppendLine($"🎲 Using a {toHit}% chance of success as a maximum roll target out of 100, they rolled a {result}.");
+					response.AppendLine();
+					response.Append($"**{(success ? "🟢 Success" : "🔴 Fail")}!** As a result, {targetUser.Mention} ");
+					if (success)
+					{
+						if (remainingTimeout.TotalSeconds > 0) response.Append($"has an ADDITIONAL {seconds} seconds tacked on to their timeout, which now expires {timeoutEndUnix}.");
+						else response.Append($"is now timed out with an expiration of {timeoutEndUnix}.");
+					}
+					else
+					{
+						if (remainingTimeout.TotalSeconds > 0) response.Append($"has been punished with double the target duration PLUS the target user's remaining timeout! Their timeout will expire {timeoutEndUnix}.");
+						else response.Append($"has been slammed with double the target duration. Their timeout will expire {timeoutEndUnix}.");
+					}
+				}
 
-            return command.Respond(response.ToString());
+				await command.FollowupAsync(response.ToString());
+			});
         }
     }
 }
