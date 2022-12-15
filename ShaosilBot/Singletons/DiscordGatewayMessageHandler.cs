@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.WebSocket;
+using Microsoft.Extensions.Logging;
 using ShaosilBot.Interfaces;
 using ShaosilBot.Models;
 using System.Collections.Generic;
@@ -16,13 +17,15 @@ namespace ShaosilBot.Singletons
 		// Hardcoded channel and message snowflake IDs for readability
 		private const ulong CHANNEL_VISIBILITIES_ID = 1052640054100639784;
 
+		private readonly ILogger<IDiscordGatewayMessageHandler> _logger;
 		private readonly IDataBlobProvider _dataBlobProvider;
 
 		// Keep the blob file in memory since this is the only file that modifies it
 		private List<ChannelVisibility> _channelVisibilities;
 
-		public DiscordGatewayMessageHandler(IDataBlobProvider dataBlobProvider)
+		public DiscordGatewayMessageHandler(ILogger<IDiscordGatewayMessageHandler> logger, IDataBlobProvider dataBlobProvider)
 		{
+			_logger= logger;
 			_dataBlobProvider = dataBlobProvider;
 		}
 
@@ -33,6 +36,8 @@ namespace ShaosilBot.Singletons
 
 		public async Task ReactionAdded(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
 		{
+			_logger.LogInformation($"User {reaction.UserId} ADDED reaction '{reaction.Emote.Name}' to channel {channel.Id} message {message.Id}.");
+
 			switch (channel.Id)
 			{
 				case CHANNEL_VISIBILITIES_ID:
@@ -43,6 +48,8 @@ namespace ShaosilBot.Singletons
 
 		public async Task ReactionRemoved(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
 		{
+			_logger.LogInformation($"User {reaction.UserId} REMOVED reaction '{reaction.Emote.Name}' to channel {channel.Id} message {message.Id}.");
+
 			switch (channel.Id)
 			{
 				case CHANNEL_VISIBILITIES_ID:
