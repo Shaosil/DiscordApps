@@ -15,7 +15,10 @@ namespace ShaosilBot.Singletons
         private readonly ILogger<DiscordSocketClientProvider> _logger;
         private readonly DiscordSocketClient _client;
 
-        public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger, DiscordSocketConfig config, ISlashCommandProvider slashCommandProvider)
+        public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger,
+			DiscordSocketConfig config,
+			ISlashCommandProvider slashCommandProvider,
+			IDiscordGatewayMessageHandler messageHandler)
         {
             _logger = logger;
             _client = new DiscordSocketClient(config);
@@ -27,13 +30,15 @@ namespace ShaosilBot.Singletons
                 KeepAlive();
                 await slashCommandProvider.BuildGuildCommands(_client);
             };
-            //Client.MessageReceived += MessageHandler;
+			//_client.MessageReceived += messageHandler.MessageReceived;
+			_client.ReactionAdded += messageHandler.ReactionAdded;
+			_client.ReactionRemoved += messageHandler.ReactionRemoved;
 
             _client.LoginAsync(TokenType.Bot, Environment.GetEnvironmentVariable("BotToken")).GetAwaiter().GetResult();
             _client.StartAsync().GetAwaiter().GetResult();
         }
 
-        public void KeepAlive()
+		public void KeepAlive()
         {
             _client.SetGameAsync("/help").GetAwaiter().GetResult();
 			CleanupNoNoZone();

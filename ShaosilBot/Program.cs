@@ -26,6 +26,7 @@ namespace ShaosilBot
                     // Singletons
                     services.AddHttpClient();
                     services.AddSingleton<IDataBlobProvider, DataBlobProvider>();
+                    services.AddSingleton<IDiscordGatewayMessageHandler, DiscordGatewayMessageHandler>();
                     services.AddSingleton<IDiscordSocketClientProvider, DiscordSocketClientProvider>();
                     services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvider>();
 					services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
@@ -35,7 +36,7 @@ namespace ShaosilBot
 					services.AddScoped<SlashCommandWrapper>();
 					services.AddScoped<ITwitchMiddlewareHelper, TwitchMiddlewareHelper>();
                     services.AddScoped<ITwitchProvider, TwitchProvider>();
-                    services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.DirectMessages });
+                    services.AddScoped((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessageReactions });
                     var derivedCommandTypes = Assembly.GetExecutingAssembly().DefinedTypes.Where(t => t.BaseType == typeof(SlashCommands.BaseCommand)).ToList();
                     foreach (var commandType in derivedCommandTypes)
                     {
