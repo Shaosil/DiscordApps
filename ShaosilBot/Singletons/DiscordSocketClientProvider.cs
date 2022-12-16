@@ -40,6 +40,7 @@ namespace ShaosilBot.Singletons
 
 		public void KeepAlive()
         {
+			_logger.LogInformation($"Keep Alive function called. Current client connection status: {_client.ConnectionState}/{_client.LoginState}. Client hash: {_client.GetHashCode()}");
             _client.SetGameAsync("/help").GetAwaiter().GetResult();
 			CleanupNoNoZone();
 		}
