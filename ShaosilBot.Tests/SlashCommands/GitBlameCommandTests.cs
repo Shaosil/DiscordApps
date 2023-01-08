@@ -13,7 +13,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		private static List<SimpleDiscordUser> _blameables = new List<SimpleDiscordUser>();
 		private List<string> _preppedResponses = new List<string>();
 
-		protected override GitBlameCommand GetInstance() => new GitBlameCommand(CommandLoggerMock.Object, HttpUtilitiesMock.Object, DataBlobProviderMock.Object);
+		protected override GitBlameCommand GetInstance() => new GitBlameCommand(CommandLoggerMock.Object, HttpUtilitiesMock.Object, FileAccessProviderMock.Object);
 
 		[ClassInitialize]
 		public static new void ClassInitialize(TestContext context)
@@ -21,7 +21,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Init blameables and return them serialized when asked
 			for (int i = 0; i < 10; i++)
 				_blameables.Add(new SimpleDiscordUser { ID = Random.Shared.NextULong(), FriendlyName = $"Friendly name {i + 1}" });
-			DataBlobProviderMock.Setup(m => m.GetBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<bool>())).ReturnsAsync(JsonSerializer.Serialize(_blameables));
+			FileAccessProviderMock.Setup(m => m.GetBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<bool>())).ReturnsAsync(JsonSerializer.Serialize(_blameables));
 		}
 
 		[TestInitialize]
@@ -36,7 +36,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Fake response texts
 			_preppedResponses = new List<string>();
 			for (int i = 0; i < 10; i++) _preppedResponses.Add($"{{USER}} BLAME RESPONSE {i + 1}");
-			DataBlobProviderMock.Setup(m => m.GetBlobTextAsync(GitBlameCommand.ResponsesFilename, It.IsAny<bool>())).ReturnsAsync(string.Join(Environment.NewLine, _preppedResponses));
+			FileAccessProviderMock.Setup(m => m.GetBlobTextAsync(GitBlameCommand.ResponsesFilename, It.IsAny<bool>())).ReturnsAsync(string.Join(Environment.NewLine, _preppedResponses));
 		}
 
 		[TestMethod]
@@ -45,7 +45,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Arrange - Build command with no options
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var request = CreateInteractionRequest(interaction);
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(DataBlobProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 
 			// Act
 			await RunInteractions(request);
@@ -61,7 +61,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Arrange - Build command with no options and ensure users have no permissions
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var request = CreateInteractionRequest(interaction);
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(DataBlobProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 
 			// Act
 			await RunInteractions(request);
@@ -79,7 +79,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var request = CreateInteractionRequest(interaction);
 			HttpUtilitiesMock.Setup(m => m.GetRandomGitBlameImage()).Throws(new Exception());
-			Helpers.GenerateSimpleDiscordUsers(DataBlobProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
+			Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 
 			// Act
 			await RunInteractions(request);
@@ -92,7 +92,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task TargetedBlame_WorksAndNotifies()
 		{
 			// Arrange - Build command with mocked target option
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(DataBlobProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
 			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser.ID).Result;
 			AddOption("target-user", targetUser);
@@ -112,7 +112,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task TargetedNoAccessUser_DoesNotBlame()
 		{
 			// Arrange - Build command with mock target and ensure users have no permissions
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(DataBlobProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
 			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser.ID).Result;
 			AddOption("target-user", targetUser);
@@ -132,7 +132,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task TargetedSelf_SpecialBlame()
 		{
 			// Arrange - Build command with mock users and ensure target user is the caller
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(DataBlobProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			AddOption("target-user", UserMock.Object);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var request = CreateInteractionRequest(interaction);
@@ -151,7 +151,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task ListBlameables_Functions()
 		{
 			// Arrange - Pass the functions option
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(DataBlobProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var request = CreateInteractionRequest(interaction);
 			AddOption("functions", 1);
@@ -169,11 +169,11 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task AddAndRemoveBlameables_Works()
 		{
 			// Arrange - Prepare blameables and pass functions option, and capture calls to SaveBlob
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(DataBlobProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var request = CreateInteractionRequest(interaction);
 			var savedBlobs = new List<string>();
-			DataBlobProviderMock.Setup(m => m.SaveBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()))
+			FileAccessProviderMock.Setup(m => m.SaveBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()))
 				.Callback<string, string, bool>((file, content, lease) => savedBlobs.Add(content));
 
 			// Act 1 - Toggle add for ourselves
@@ -194,7 +194,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Assert - Verify the blob provider was called with the expected arguments, the word "success" exists, and there is no followup message.
 			var addResponseObj = DeserializeResponse(addResponse);
 			var removeResponseObj = DeserializeResponse(removeResponse);
-			DataBlobProviderMock.Verify(m => m.SaveBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()), Times.Exactly(2));
+			FileAccessProviderMock.Verify(m => m.SaveBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()), Times.Exactly(2));
 			Assert.AreEqual(2, savedBlobs.Count);
 			Assert.IsTrue(savedBlobs[0].Contains(UserMock.Object.Id.ToString()));
 			Assert.IsFalse(savedBlobs[1].Contains(targetUser.Id.ToString()));

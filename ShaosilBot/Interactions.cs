@@ -2,8 +2,6 @@ using Discord.Rest;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
-using ShaosilBot.Interfaces;
-using ShaosilBot.Providers;
 using System;
 using System.IO;
 using System.Linq;

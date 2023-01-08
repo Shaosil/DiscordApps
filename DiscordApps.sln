@@ -3,14 +3,16 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.1.32407.343
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ShaosilBot", "ShaosilBot\ShaosilBot.csproj", "{58DBD439-DF86-4DBD-B04B-ED06D385A056}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShaosilBot.Tests", "ShaosilBot.Tests\ShaosilBot.Tests.csproj", "{9C795687-8B61-45A4-AB81-968D69C968D8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ShaosilBot.Tests", "ShaosilBot.Tests\ShaosilBot.Tests.csproj", "{9C795687-8B61-45A4-AB81-968D69C968D8}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{28CF568F-F41B-415D-8754-C2817DAF94FF}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ShaosilBot.Web", "ShaosilBot.Web\ShaosilBot.Web.csproj", "{69921E3B-CD39-47F1-9B2B-372E71B9EC57}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShaosilBot.Core", "ShaosilBot.Core\ShaosilBot.Core.csproj", "{1A20E32A-511B-4671-9E60-5901E4FBD576}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,14 +20,18 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{58DBD439-DF86-4DBD-B04B-ED06D385A056}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{58DBD439-DF86-4DBD-B04B-ED06D385A056}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{58DBD439-DF86-4DBD-B04B-ED06D385A056}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{58DBD439-DF86-4DBD-B04B-ED06D385A056}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9C795687-8B61-45A4-AB81-968D69C968D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{9C795687-8B61-45A4-AB81-968D69C968D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9C795687-8B61-45A4-AB81-968D69C968D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9C795687-8B61-45A4-AB81-968D69C968D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{69921E3B-CD39-47F1-9B2B-372E71B9EC57}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{69921E3B-CD39-47F1-9B2B-372E71B9EC57}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{69921E3B-CD39-47F1-9B2B-372E71B9EC57}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{69921E3B-CD39-47F1-9B2B-372E71B9EC57}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1A20E32A-511B-4671-9E60-5901E4FBD576}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A20E32A-511B-4671-9E60-5901E4FBD576}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A20E32A-511B-4671-9E60-5901E4FBD576}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A20E32A-511B-4671-9E60-5901E4FBD576}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

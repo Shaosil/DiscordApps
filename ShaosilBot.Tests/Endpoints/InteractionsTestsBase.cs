@@ -1,11 +1,11 @@
 using Discord.Rest;
-using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NSec.Cryptography;
-using ShaosilBot.Interfaces;
-using ShaosilBot.Providers;
+using ShaosilBot.Core.Interfaces;
+using ShaosilBot.Core.Providers;
 using ShaosilBot.Tests.Models;
+using ShaosilBot.Web.Controllers;
 using System.Text;
 using System.Text.Json;
 
@@ -14,18 +14,18 @@ namespace ShaosilBot.Tests.Endpoints
 	[TestClass]
     public abstract class InteractionsTestsBase
     {
-		private Interactions _interactionsSUT;
+		private InteractionsController _interactionsSUT;
         protected Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
         protected Mock<SlashCommandWrapper> SlashCommandWrapperMock { get; private set; }
 
-        private static Mock<ILogger<Interactions>> _logger;
+        private static Mock<ILogger<InteractionsController>> _logger;
         private static Mock<IDiscordSocketClientProvider> _socketClientProviderMock;
         private static Mock<IDiscordRestClientProvider> _restClientProviderMock;
 
         [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
         public static void ClassInitialize(TestContext context)
         {
-            _logger = new Mock<ILogger<Interactions>>();
+            _logger = new Mock<ILogger<InteractionsController>>();
             _socketClientProviderMock = new Mock<IDiscordSocketClientProvider>();
             _restClientProviderMock = new Mock<IDiscordRestClientProvider>();
 
@@ -40,7 +40,7 @@ namespace ShaosilBot.Tests.Endpoints
 		{
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
 			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>();
-			_interactionsSUT = new Interactions(_logger.Object, SlashCommandProviderMock.Object, SlashCommandWrapperMock.Object, _socketClientProviderMock.Object, _restClientProviderMock.Object);
+			_interactionsSUT = new InteractionsController(_logger.Object, SlashCommandProviderMock.Object, SlashCommandWrapperMock.Object, _socketClientProviderMock.Object, _restClientProviderMock.Object);
 		}
 
 		protected string GetResponseBody(HttpResponseData response)

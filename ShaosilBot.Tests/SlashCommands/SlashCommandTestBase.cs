@@ -2,8 +2,8 @@ using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using Moq;
-using ShaosilBot.Interfaces;
-using ShaosilBot.SlashCommands;
+using ShaosilBot.Core.Interfaces;
+using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Endpoints;
 using ShaosilBot.Tests.Models;
 
@@ -22,14 +22,14 @@ namespace ShaosilBot.Tests.SlashCommands
 
         protected static Mock<ILogger<T>> CommandLoggerMock { get; private set;}
 		protected static Mock<IHttpUtilities> HttpUtilitiesMock { get; private set; }
-        protected static Mock<IDataBlobProvider> DataBlobProviderMock { get; private set; }
+        protected static Mock<IFileAccessHelper> FileAccessProviderMock { get; private set; }
 
         [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
         public static new void ClassInitialize(TestContext context)
         {
             CommandLoggerMock = new Mock<ILogger<T>>();
 			HttpUtilitiesMock = new Mock<IHttpUtilities>();
-            DataBlobProviderMock = new Mock<IDataBlobProvider>();
+            FileAccessProviderMock = new Mock<IDataBlobProvider>();
         }
 
         [TestInitialize]
