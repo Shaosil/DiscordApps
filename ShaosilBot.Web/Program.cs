@@ -50,8 +50,8 @@ app.UseHttpLogging(); // Enable for detailed HTTP logging at a slight performanc
 app.MapControllers();
 
 // Init the websocket and rest clients
-app.Services.GetService<IDiscordSocketClientProvider>()!.Init();
 app.Services.GetService<IDiscordRestClientProvider>()!.Init();
-await app.Services.GetService<ISlashCommandProvider>()!.BuildGuildCommands();
+app.Services.GetService<IDiscordSocketClientProvider>()!.Init();
+app.Services.GetService<IDiscordSocketClientProvider>()!.Client.Ready += async () => await app.Services.GetService<ISlashCommandProvider>()!.BuildGuildCommands();
 
 app.Run();

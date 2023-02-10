@@ -18,41 +18,42 @@ namespace ShaosilBot.Core.SlashCommands
 
         public override string HelpSummary => "Displays a random (or specified) comic from XKCD.";
 
-        public override string HelpDetails => @$"/{CommandName} [latest] | [int comic]
-
-Passing no arguments will pull a random comic.
+        public override string HelpDetails => @$"/{CommandName} [latest] | [random] | [int comic]
 
 SUBCOMMANDS
 * latest
-    Shorthand for pulling the latest comic (as opposed to /{CommandName} comic num 0)
+    Pulls the most recent comic.
+
+* random
+    Pulls a completely random comic from the first to last ever written.
 
 * comic (int num)
-    Pass a specific index of the comic you want to see. 0 = current, 1 = first, and so on.";
+    Pass a specific 1 based index of the comic you want to see. 1 = first, and so on.";
 
         public override SlashCommandProperties BuildCommand()
-        {
+		{
             return new SlashCommandBuilder
             {
-                Description = "Get a random XKCD comic, or optionally a specific one!",
+                Description = "Get the latest XKCD comic, or optionally a specific or random one!",
                 Options = new[]
-                {
-                    new SlashCommandOptionBuilder { Name = "latest", Type = ApplicationCommandOptionType.SubCommand, Description = $"Pulls the latest comic (equivalent to /{CommandName} comic num 0)" },
-                    new SlashCommandOptionBuilder
+				{
+					new SlashCommandOptionBuilder { Name = "latest", Type = ApplicationCommandOptionType.SubCommand, Description = $"Pulls the latest and greatest comic." },
+					new SlashCommandOptionBuilder { Name = "random", Type = ApplicationCommandOptionType.SubCommand, Description = $"Pulls a random comic. May the odds be ever in your favor." },
+					new SlashCommandOptionBuilder
                     {
                         Name = "comic", Type = ApplicationCommandOptionType.SubCommand, Description = "Get a specific comic",
                         Options = new[]
                         {
                             new SlashCommandOptionBuilder
                             {
-                                IsRequired = true,
                                 Name = "num",
                                 Type = ApplicationCommandOptionType.Integer,
                                 MinValue = 0,
-                                Description = "The number of the comic to pull. 0 for current. Omit for random."
+                                Description = "The 1 based index number of the comic to pull"
                             }
                         }.ToList()
-                    }
-                }.ToList()
+                    },
+				}.ToList()
             }.Build();
         }
 
@@ -82,8 +83,9 @@ SUBCOMMANDS
 				try
 				{
 					var latest = command.Data.Options.FirstOrDefault(o => o.Name == "latest");
-					var comicNum = command.Data.Options.FirstOrDefault(o => o.Name == "comic-num");
-					int requestedNum = latest != null ? 0 : comicNum == null ? Random.Shared.Next(1, data.num + 1) : int.Parse(comicNum.Value.ToString()); // Null = get random
+					var random = command.Data.Options.FirstOrDefault(o => o.Name == "random");
+					var comicNum = command.Data.Options.FirstOrDefault(o => o.Name == "comic")?.Options.FirstOrDefault(o => o.Name == "num");
+					int requestedNum = latest != null ? 0 : random != null ? Random.Shared.Next(1, data.num + 1) : int.Parse(comicNum.Value.ToString()); // Null = get random
 					string description;
 
 					if (requestedNum > 0)
@@ -92,11 +94,9 @@ SUBCOMMANDS
 						response = await _client.GetAsync($"https://xkcd.com/{requestedNum}/info.0.json");
 						if (!response.IsSuccessStatusCode) throw new Exception();
 						data = JsonSerializer.Deserialize<Xkcd>(await response.Content.ReadAsStringAsync());
-
-						description = $"{command.User.Mention} used {(comicNum == null ? "random" : $"#{requestedNum}")}! It's super effective!";
 					}
-					else
-						description = $"{command.User.Mention} used current! It's super effective!";
+
+					description = $"{command.User.Mention} used {(latest != null ? "latest" : random != null ? "random" : $"#{requestedNum}")}! It's super effective!";
 
 					// Now call the image link and return the stream as a followup file
 					response = await _client.GetAsync(data.img);
