@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Moq;
-using ShaosilBot.Interfaces;
-using ShaosilBot.Models;
+using ShaosilBot.Core.Interfaces;
+using ShaosilBot.Core.Models;
 using System.Text.Json;
 
 namespace ShaosilBot.Tests
@@ -18,7 +18,7 @@ namespace ShaosilBot.Tests
 
 	public static class Helpers
 	{
-		public static List<SimpleDiscordUser> GenerateSimpleDiscordUsers(Mock<IDataBlobProvider> dataBlobProvider, Mock<IGuild> guild, string fileName, ChannelPermissions permissions)
+		public static List<SimpleDiscordUser> GenerateSimpleDiscordUsers(Mock<IFileAccessHelper> fileAccessHelper, Mock<IGuild> guild, string fileName, ChannelPermissions permissions)
 		{
 			// Generate 5-10 guild users with random IDs
 			var guildUsers = new List<IGuildUser>(Random.Shared.Next(5, 11));
@@ -40,7 +40,7 @@ namespace ShaosilBot.Tests
 
 			// Make sure both the guild and blob file return the new users when asked
 			guild.Setup(m => m.GetUsersAsync(It.IsAny<CacheMode>(), It.IsAny<RequestOptions>())).ReturnsAsync(guildUsers);
-			dataBlobProvider.Setup(m => m.GetBlobTextAsync(fileName, It.IsAny<bool>())).ReturnsAsync(JsonSerializer.Serialize(simpleDiscordUsers));
+			fileAccessHelper.Setup(m => m.GetFileText(fileName, It.IsAny<bool>())).Returns(JsonSerializer.Serialize(simpleDiscordUsers));
 
 			return simpleDiscordUsers;
 		}

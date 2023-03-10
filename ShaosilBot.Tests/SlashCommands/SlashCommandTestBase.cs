@@ -5,39 +5,38 @@ using Moq;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Endpoints;
-using ShaosilBot.Tests.Models;
 
 namespace ShaosilBot.Tests.SlashCommands
 {
 	[TestClass]
-    public abstract class SlashCommandTestBase<T> : InteractionsTestsBase where T : BaseCommand
-    {
+	public abstract class SlashCommandTestBase<T> : InteractionsTestsBase where T : BaseCommand
+	{
 		private List<IApplicationCommandInteractionDataOption> _optionsMocks;
 
-        protected T SlashCommandSUT { get; private set; }
+		protected T SlashCommandSUT { get; private set; }
 		protected Mock<IGuildUser> UserMock { get; private set; }
 		protected Mock<IGuild> GuildMock { get; private set; }
 		protected Mock<IRestMessageChannel> ChannelMock { get; private set; }
 		protected string FollowupResponseCapture { get; private set; }
 
-        protected static Mock<ILogger<T>> CommandLoggerMock { get; private set;}
+		protected static Mock<ILogger<T>> CommandLoggerMock { get; private set; }
 		protected static Mock<IHttpUtilities> HttpUtilitiesMock { get; private set; }
-        protected static Mock<IFileAccessHelper> FileAccessProviderMock { get; private set; }
+		protected static Mock<IFileAccessHelper> FileAccessProviderMock { get; private set; }
 
-        [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
-        public static new void ClassInitialize(TestContext context)
-        {
-            CommandLoggerMock = new Mock<ILogger<T>>();
+		[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
+		public static new void ClassInitialize(TestContext context)
+		{
+			CommandLoggerMock = new Mock<ILogger<T>>();
 			HttpUtilitiesMock = new Mock<IHttpUtilities>();
-            FileAccessProviderMock = new Mock<IDataBlobProvider>();
-        }
+			FileAccessProviderMock = new Mock<IFileAccessHelper>();
+		}
 
-        [TestInitialize]
-        public override void TestInitialize()
-        {
-            base.TestInitialize();
+		[TestInitialize]
+		public override void TestInitialize()
+		{
+			base.TestInitialize();
 
-            SlashCommandSUT = GetInstance();
+			SlashCommandSUT = GetInstance();
 			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(SlashCommandSUT.CommandName)).Returns(SlashCommandSUT);
 
 			string testUserName = "UnitTester";
@@ -84,20 +83,6 @@ namespace ShaosilBot.Tests.SlashCommands
 
 		protected void ClearOptions() => _optionsMocks?.Clear();
 
-        protected abstract T GetInstance();
-
-        [TestMethod]
-        public async Task InteractionParses()
-        {
-            // Arrange
-            var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-            var request = CreateInteractionRequest(interaction);
-
-			// Act - ignore exceptions, we don't care if the handling actually worked
-			await SafelyRunInteractions(request);
-
-			// Assert - Ensure it was parsed as a slash command
-			SlashCommandProviderMock.Verify(m => m.GetSlashCommandHandler(SlashCommandSUT.CommandName), Times.Once);
-        }
-    }
+		protected abstract T GetInstance();
+	}
 }

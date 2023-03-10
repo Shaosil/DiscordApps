@@ -7,8 +7,8 @@ using System.Net.Mime;
 namespace ShaosilBot.Web.Controllers
 {
 	public class InteractionsController : Controller
-    {
-        private readonly ILogger<InteractionsController> _logger;
+	{
+		private readonly ILogger<InteractionsController> _logger;
 		private readonly IConfiguration _configuration;
 		private readonly ISlashCommandProvider _slashCommandProvider;
 		private readonly SlashCommandWrapper _slashCommandWrapper;
@@ -28,18 +28,18 @@ namespace ShaosilBot.Web.Controllers
 		}
 
 		[HttpPost("/interactions")]
-        public async Task<IActionResult> Interactions()
+		public async Task<IActionResult> Interactions()
 		{
 			// Get signature headers and body, client will handle the rest
 			Request.Headers.TryGetValue("X-Signature-Ed25519", out var signature);
 			Request.Headers.TryGetValue("X-Signature-Timestamp", out var timestamp);
 			string body = await new StreamReader(Request.Body).ReadToEndAsync();
 
-			RestInteraction interaction = null;
+			RestInteraction interaction;
 			Response.ContentType = MediaTypeNames.Application.Json;
 			try
 			{
-				interaction = await _restClientProvider.ParseHttpInteractionAsync(_configuration["PublicKey"], signature, timestamp, body);
+				interaction = await _restClientProvider.ParseHttpInteractionAsync(_configuration["PublicKey"]!, signature!, timestamp!, body);
 			}
 			catch (Exception ex) when (ex is BadSignatureException || ex is ArgumentException)
 			{
@@ -67,5 +67,5 @@ namespace ShaosilBot.Web.Controllers
 					return NotFound();
 			}
 		}
-    }
+	}
 }

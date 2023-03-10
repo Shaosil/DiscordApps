@@ -1,27 +1,27 @@
-using ShaosilBot.SlashCommands;
+using Microsoft.AspNetCore.Mvc;
+using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Models;
 
 namespace ShaosilBot.Tests.SlashCommands
 {
 	[TestClass]
-    public class TestCommandTests : SlashCommandTestBase<TestCommand>
-    {
-        protected override TestCommand GetInstance() => new TestCommand(CommandLoggerMock.Object);
+	public class TestCommandTests : SlashCommandTestBase<TestCommand>
+	{
+		protected override TestCommand GetInstance() => new TestCommand(CommandLoggerMock.Object);
 
 		[TestMethod]
 		public async Task ReturnsSuccess()
 		{
 			// Arrange
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 
 			// Act
-			var response = await RunInteractions(request);
+			var response = await RunInteractions(interaction) as ContentResult;
 
 			// Assert
-			var responseObj = DeserializeResponse(response);
+			var responseObj = DeserializeResponse(response!.Content);
 			Assert.IsNotNull(responseObj?.data);
-			Assert.AreEqual("Test command successful", responseObj.data.content);
+			Assert.AreEqual("Test command successful", responseObj!.data.content);
 		}
-    }
+	}
 }

@@ -1,12 +1,13 @@
+using Microsoft.AspNetCore.Mvc;
 using Moq;
-using ShaosilBot.SlashCommands;
+using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Models;
 
 namespace ShaosilBot.Tests.SlashCommands
 {
 	[TestClass]
-    public class CatFactsCommandTests : SlashCommandTestBase<CatFactsCommand>
-    {
+	public class CatFactsCommandTests : SlashCommandTestBase<CatFactsCommand>
+	{
 		protected override CatFactsCommand GetInstance() => new CatFactsCommand(CommandLoggerMock.Object, FileAccessProviderMock.Object);
 
 		[TestMethod]
@@ -16,17 +17,16 @@ namespace ShaosilBot.Tests.SlashCommands
 			var fakeFacts = new List<string>();
 			for (int i = 0; i < 100; i++) fakeFacts.Add(Guid.NewGuid().ToString());
 			var serializedFacts = string.Join(Environment.NewLine, fakeFacts);
-			FileAccessProviderMock.Setup(m => m.GetBlobTextAsync("CatFacts.txt", It.IsAny<bool>())).ReturnsAsync(serializedFacts);
+			FileAccessProviderMock.Setup(m => m.GetFileText("CatFacts.txt", It.IsAny<bool>())).Returns(serializedFacts);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 
 			// Act
-			var response = await RunInteractions(request);
+			var response = await RunInteractions(interaction) as ContentResult;
 
 			// Assert
-			var responseObj = DeserializeResponse(response);
+			var responseObj = DeserializeResponse(response!.Content);
 			Assert.IsNotNull(responseObj?.data);
-			Assert.IsTrue(fakeFacts.Contains(responseObj.data.content));
+			Assert.IsTrue(fakeFacts.Contains(responseObj!.data.content));
 		}
-    }
+	}
 }

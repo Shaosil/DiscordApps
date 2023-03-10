@@ -1,4 +1,7 @@
 using Discord.Rest;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NSec.Cryptography;
@@ -12,91 +15,74 @@ using System.Text.Json;
 namespace ShaosilBot.Tests.Endpoints
 {
 	[TestClass]
-    public abstract class InteractionsTestsBase
-    {
+	public abstract class InteractionsTestsBase
+	{
 		private InteractionsController _interactionsSUT;
-        protected Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
-        protected Mock<SlashCommandWrapper> SlashCommandWrapperMock { get; private set; }
+		protected Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
+		protected Mock<SlashCommandWrapper> SlashCommandWrapperMock { get; private set; }
 
-        private static Mock<ILogger<InteractionsController>> _logger;
-        private static Mock<IDiscordSocketClientProvider> _socketClientProviderMock;
-        private static Mock<IDiscordRestClientProvider> _restClientProviderMock;
+		protected static IConfiguration Configuration;
+		private static Mock<IDiscordSocketClientProvider> _socketClientProviderMock;
+		private static Mock<IDiscordRestClientProvider> _restClientProviderMock;
 
-        [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
-        public static void ClassInitialize(TestContext context)
-        {
-            _logger = new Mock<ILogger<InteractionsController>>();
-            _socketClientProviderMock = new Mock<IDiscordSocketClientProvider>();
-            _restClientProviderMock = new Mock<IDiscordRestClientProvider>();
+		[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
+		public static void ClassInitialize(TestContext context)
+		{
+			Configuration = new ConfigurationBuilder().AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json")).Build();
+			_socketClientProviderMock = new Mock<IDiscordSocketClientProvider>();
+			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();
 
-            // Bypass our rest interaction client wrapper by calling Discord.Net's client parse
-            var client = new DiscordRestClient(new DiscordRestConfig { UseInteractionSnowflakeDate = false });
-            _restClientProviderMock.Setup(m => m.ParseHttpInteractionAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns((string s1, string s2, string s3, string s4) => client.ParseHttpInteractionAsync(s1, s2, s3, s4));
-        }
+			// Bypass our rest interaction client wrapper by calling Discord.Net's client parse
+			var client = new DiscordRestClient(new DiscordRestConfig { UseInteractionSnowflakeDate = false });
+			_restClientProviderMock.Setup(m => m.ParseHttpInteractionAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+				.Returns((string s1, string s2, string s3, string s4) => client.ParseHttpInteractionAsync(s1, s2, s3, s4));
+		}
 
-        [TestInitialize]
-        public virtual void TestInitialize()
+		[TestInitialize]
+		public virtual void TestInitialize()
 		{
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
 			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>();
-			_interactionsSUT = new InteractionsController(_logger.Object, SlashCommandProviderMock.Object, SlashCommandWrapperMock.Object, _socketClientProviderMock.Object, _restClientProviderMock.Object);
+			_interactionsSUT = new InteractionsController(new Mock<ILogger<InteractionsController>>().Object, Configuration, SlashCommandProviderMock.Object, SlashCommandWrapperMock.Object, _restClientProviderMock.Object);
 		}
 
-		protected string GetResponseBody(HttpResponseData response)
-        {
-            string body = string.Empty;
-            using (response.Body)
-            {
-                response.Body.Seek(0, SeekOrigin.Begin);
-                using (var reader = new StreamReader(response.Body))
-                {
-                    body = reader.ReadToEnd();
-                }
-            }
-
-            return body;
-        }
-
-		protected DiscordInteractionResponse DeserializeResponse(HttpResponseData response)
+		protected DiscordInteractionResponse DeserializeResponse(string? content)
 		{
-			string body = GetResponseBody(response);
-			return JsonSerializer.Deserialize<DiscordInteractionResponse>(body)!;
+			return JsonSerializer.Deserialize<DiscordInteractionResponse>(content ?? string.Empty)!;
 		}
 
-        protected HttpRequestDataBag CreateInteractionRequest(DiscordInteraction interaction)
-        {
-            var bodyStr = interaction.Serialize();
-            var timestampStr = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-            var bodyBytes = Encoding.UTF8.GetBytes(timestampStr + bodyStr);
-
-            // Generate an ED25519 signature using a random key
-            var algorithm = SignatureAlgorithm.Ed25519;
-            var key = Key.Create(algorithm);
-            Environment.SetEnvironmentVariable("PublicKey", Convert.ToHexString(key.PublicKey.Export(KeyBlobFormat.RawPublicKey)).ToLower());
-            var signatureBytes = algorithm.Sign(key, bodyBytes);
-            string signatureStr = Convert.ToHexString(signatureBytes).ToLower();
-
-            // Make sure the correct signature headers are included
-            var headers = new Dictionary<string, string>
-            {
-                { "X-Signature-Ed25519", signatureStr },
-                { "X-Signature-Timestamp", timestampStr }
-            };
-            var req = new HttpRequestDataBag(bodyStr, headers);
-
-            return req;
-        }
-
-		protected async Task<HttpResponseData> RunInteractions(HttpRequestData request)
+		protected async Task<IActionResult> RunInteractions(HttpContext customContext)
 		{
-			return await _interactionsSUT.Run(request);
+			// Arrange - Simply pass the custom context down to the controller
+			_interactionsSUT.ControllerContext.HttpContext = customContext;
+
+			// Act - Call Interactions endpoint
+			return await _interactionsSUT.Interactions();
+
+			// Assert - Should be done by inheriting classes
 		}
 
-		protected async Task SafelyRunInteractions(HttpRequestData request)
+		protected async Task<IActionResult> RunInteractions(DiscordInteraction interaction)
 		{
-			// Run interactions endpoint without caring about a result
-			try { await _interactionsSUT.Run(request); } catch { }
+			// Arrange - Convert the discord interaction into a valid HTTPContext
+			var bodyStr = interaction.Serialize();
+			var timestampStr = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+			var bodyBytes = Encoding.UTF8.GetBytes(timestampStr + bodyStr);
+
+			// Generate an ED25519 signature using a random key
+			var algorithm = SignatureAlgorithm.Ed25519;
+			var key = Key.Create(algorithm);
+			Configuration["PublicKey"] = Convert.ToHexString(key.PublicKey.Export(KeyBlobFormat.RawPublicKey)).ToLower();
+			var signatureBytes = algorithm.Sign(key, bodyBytes);
+			string signatureStr = Convert.ToHexString(signatureBytes).ToLower();
+
+			var context = new DefaultHttpContext();
+			context.Request.Method = HttpMethods.Post;
+			context.Request.Headers.Add("X-Signature-Ed25519", signatureStr);
+			context.Request.Headers.Add("X-Signature-Timestamp", timestampStr);
+			context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(bodyStr));
+
+			return await RunInteractions(context);
 		}
 	}
 }

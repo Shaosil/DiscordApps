@@ -1,15 +1,16 @@
 using Discord;
+using Microsoft.AspNetCore.Mvc;
 using Moq;
-using ShaosilBot.Models;
-using ShaosilBot.SlashCommands;
+using ShaosilBot.Core.Models;
+using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Models;
 using System.Text.Json;
 
 namespace ShaosilBot.Tests.SlashCommands
 {
 	[TestClass]
-    public class GitBlameCommandTests : SlashCommandTestBase<GitBlameCommand>
-    {
+	public class GitBlameCommandTests : SlashCommandTestBase<GitBlameCommand>
+	{
 		private static List<SimpleDiscordUser> _blameables = new List<SimpleDiscordUser>();
 		private List<string> _preppedResponses = new List<string>();
 
@@ -21,7 +22,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Init blameables and return them serialized when asked
 			for (int i = 0; i < 10; i++)
 				_blameables.Add(new SimpleDiscordUser { ID = Random.Shared.NextULong(), FriendlyName = $"Friendly name {i + 1}" });
-			FileAccessProviderMock.Setup(m => m.GetBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<bool>())).ReturnsAsync(JsonSerializer.Serialize(_blameables));
+			FileAccessProviderMock.Setup(m => m.GetFileText(GitBlameCommand.BlameablesFilename, It.IsAny<bool>())).Returns(JsonSerializer.Serialize(_blameables));
 		}
 
 		[TestInitialize]
@@ -36,7 +37,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Fake response texts
 			_preppedResponses = new List<string>();
 			for (int i = 0; i < 10; i++) _preppedResponses.Add($"{{USER}} BLAME RESPONSE {i + 1}");
-			FileAccessProviderMock.Setup(m => m.GetBlobTextAsync(GitBlameCommand.ResponsesFilename, It.IsAny<bool>())).ReturnsAsync(string.Join(Environment.NewLine, _preppedResponses));
+			FileAccessProviderMock.Setup(m => m.GetFileText(GitBlameCommand.ResponsesFilename, It.IsAny<bool>())).Returns(string.Join(Environment.NewLine, _preppedResponses));
 		}
 
 		[TestMethod]
@@ -44,11 +45,10 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Build command with no options
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 
 			// Act
-			await RunInteractions(request);
+			await RunInteractions(interaction);
 
 			// Assert - A prepared user and response should both be contained in the captured followup response
 			Assert.IsTrue(preppedUsers.Any(u => FollowupResponseCapture.Contains(u.FriendlyName)));
@@ -60,11 +60,10 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Build command with no options and ensure users have no permissions
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 
 			// Act
-			await RunInteractions(request);
+			await RunInteractions(interaction);
 
 			// Assert - Response should still contain a message but NOT contain a user or response
 			Assert.IsFalse(string.IsNullOrEmpty(FollowupResponseCapture));
@@ -77,12 +76,11 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Build command with no options and ensure HTTP call throws exception
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 			HttpUtilitiesMock.Setup(m => m.GetRandomGitBlameImage()).Throws(new Exception());
 			Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 
 			// Act
-			await RunInteractions(request);
+			await RunInteractions(interaction);
 
 			// Assert - Response should contain a message anyway
 			Assert.IsFalse(string.IsNullOrWhiteSpace(FollowupResponseCapture));
@@ -97,10 +95,9 @@ namespace ShaosilBot.Tests.SlashCommands
 			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser.ID).Result;
 			AddOption("target-user", targetUser);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 
 			// Act
-			await RunInteractions(request);
+			await RunInteractions(interaction);
 
 			// Assert - Ensure response contains target user, a random response "image", and the word "Targeted"
 			Assert.IsTrue(FollowupResponseCapture.Contains(targetUser.Mention));
@@ -117,10 +114,9 @@ namespace ShaosilBot.Tests.SlashCommands
 			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser.ID).Result;
 			AddOption("target-user", targetUser);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 
 			// Act
-			await RunInteractions(request);
+			await RunInteractions(interaction);
 
 			// Assert - Response should still contain a message with the target user but NOT contain a response URL
 			Assert.IsFalse(string.IsNullOrEmpty(FollowupResponseCapture));
@@ -135,10 +131,9 @@ namespace ShaosilBot.Tests.SlashCommands
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			AddOption("target-user", UserMock.Object);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 
 			// Act
-			await RunInteractions(request);
+			await RunInteractions(interaction);
 
 			// Assert - Response should still contain a message with the target user but NOT contain a response URL or any other user
 			Assert.IsFalse(string.IsNullOrEmpty(FollowupResponseCapture));
@@ -153,14 +148,13 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Arrange - Pass the functions option
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 			AddOption("functions", 1);
 
 			// Act
-			var response = await RunInteractions(request);
+			var response = await RunInteractions(interaction) as ContentResult;
 
 			// Assert - All blameables are contained in the response and there is no followup message
-			var responseObj = DeserializeResponse(response);
+			var responseObj = DeserializeResponse(response!.Content);
 			Assert.IsTrue(preppedUsers.All(u => responseObj.data.content.Contains(u.FriendlyName)));
 			Assert.IsTrue(string.IsNullOrEmpty(FollowupResponseCapture));
 		}
@@ -171,15 +165,14 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Arrange - Prepare blameables and pass functions option, and capture calls to SaveBlob
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var request = CreateInteractionRequest(interaction);
 			var savedBlobs = new List<string>();
-			FileAccessProviderMock.Setup(m => m.SaveBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()))
+			FileAccessProviderMock.Setup(m => m.SaveFileText(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()))
 				.Callback<string, string, bool>((file, content, lease) => savedBlobs.Add(content));
 
 			// Act 1 - Toggle add for ourselves
 			AddOption("functions", 0);
 			AddOption("target-user", UserMock.Object);
-			var addResponse = await RunInteractions(request);
+			var addResponse = await RunInteractions(interaction) as ContentResult;
 
 			// Act 2 - Toggle remove for an existing user as an admin
 			UserMock.Setup(m => m.GuildPermissions).Returns(GuildPermissions.All);
@@ -188,13 +181,12 @@ namespace ShaosilBot.Tests.SlashCommands
 			ClearOptions();
 			AddOption("functions", 0);
 			AddOption("target-user", targetUser);
-			request.Body.Position = 0;
-			var removeResponse = await RunInteractions(request);
+			var removeResponse = await RunInteractions(interaction) as ContentResult;
 
 			// Assert - Verify the blob provider was called with the expected arguments, the word "success" exists, and there is no followup message.
-			var addResponseObj = DeserializeResponse(addResponse);
-			var removeResponseObj = DeserializeResponse(removeResponse);
-			FileAccessProviderMock.Verify(m => m.SaveBlobTextAsync(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()), Times.Exactly(2));
+			var addResponseObj = DeserializeResponse(addResponse!.Content);
+			var removeResponseObj = DeserializeResponse(removeResponse!.Content);
+			FileAccessProviderMock.Verify(m => m.SaveFileText(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()), Times.Exactly(2));
 			Assert.AreEqual(2, savedBlobs.Count);
 			Assert.IsTrue(savedBlobs[0].Contains(UserMock.Object.Id.ToString()));
 			Assert.IsFalse(savedBlobs[1].Contains(targetUser.Id.ToString()));
