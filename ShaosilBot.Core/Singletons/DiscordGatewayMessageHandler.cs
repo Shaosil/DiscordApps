@@ -34,7 +34,7 @@ namespace ShaosilBot.Core.Singletons
 			if (message.Channel.Id == 971047774311288983 && message.Author.Id != ourself)
 			{
 				// If it's a ping, remind users to use !q
-				if (message.Content.Trim().ToLower().StartsWith("!c"))
+				if (message.Content.Trim().ToLower().StartsWith("!c "))
 				{
 					new Task(() => _chatGPTProvider.HandleChatRequest(message), TaskCreationOptions.LongRunning).Start();
 				}

@@ -35,7 +35,7 @@ namespace ShaosilBot.Core.Providers
 						Messages = new List<ChatMessage>
 						{
 							ChatMessage.FromSystem(_configuration.GetValue<string>("ChatGPTSystemMessage")!),
-							ChatMessage.FromUser($"Message from {message.Author.Mention} ({message.Author.Username}):\n\n{message.Content.Trim().Skip(2)}")
+							ChatMessage.FromUser($"Message from {message.Author.Mention} ({message.Author.Username}):\n\n{message.Content.Trim().Substring(3)}")
 						}
 					});
 
