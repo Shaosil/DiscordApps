@@ -1,6 +1,7 @@
 using Discord;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.HttpLogging;
+using OpenAI.GPT3.Extensions;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
 using ShaosilBot.Core.Singletons;
@@ -9,7 +10,6 @@ using ShaosilBot.Core.Utilities;
 using ShaosilBot.Web.CustomAuth;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Configuration.AddEnvironmentVariables();
 builder.WebHost.UseIIS();
 
 // Add services to the container.
@@ -20,11 +20,12 @@ builder.Services.AddHttpClient();
 // Singletons
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IFileAccessHelper, FileAccessHelper>();
-builder.Services.AddSingleton((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessageReactions });
+builder.Services.AddSingleton((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessageReactions | GatewayIntents.GuildMessages | GatewayIntents.MessageContent });
 builder.Services.AddSingleton<IDiscordGatewayMessageHandler, DiscordGatewayMessageHandler>();
 builder.Services.AddSingleton<IDiscordSocketClientProvider, DiscordSocketClientProvider>();
 builder.Services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvider>();
 builder.Services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
+builder.Services.AddSingleton<IChatGPTProvider, ChatGPTProvider>();
 
 // Add scoped services, including all derivitives of BaseCommand
 builder.Services.AddScoped<IHttpUtilities, HttpUtilities>();
@@ -36,6 +37,13 @@ foreach (var commandType in derivedCommandTypes)
 	builder.Services.AddScoped(commandType);
 }
 
+builder.Services.AddOpenAIService(a =>
+{
+	a.ApiKey = builder.Configuration["OpenAIAPIKey"]!.ToString();
+	a.Organization = builder.Configuration["OpenAIOrganization"]!.ToString();
+	a.DefaultModelId = "gpt-3.5-turbo";
+});
+
 builder.Services.AddHttpLogging(logging =>
 {
 	logging.LoggingFields = HttpLoggingFields.All;
@@ -46,7 +54,7 @@ builder.Services.AddHttpLogging(logging =>
 // Build and configure
 var app = builder.Build();
 app.UseHttpLogging(); // Enable for detailed HTTP logging at a slight performance cost
-
+app.UseDefaultFiles().UseStaticFiles();
 app.MapControllers();
 
 // Init the websocket and rest clients

@@ -16,16 +16,33 @@ namespace ShaosilBot.Core.Singletons
 
 		private readonly ILogger<IDiscordGatewayMessageHandler> _logger;
 		private readonly IFileAccessHelper _fileAccessHelper;
+		private readonly IChatGPTProvider _chatGPTProvider;
 
-		public DiscordGatewayMessageHandler(ILogger<IDiscordGatewayMessageHandler> logger, IFileAccessHelper fileAccessHelper)
+		public DiscordGatewayMessageHandler(ILogger<IDiscordGatewayMessageHandler> logger,
+			IFileAccessHelper fileAccessHelper,
+			IChatGPTProvider chatGPTProvider)
 		{
-			_logger= logger;
+			_logger = logger;
 			_fileAccessHelper = fileAccessHelper;
+			_chatGPTProvider = chatGPTProvider;
 		}
 
 		public async Task MessageReceived(SocketMessage message)
 		{
-			await Task.Delay(0);
+			// If not debugging, in bot channel, and not ourself, do chat stuff on a separate thread
+			ulong ourself = 971049069986316338;
+			if (message.Channel.Id == 971047774311288983 && message.Author.Id != ourself)
+			{
+				// If it's a ping, remind users to use !q
+				if (message.Content.Trim().ToLower().StartsWith("!c"))
+				{
+					new Task(() => _chatGPTProvider.HandleChatRequest(message), TaskCreationOptions.LongRunning).Start();
+				}
+				else if (message.MentionedUsers.Any(u => u.Id == ourself))
+				{
+					await message.Channel.SendMessageAsync("Hey there! If you want to chat with me, just start your message with `!c` and chat away! No need to tag me.");
+				}
+			}
 		}
 
 		public async Task ReactionAdded(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
@@ -94,7 +111,7 @@ namespace ShaosilBot.Core.Singletons
 				else if (visibility.Mappings.Any(m => m.Emoji == emote))
 				{
 					var affectedChannels = visibility.Mappings.First(m => m.Emoji == emote)?.Channels.ToList();
-					
+
 					foreach (var affectedChannel in affectedChannels)
 					{
 						var targetChannel = allChannels.First(gc => gc.Id == affectedChannel);
