@@ -18,7 +18,7 @@ First of all, I assume you plan on using this code for your own bot, because run
 	<li>I <i>think</i> Discord requires https for the endpoint, so you'll also need to go ahead and generate a certificate. I won't go into the details for that, but I used <a href="https://www.win-acme.com/">win-acme</a> as my one-stop-shop for generating, binding to IIS, and auto renewing. And don't forget to configure IIS's SSL, HTTPS, and HSTS settings!</li>
 	<li>Set up your own <a href="https://discord.com/developers/docs/getting-started#creating-an-app">Discord application/bot.</a> Don't follow the instructions they provide for setting up your project with Glitch and the JS libraries. We'll get to hosting down below.</li>
 	<li>Depending on what your bot will do and what permissions you gave it, you may need to enable some priviledged gateway intents on the bot page.</li>
-	<li>Add a new JSON file underneath the ShaosilBot project, and call it <b>local.settings.json</b>.<img src="https://user-images.githubusercontent.com/12295139/169375709-24d3181d-d002-4f23-9ae9-0c9998e3fd58.png"></img></li>
+	<li>Add a new JSON file underneath the ShaosilBot.Web project, and call it <b>appsettings.json</b>.<img src="https://user-images.githubusercontent.com/12295139/225418523-29958b64-43cd-49fe-87b8-3035f25b070a.png"></img></li>
 	<li>You will need to add the following keys and values to said file:</li>
 	
 ```json
