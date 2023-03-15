@@ -146,7 +146,7 @@ The last thing you need to have setup are having certain files in place in the l
 
 <h2>Conclusion</h2>
 
-Now in theory you should be able run it, and the bot would even show as online and have registered slash commands on your server(s). However, those slash commands punch out to your bot's Interactions Endpoint URL. If you haven't yet, go ahead and set your bot's URL to https://<Your-URL>/interactions.
+Now in theory you should be able run it, and the bot would even show as online and have registered slash commands on your server(s). However, those slash commands punch out to your bot's Interactions Endpoint URL. If you haven't yet, go ahead and set your bot's URL to https://(Your-URL)/interactions.
 
 When you click "Save Changes", Discord sends two challenge requests to the URL you specified. As long as the application is running and you've set everything up correctly, the application should verify the signatures and respond accordingly. Once it does, Discord will give you a success message on the webpage. If something failed, check the application's logs in the debug command window and see what went wrong.
 
