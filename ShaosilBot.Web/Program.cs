@@ -2,6 +2,7 @@ using Discord;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.HttpLogging;
 using OpenAI.GPT3.Extensions;
+using Serilog;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
 using ShaosilBot.Core.Singletons;
@@ -51,10 +52,21 @@ builder.Services.AddHttpLogging(logging =>
 	logging.ResponseBodyLogLimit = 4096;
 });
 
+// Logging
+Log.Logger = new LoggerConfiguration()
+	.MinimumLevel.Information()
+	.WriteTo.Console()
+	.WriteTo.File("../Logs/Applog-.txt", rollingInterval: RollingInterval.Day)
+	.CreateLogger();
+builder.Host.UseSerilog();
+
 // Build and configure
 var app = builder.Build();
 app.UseHttpLogging(); // Enable for detailed HTTP logging at a slight performance cost
-app.UseDefaultFiles().UseStaticFiles();
+if (!app.Environment.IsDevelopment())
+{
+	app.UseHsts().UseHttpsRedirection();
+}
 app.MapControllers();
 
 // Init the websocket and rest clients

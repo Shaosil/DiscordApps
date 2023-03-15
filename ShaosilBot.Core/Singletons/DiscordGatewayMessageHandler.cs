@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace ShaosilBot.Core.Singletons
 {
@@ -31,14 +32,15 @@ namespace ShaosilBot.Core.Singletons
 		{
 			// If not debugging, in bot channel, and not ourself, do chat stuff on a separate thread
 			ulong ourself = 971049069986316338;
-			if (message.Channel.Id == 971047774311288983 && message.Author.Id != ourself)
+			var mentionedSelf = message.MentionedUsers.FirstOrDefault(m => m.Id == ourself);
+			if (message.Channel.Id == 1085277525283975318 && message.Author.Id != ourself)
 			{
-				// If it's a ping, remind users to use !q
-				if (message.Content.Trim().ToLower().StartsWith("!c "))
+				if (Regex.IsMatch(message.Content.Trim(), "^[\\.!]c ", RegexOptions.IgnoreCase))
 				{
 					new Task(() => _chatGPTProvider.HandleChatRequest(message), TaskCreationOptions.LongRunning).Start();
 				}
-				else if (message.MentionedUsers.Any(u => u.Id == ourself))
+				// If it starts with a ping that isn't a reply, remind users to use the proper prefix
+				else if (mentionedSelf != null && message.Content.TrimStart().StartsWith(mentionedSelf.Mention) && message.Reference == null)
 				{
 					await message.Channel.SendMessageAsync("Hey there! If you want to chat with me, just start your message with `!c` and chat away! No need to tag me.");
 				}

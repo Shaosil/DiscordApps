@@ -29,7 +29,7 @@ namespace ShaosilBot.Core.Singletons
 		{
 			// Initialize bot and login
 			Client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
-			Client.Ready += async () => await Client.SetGameAsync("/help");
+			Client.Ready += async () => await Client.SetGameAsync("/help for info, !c to chat");
 			Client.MessageReceived += _messageHandler.MessageReceived;
 			Client.ReactionAdded += _messageHandler.ReactionAdded;
 			Client.ReactionRemoved += _messageHandler.ReactionRemoved;
