@@ -65,11 +65,12 @@ namespace ShaosilBot.Core.Providers
 				if (response.Usage?.CompletionTokens == messageTokenLimit) content += "...\n\n[Message token limit reached]";
 				if ((content?.Length ?? 0) > 1997) content = $"{content!.Substring(0, 1997)}..."; // Discord limits responses to 2000 characters. In theory our token limit should prevent this
 
-				// Handle error or empty responses and send the response
-				if (!string.IsNullOrWhiteSpace(response.Error?.Message)) await message.Channel.SendMessageAsync($"Error from Chat API: {response.Error.Message}. Please try again later.", messageReference: reference);
-				else if (responseMessage == null) await message.Channel.SendMessageAsync("Error: No message content received from Chat API.", messageReference: reference);
-				else if (string.IsNullOrWhiteSpace(content)) await message.Channel.SendMessageAsync("[Empty response message received]", messageReference: reference);
-				else await message.Channel.SendMessageAsync(content, messageReference: reference);
+				// Handle error or empty responses and send the response, suprressing embeds
+				var sendMsg = async (string msg) => await message.Channel.SendMessageAsync(msg, messageReference: reference, flags: MessageFlags.SuppressEmbeds);
+				if (!string.IsNullOrWhiteSpace(response.Error?.Message)) await sendMsg($"Error from Chat API: {response.Error.Message}. Please try again later.");
+				else if (responseMessage == null) await sendMsg("Error: No message content received from Chat API.");
+				else if (string.IsNullOrWhiteSpace(content)) await sendMsg("[Empty response message received]");
+				else await sendMsg(content);
 			}
 			catch (Exception ex)
 			{

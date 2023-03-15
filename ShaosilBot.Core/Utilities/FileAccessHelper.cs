@@ -1,11 +1,17 @@
-﻿using ShaosilBot.Core.Interfaces;
+﻿using Microsoft.Extensions.Configuration;
+using ShaosilBot.Core.Interfaces;
 
 namespace ShaosilBot.Core.Utilities
 {
 	public class FileAccessHelper : IFileAccessHelper
-    {
-		private const string BasePath = @"C:\inetpub\ShaosilBot\Files";
+	{
+		private string _basePath;
 		private HashSet<string> _fileLocks = new HashSet<string>();
+
+		public FileAccessHelper(IConfiguration configuration)
+		{
+			_basePath = configuration.GetValue<string>("FilesBasePath");
+		}
 
 		public string GetFileText(string filename, bool aquireLease = false)
 		{
@@ -24,7 +30,7 @@ namespace ShaosilBot.Core.Utilities
 			}
 
 			// Read text from filesystem
-			return File.ReadAllText(Path.Combine(BasePath, filename));
+			return File.ReadAllText(Path.Combine(_basePath, filename));
 		}
 
 		public void ReleaseFileLease(string filename)
@@ -38,7 +44,7 @@ namespace ShaosilBot.Core.Utilities
 		public void SaveFileText(string filename, string content, bool releaseLease = true)
 		{
 			// Save file to filesystem
-			File.WriteAllText(Path.Combine(BasePath, filename), content);
+			File.WriteAllText(Path.Combine(_basePath, filename), content);
 
 			// Release lease if any exists by default
 			if (releaseLease)
