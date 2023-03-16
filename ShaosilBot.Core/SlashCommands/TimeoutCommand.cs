@@ -11,20 +11,20 @@ using System.Text.Json;
 namespace ShaosilBot.Core.SlashCommands
 {
 	public class TimeoutCommand : BaseCommand
-    {
-        private const string OptOutsFile = "TimeoutOptOuts.json";
-        private readonly IFileAccessHelper _fileAccessHelper;
+	{
+		private const string OptOutsFile = "TimeoutOptOuts.json";
+		private readonly IFileAccessHelper _fileAccessHelper;
 
-        public TimeoutCommand(ILogger<TimeoutCommand> logger, IFileAccessHelper fileAccessHelper) : base(logger)
-        {
-            _fileAccessHelper = fileAccessHelper;
-        }
+		public TimeoutCommand(ILogger<TimeoutCommand> logger, IFileAccessHelper fileAccessHelper) : base(logger)
+		{
+			_fileAccessHelper = fileAccessHelper;
+		}
 
-        public override string CommandName => "timeout-roulette";
+		public override string CommandName => "timeout-roulette";
 
-        public override string HelpSummary => "Has a slight chance of timing out your target for 1-5 minutes. Times YOU out for DOUBLE THAT if it fails.";
+		public override string HelpSummary => "Has a slight chance of timing out your target for 1-5 minutes. Times YOU out for DOUBLE THAT if it fails.";
 
-        public override string HelpDetails => @$"/{CommandName} (string user) [int duration=1] [bool opt-out]
+		public override string HelpDetails => @$"/{CommandName} (string user) [int duration=1] [string reason] [bool opt-out]
 
 Has a (50 - (30 * ((s - 30) / 230)% (where s = seconds) chance of successfully timing out the target user for the specified duration. If the chance fails, you will be timed out for double that time.
 As a result, 30 seconds has a 50% chance of success, 5 minutes only has a 20% chance.
@@ -37,37 +37,41 @@ OPTIONAL ARGS:
 * duration (default = 1 minute)
     How many seconds the target user will be timed out for. Be careful, since you will be timed out for double this length if unsuccessful.
 
+* reason
+	The logic behind why you want to time out the specified user.
+
 * opt-out 
     If specified, will add or remove the target user argument from the opt-out list. Target user must be yourself or a lower ranked user.";
 
-        public override SlashCommandProperties BuildCommand()
-        {
-            return new SlashCommandBuilder
-            {
-                Description = "If you're feeling frisky, try to timeout another user. Has a large chance to time YOU out instead!",
-                Options = new List<SlashCommandOptionBuilder>
-                {
-                    new SlashCommandOptionBuilder { Name = "user", IsRequired = true, Type = ApplicationCommandOptionType.User, Description = "Who are you trying to time out?" },
-                    new SlashCommandOptionBuilder
-                    {
-                        Name = "duration",
-                        Type = ApplicationCommandOptionType.Integer,
-                        Description = "How many minutes to timeout the target user. Will be DOUBLED if it fails back to you!",
-                        Choices = new List<ApplicationCommandOptionChoiceProperties>
-                        {
-                            new ApplicationCommandOptionChoiceProperties { Name = "Random (30-300 seconds)", Value = 0 },
-                            new ApplicationCommandOptionChoiceProperties { Name = "30 seconds", Value = 30 },
-                            new ApplicationCommandOptionChoiceProperties { Name = "1 minute", Value = 60 },
-                            new ApplicationCommandOptionChoiceProperties { Name = "2 minutes", Value = 120 },
-                            new ApplicationCommandOptionChoiceProperties { Name = "3 minutes", Value = 180 },
-                            new ApplicationCommandOptionChoiceProperties { Name = "4 minutes", Value = 240 },
-                            new ApplicationCommandOptionChoiceProperties { Name = "5 minutes", Value = 300 }
-                        }
-                    },
-                    new SlashCommandOptionBuilder { Name = "opt-out", Type = ApplicationCommandOptionType.Boolean, Description = "Toggle the opt-out status of the target user." }
-                }
-            }.Build();
-        }
+		public override SlashCommandProperties BuildCommand()
+		{
+			return new SlashCommandBuilder
+			{
+				Description = "If you're feeling frisky, try to timeout another user. Has a large chance to time YOU out instead!",
+				Options = new List<SlashCommandOptionBuilder>
+				{
+					new SlashCommandOptionBuilder { Name = "user", IsRequired = true, Type = ApplicationCommandOptionType.User, Description = "Who are you trying to time out?" },
+					new SlashCommandOptionBuilder
+					{
+						Name = "duration",
+						Type = ApplicationCommandOptionType.Integer,
+						Description = "How many minutes to timeout the target user. Will be DOUBLED if it fails back to you!",
+						Choices = new List<ApplicationCommandOptionChoiceProperties>
+						{
+							new ApplicationCommandOptionChoiceProperties { Name = "Random (30-300 seconds)", Value = 0 },
+							new ApplicationCommandOptionChoiceProperties { Name = "30 seconds", Value = 30 },
+							new ApplicationCommandOptionChoiceProperties { Name = "1 minute", Value = 60 },
+							new ApplicationCommandOptionChoiceProperties { Name = "2 minutes", Value = 120 },
+							new ApplicationCommandOptionChoiceProperties { Name = "3 minutes", Value = 180 },
+							new ApplicationCommandOptionChoiceProperties { Name = "4 minutes", Value = 240 },
+							new ApplicationCommandOptionChoiceProperties { Name = "5 minutes", Value = 300 }
+						}
+					},
+					new SlashCommandOptionBuilder { Name = "reason", Type = ApplicationCommandOptionType.String, Description = "Provide the reason why you wish to time out the target user." },
+					new SlashCommandOptionBuilder { Name = "opt-out", Type = ApplicationCommandOptionType.Boolean, Description = "Toggle the opt-out status of the target user." }
+				}
+			}.Build();
+		}
 
 		public override async Task<string> HandleCommand(SlashCommandWrapper command)
 		{
@@ -150,19 +154,23 @@ OPTIONAL ARGS:
 				string timeoutEndUnix = $"<t:{(DateTimeOffset.Now + timeoutSpan).ToUnixTimeSeconds()}:R>";
 				await targetUser.SetTimeOutAsync(timeoutSpan);
 
+				// Get reason
+				string? reason = command.Data.Options.FirstOrDefault(c => c.Name == "reason")?.Value.ToString();
+				reason = $"{(string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Reason:```{reason}```")}";
+
 				// Unique response texts for someone who was already timed out or targeting yourself
 				var response = new StringBuilder();
 				if (selfTarget)
 				{
-					response.AppendLine($"{userArg.Mention} has decided they wish to time themselves out for {seconds} seconds. Since I'm a nice cooperative bot, I can't refuse.");
+					response.AppendLine($"{userArg.Mention} has decided they wish to time themselves out for {seconds} seconds. Since I'm a nice cooperative bot, I can't refuse.{reason}");
 					response.AppendLine();
 					response.AppendLine($"Timeout expires {timeoutEndUnix}");
 				}
 				else
 				{
 					response.Append($"{command.User.Mention} has attempted to timeout {userArg.Mention} for {seconds} seconds");
-					if (remainingTimeout.TotalSeconds > 0) response.AppendLine($" even though they are already in timeout! Bold move Cotton, let's see how it pays off.");
-					else response.AppendLine(".");
+					if (remainingTimeout.TotalSeconds > 0) response.AppendLine($" even though they are already in timeout! Bold move Cotton, let's see how it pays off.{reason}");
+					else response.AppendLine($".{reason}");
 					response.AppendLine();
 					response.AppendLine($"🎲 Using a {toHit}% chance of success as a maximum roll target out of 100, they rolled a {result}.");
 					response.AppendLine();
@@ -181,6 +189,6 @@ OPTIONAL ARGS:
 
 				await command.FollowupAsync(response.ToString());
 			});
-        }
-    }
+		}
+	}
 }

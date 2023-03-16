@@ -63,15 +63,13 @@ builder.Host.UseSerilog();
 // Build and configure
 var app = builder.Build();
 app.UseHttpLogging(); // Enable for detailed HTTP logging at a slight performance cost
-if (!app.Environment.IsDevelopment())
-{
-	app.UseHsts().UseHttpsRedirection();
-}
+bool isDev = app.Environment.IsDevelopment();
+if (!isDev) app.UseHsts().UseHttpsRedirection();
 app.MapControllers();
 
 // Init the websocket and rest clients
 app.Services.GetService<IDiscordRestClientProvider>()!.Init();
-app.Services.GetService<IDiscordSocketClientProvider>()!.Init();
+app.Services.GetService<IDiscordSocketClientProvider>()!.Init(isDev);
 app.Services.GetService<IDiscordSocketClientProvider>()!.Client.Ready += async () => await app.Services.GetService<ISlashCommandProvider>()!.BuildGuildCommands();
 
 app.Run();

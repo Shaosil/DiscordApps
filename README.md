@@ -43,106 +43,25 @@ First of all, I assume you plan on using this code for your own bot, because run
     "ChatGPTEnabled": "false (Unless you are integrating with ChatGPT)",
     "ChatGPTSystemMessage": "<The setup prompt used in each ChatGPT request - Only needed if integrating with ChatGPT>",
     "ChatGPTMessageTokenLimit": "<A hard limit on ChatGPT's response length - Only needed if integrating with ChatGPT>",
+    "ChatGPTMonthlyTokenLimit": "<The max amount of tokens your bot should use in a month. Used for rate limiting calculations per hour>",
     "TwitchClientID": "<Only needed if using the bot to announce twitch streams>",
     "TwitchClientSecret": "Only needed if using the bot to announce twitch streams>",
 }
 ```
 </ul>
 
-The last thing you need to have setup are having certain files in place in the location specified in your config's "FilesBasePath" value. Here are a list of required files and what they are used for:
+The last thing you need to have setup are having certain files in place in the location specified in your config's "FilesBasePath" value. <b>You can grab the required file templates from ShaosilBot.Web/FileTemplates</b> and simply copy them to your FilesBasePath location. Here is what they are used for:
 
 <ul>
-	<li>CatFacts.txt - Line feed separated facts about cats. Used with the <b>/cat-fact</b> command.</li>
-	<li>ChannelVisibilityMappings.json - Stores reaction based roles and channel visibilities. Won't work unless you change some of the hardcoded channel ID and Bot IDs. In general it looks like this:</li>
+	<li><b>CatFacts.txt</b> - Line feed separated facts about cats. Used with the <b>/cat-fact</b> command.</li>
+	<li><b>ChannelVisibilityMappings.json</b> - Stores reaction based roles and channel visibilities. Won't work unless you change some of the hardcoded channel ID and Bot IDs.</li>
+    <li><b>GitBlameables.json</b> - Stores user IDs and friendly names of people who can be randomly selected from the <b>/git-blame</b> command.</li>
+	<li><b>GitBlameResponses.txt</b> - Line feed separated random responses that <b>/git-blame</b> can choose from.</li>
+	<li><b>TimeoutOptOuts.json</b> - A list of users who do not wish to be targeted by the <b>/timeout-roulette</b> command.</li>
+	<li><b>TwitchOAuth.json</b> - Used by Twitch command and callbacks. Stores authentication information for your Twitch client (not covered in this guide).</li>
+	<li><b>WhackabotEquipment.json</b> - Stores weapon and armor equipment info for the <b>/whackabot</b> command game.</li>
+	<li><b>WhackabotInfo.json</b> - Stores all info about the current <b>/whackabot</b> game and players.</li>
 </ul>
-
-```json
-[
-    {
-        "Description": "General",
-        "MessageID": "<ID that references the existing message in the visibilities channel>",
-        "Role": "<ID of the role of the 'ALL' reaction>",
-        "Mappings": [ { "Emoji": "📺", "Channels": [ "IDs of the channel this reaction will unlock" ] } ]
-    }
-]
-```
-<ul>
-    <li>GitBlameables.json - Stores user IDs and friendly names of people who can be randomly selected from the <b>/git-blame</b> command. Looks like:</li>
-</ul>
-
-```json
-[
-    {
-        "ID": "<User ID>",
-        "FriendlyName": "<Friendly Name> - This is kept updated by the bot"
-    }
-]
-```
-
-<ul>
-	<li>GitBlameResponses.txt - Line feed separated random responses that <b>/git-blame</b> can choose from. For example: "Come on {USER}, what were you thinking?</li>
-	<li>TimeoutOptOuts.json - A list of users who do not wish to be targeted by the <b>/timeout-roulette</b> command. Looks like:</li>
-</ul>
-
-```json
-[{"ID":"<UserID>","FriendlyName":"<Friendly Name> - This is kept updated by the bot"}]
-```
-
-<ul>
-	<li>TwitchOAuth.json - Used by Twitch command and callbacks. Stores authentication information for your Twitch client (not covered in this guide). Looks like:</li>
-</ul>
-
-```json
-{"Token":"<Auth Token>","Expires":"<Exp Date>"}
-```
-
-<ul>
-	<li>WhackabotEquipment.json - Stores weapon and armor equipment info for the <b>/whackabot</b> command game. Partial example:</li>
-</ul>
-
-```json
-{
-    "Weapons": [
-        {
-            "Name": "Bare Hands",
-            "BluntMaxDmg": 5,
-            "BaseSpeed": 1.0
-        },
-        {
-            "Name": "Brass Knuckles",
-            "BluntMaxDmg": 10,
-            "BaseSpeed": 0.9
-        }
-    ],
-
-    "Armors": [
-        {
-            "Name": "No Armor",
-            "BaseSpeed": 1.0
-        },
-        {
-            "Name": "Leather Armor",
-            "BluntMaxAbsorb": 3,
-            "SlashMaxAbsorb": 8,
-            "PierceMaxAbsorb": 5,
-            "BaseSpeed": 0.8
-        }
-    ]
-```
-
-<ul>
-	<li>WhackabotInfo.json - Stores all info about the current <b>/whackabot</b> game and players. Starting schema:</li>
-</ul>
-
-```json
-{
-  "Health": 100,
-  "Attacks": [],
-  "BotArmor": { },
-  "PlayerWeapons": [],
-  "GameActive": false
-}
-```
 
 <h2>Conclusion</h2>
 

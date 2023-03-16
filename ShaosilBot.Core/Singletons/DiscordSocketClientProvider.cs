@@ -25,14 +25,17 @@ namespace ShaosilBot.Core.Singletons
 			Client = new DiscordSocketClient(config);
 		}
 
-		public void Init()
+		public void Init(bool isDevelopment)
 		{
 			// Initialize bot and login
 			Client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
 			Client.Ready += async () => await Client.SetGameAsync("/help for info, !c to chat");
-			Client.MessageReceived += _messageHandler.MessageReceived;
-			Client.ReactionAdded += _messageHandler.ReactionAdded;
-			Client.ReactionRemoved += _messageHandler.ReactionRemoved;
+			if (!isDevelopment)
+			{
+				Client.MessageReceived += _messageHandler.MessageReceived;
+				Client.ReactionAdded += _messageHandler.ReactionAdded;
+				Client.ReactionRemoved += _messageHandler.ReactionRemoved;
+			}
 
 			Client.LoginAsync(TokenType.Bot, _configuration["BotToken"]).GetAwaiter().GetResult();
 			Client.StartAsync().GetAwaiter().GetResult();

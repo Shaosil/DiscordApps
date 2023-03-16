@@ -7,6 +7,6 @@ namespace ShaosilBot.Core.Interfaces
 		DiscordSocketClient Client { get; }
 
 		void CleanupNoNoZone();
-		void Init();
+		void Init(bool isDevelopment);
 	}
 }
