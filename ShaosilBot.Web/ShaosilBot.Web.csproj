@@ -7,11 +7,23 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Remove="FileTemplates\ChannelVisibilityMappings.json" />
     <Content Remove="FileTemplates\ChatGPTUsers.json" />
+    <Content Remove="FileTemplates\GitBlameables.json" />
+    <Content Remove="FileTemplates\TimeoutOptOuts.json" />
+    <Content Remove="FileTemplates\TwitchOAuth.json" />
+    <Content Remove="FileTemplates\WhackabotEquipment.json" />
+    <Content Remove="FileTemplates\WhackabotInfo.json" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="FileTemplates\ChannelVisibilityMappings.json" />
     <None Include="FileTemplates\ChatGPTUsers.json" />
+    <None Include="FileTemplates\GitBlameables.json" />
+    <None Include="FileTemplates\TimeoutOptOuts.json" />
+    <None Include="FileTemplates\TwitchOAuth.json" />
+    <None Include="FileTemplates\WhackabotEquipment.json" />
+    <None Include="FileTemplates\WhackabotInfo.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,12 +34,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ShaosilBot.Core\ShaosilBot.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="iisstart.htm">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
     
 </Project>
