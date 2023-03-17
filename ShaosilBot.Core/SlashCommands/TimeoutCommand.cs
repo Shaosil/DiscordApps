@@ -2,9 +2,7 @@
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
-using ShaosilBot.Core.Models;
 using ShaosilBot.Core.Providers;
-using ShaosilBot.Core.Utilities;
 using System.Text;
 using System.Text.Json;
 
@@ -13,10 +11,12 @@ namespace ShaosilBot.Core.SlashCommands
 	public class TimeoutCommand : BaseCommand
 	{
 		private const string OptOutsFile = "TimeoutOptOuts.json";
+		private readonly IGuildHelper _guildHelper;
 		private readonly IFileAccessHelper _fileAccessHelper;
 
-		public TimeoutCommand(ILogger<TimeoutCommand> logger, IFileAccessHelper fileAccessHelper) : base(logger)
+		public TimeoutCommand(ILogger<TimeoutCommand> logger, IGuildHelper guildHelper, IFileAccessHelper fileAccessHelper) : base(logger)
 		{
+			_guildHelper = guildHelper;
 			_fileAccessHelper = fileAccessHelper;
 		}
 
@@ -85,34 +85,35 @@ OPTIONAL ARGS:
 				return command.Respond("You must provide a target user.", ephemeral: true);
 
 			// Always load opt-outs
-			var optOuts = await SimpleDiscordUserHelper.GetAndUpdateUsers(_fileAccessHelper, command.Guild, OptOutsFile, optOutCommand != null);
+			var optOuts = _guildHelper.LoadUserIDs(OptOutsFile);
 
 			// Only validate the following if needed
+			var cmdUser = (command.User as RestGuildUser)!;
 			if (optOutCommand == null)
 			{
-				if ((command.User as RestGuildUser).GuildPermissions.Administrator)
+				if (cmdUser.GuildPermissions.Administrator)
 					return command.Respond("Unfortunately you cannot use this command as an administrator because you are unable to be timed out. A workaround may be coming soon.", ephemeral: true);
 				if (userArg.GuildPermissions.Administrator)
 					return command.Respond("Unfortunately, Discord doesn't allow true administrators to be timed out. A workaround may be coming soon.", ephemeral: true);
 				if (userArg.IsBot)
 					return command.Respond("Sorry, Shaosil doesn't want you to time out bots since that would mess with their code. Respect the code. All hail the code.", ephemeral: true);
-				if (optOuts.Any(u => u.ID == userArg.Id))
+				if (optOuts.Any(u => u == userArg.Id))
 					return command.Respond($"Sorry, {userArg.DisplayName} has opted out of the /{CommandName} command. You'll have to pick on somebody else.", ephemeral: true);
-				if (optOuts.Any(u => u.ID == command.User.Id))
+				if (optOuts.Any(u => u == cmdUser.Id))
 					return command.Respond($"Sorry, you can't participate in $/{CommandName} because you are in the opt-out list. If you want to opt back in, use `/{command} user {{your username}} opt-out False`", ephemeral: true);
 			}
 
 			// The opt-out command is handled by itself
 			if (optOutCommand != null)
 			{
-				var matchingOptOut = optOuts.FirstOrDefault(o => o.ID == userArg.Id);
+				var matchingOptOut = optOuts.FirstOrDefault(o => o == userArg.Id);
 				bool isOptOut = (bool)optOutCommand.Value;
 
 				// Make sure we have permission to edit this user
-				bool canEdit = GuildHelpers.UserCanEditTargetUser(command.Guild, command.User as RestGuildUser, userArg);
+				bool canEdit = _guildHelper.UserCanEditTargetUser(command.Guild, cmdUser, userArg);
 
 				// Release the lock and return if there's nothing to do
-				if (!canEdit || isOptOut == (matchingOptOut != null))
+				if (!canEdit || isOptOut == (matchingOptOut != default))
 				{
 					_fileAccessHelper.ReleaseFileLease(OptOutsFile);
 
@@ -123,7 +124,7 @@ OPTIONAL ARGS:
 
 				// Add or remove user
 				if (isOptOut)
-					optOuts.Add(new SimpleDiscordUser { ID = userArg.Id, FriendlyName = userArg.DisplayName });
+					optOuts.Add(userArg.Id);
 				else
 					optOuts.Remove(matchingOptOut);
 				_fileAccessHelper.SaveFileText(OptOutsFile, JsonSerializer.Serialize(optOuts));
@@ -134,7 +135,7 @@ OPTIONAL ARGS:
 			}
 
 			// Handle timeouts async in case it takes more than 3 seconds
-			return await command.DeferWithCodeTask(async () =>
+			return await command.DeferWithCode(async () =>
 			{
 				// Store existing timeout check since that gives unique results
 				var remainingTimeout = userArg.TimedOutUntil.HasValue && userArg.TimedOutUntil > DateTimeOffset.UtcNow ? userArg.TimedOutUntil.Value - DateTimeOffset.UtcNow : new TimeSpan();
@@ -145,11 +146,11 @@ OPTIONAL ARGS:
 				int toHit = 50 - (int)Math.Round(30 * ((seconds - 30) / 230f));
 				int result = Random.Shared.Next(1, 101);
 				bool success = result <= toHit;
-				var targetUser = success ? userArg : command.User as RestGuildUser;
+				var targetUser = success ? userArg : cmdUser;
 
 				// Apply timeout to target user - if the target user is already in a timeout, append the new minutes.
 				// If the target user is timed out and this FAILED, add the target's remaining timeout to the usual punishment
-				bool selfTarget = userArg.Id == command.User.Id;
+				bool selfTarget = userArg.Id == cmdUser.Id;
 				var timeoutSpan = remainingTimeout + new TimeSpan(0, 0, seconds * (selfTarget || success ? 1 : 2));
 				string timeoutEndUnix = $"<t:{(DateTimeOffset.Now + timeoutSpan).ToUnixTimeSeconds()}:R>";
 				await targetUser.SetTimeOutAsync(timeoutSpan);
@@ -168,7 +169,7 @@ OPTIONAL ARGS:
 				}
 				else
 				{
-					response.Append($"{command.User.Mention} has attempted to timeout {userArg.Mention} for {seconds} seconds");
+					response.Append($"{cmdUser.Mention} has attempted to timeout {userArg.Mention} for {seconds} seconds");
 					if (remainingTimeout.TotalSeconds > 0) response.AppendLine($" even though they are already in timeout! Bold move Cotton, let's see how it pays off.{reason}");
 					else response.AppendLine($".{reason}");
 					response.AppendLine();

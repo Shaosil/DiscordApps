@@ -37,7 +37,7 @@ namespace ShaosilBot.Core.Singletons
 			{
 				if (Regex.IsMatch(message.Content.Trim(), "^[\\.!]c ", RegexOptions.IgnoreCase))
 				{
-					new Task(() => _chatGPTProvider.HandleChatRequest(message), TaskCreationOptions.LongRunning).Start();
+					await Task.Run(async () => await _chatGPTProvider.HandleChatRequest(message)).ConfigureAwait(false);
 				}
 				// If it starts with a ping that isn't a reply, remind users to use the proper prefix
 				else if (mentionedSelf != null && message.Content.TrimStart().StartsWith(mentionedSelf.Mention) && message.Reference == null)

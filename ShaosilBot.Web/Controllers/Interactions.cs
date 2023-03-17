@@ -39,6 +39,7 @@ namespace ShaosilBot.Web.Controllers
 			Response.ContentType = MediaTypeNames.Application.Json;
 			try
 			{
+				_logger.LogInformation("Parsing new interaction");
 				interaction = await _restClientProvider.ParseHttpInteractionAsync(_configuration["PublicKey"]!, signature!, timestamp!, body);
 			}
 			catch (Exception ex) when (ex is BadSignatureException || ex is ArgumentException)
@@ -51,14 +52,19 @@ namespace ShaosilBot.Web.Controllers
 			switch (interaction)
 			{
 				case RestPingInteraction ping:
+					_logger.LogInformation("Acknowledging ping");
 					return Content(ping.AcknowledgePing());
 
 				case RestSlashCommand slash:
+					_logger.LogInformation("Parsing slash command");
 					var commandHandler = _slashCommandProvider.GetSlashCommandHandler(slash.Data.Name);
 					if (commandHandler != null)
 					{
 						_slashCommandWrapper.SetSlashCommand(slash);
-						return Content(await commandHandler.HandleCommand(_slashCommandWrapper));
+						_logger.LogInformation("Executing slash command");
+						string result = await commandHandler.HandleCommand(_slashCommandWrapper);
+						_logger.LogInformation("Received slash command result - sending response");
+						return Content(result);
 					}
 
 					return NotFound();

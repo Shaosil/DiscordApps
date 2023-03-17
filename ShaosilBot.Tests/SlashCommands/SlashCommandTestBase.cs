@@ -20,6 +20,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		protected string FollowupResponseCapture { get; private set; }
 
 		protected static Mock<ILogger<T>> CommandLoggerMock { get; private set; }
+		protected static Mock<IGuildHelper> GuildHelperMock { get; private set; }
 		protected static Mock<IHttpUtilities> HttpUtilitiesMock { get; private set; }
 		protected static Mock<IFileAccessHelper> FileAccessProviderMock { get; private set; }
 
@@ -27,6 +28,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public static new void ClassInitialize(TestContext context)
 		{
 			CommandLoggerMock = new Mock<ILogger<T>>();
+			GuildHelperMock = new Mock<IGuildHelper>();
 			HttpUtilitiesMock = new Mock<IHttpUtilities>();
 			FileAccessProviderMock = new Mock<IFileAccessHelper>();
 		}
@@ -59,8 +61,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			SlashCommandWrapperMock.Setup(m => m.User).Returns(UserMock.Object);
 			SlashCommandWrapperMock.Setup(m => m.Guild).Returns(GuildMock.Object);
 			SlashCommandWrapperMock.Setup(m => m.Channel).Returns(ChannelMock.Object);
-			SlashCommandWrapperMock.Setup(m => m.DeferWithCode(It.IsAny<Func<Task>>())).Returns<Func<Task>>(f => { f(); return ""; }); // Don't call defer when running unit tests
-			SlashCommandWrapperMock.Setup(m => m.DeferWithCodeTask(It.IsAny<Func<Task>>())).Returns<Func<Task>>(f => { f(); return Task.FromResult(""); }); // Don't call defer when running unit tests
+			SlashCommandWrapperMock.Setup(m => m.DeferWithCode(It.IsAny<Func<Task>>())).Returns<Func<Task>>(f => { f(); return Task.FromResult(""); }); // Don't call defer when running unit tests
 			SlashCommandWrapperMock.Setup(m => m.FollowupAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<MessageComponent>(), It.IsAny<Embed>()))
 				.Callback<string, bool, MessageComponent, Embed>((s, b, c, e) =>
 				{

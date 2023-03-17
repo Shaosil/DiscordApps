@@ -8,32 +8,33 @@ using System.Text;
 namespace ShaosilBot.Core.Singletons
 {
 	public class DiscordRestClientProvider : IDiscordRestClientProvider
-    {
-        private readonly ILogger<DiscordRestClientProvider> _logger;
+	{
+		private readonly ILogger<DiscordRestClientProvider> _logger;
 		private readonly IConfiguration _configuration;
-		private readonly DiscordRestClient _client;
 
-        public DiscordRestClientProvider(ILogger<DiscordRestClientProvider> logger, IConfiguration configuration)
-        {
-            _logger = logger;
+		public DiscordRestClient Client { get; private set; }
+
+		public DiscordRestClientProvider(ILogger<DiscordRestClientProvider> logger, IConfiguration configuration)
+		{
+			_logger = logger;
 			_configuration = configuration;
-			_client = new DiscordRestClient();
-        }
+			Client = new DiscordRestClient();
+		}
 
 		public void Init()
 		{
-			_client.Log += (msg) => Task.Run(() => LogRestMessage(msg));
-			_client.LoginAsync(TokenType.Bot, _configuration["BotToken"]).GetAwaiter().GetResult();
+			Client.Log += (msg) => Task.Run(() => LogRestMessage(msg));
+			Client.LoginAsync(TokenType.Bot, _configuration["BotToken"]).GetAwaiter().GetResult();
 		}
 
-        public async Task<RestTextChannel> GetChannelAsync(ulong channelId)
-        {
-            return (RestTextChannel)await _client.GetChannelAsync(channelId);
-        }
+		public async Task<RestTextChannel> GetChannelAsync(ulong channelId)
+		{
+			return (RestTextChannel)await Client.GetChannelAsync(channelId);
+		}
 
-        public async Task<RestInteraction> ParseHttpInteractionAsync(string publicKey, string signature, string timestamp, string body)
-        {
-            return await _client.ParseHttpInteractionAsync(publicKey, signature, timestamp, body);
+		public async Task<RestInteraction> ParseHttpInteractionAsync(string publicKey, string signature, string timestamp, string body)
+		{
+			return await Client.ParseHttpInteractionAsync(publicKey, signature, timestamp, body);
 		}
 
 		private void LogRestMessage(LogMessage message)

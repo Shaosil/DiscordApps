@@ -42,7 +42,7 @@ namespace ShaosilBot.Tests.Endpoints
 		public virtual void TestInitialize()
 		{
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
-			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>();
+			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>(new Mock<ILogger<SlashCommandWrapper>>().Object);
 			_interactionsSUT = new InteractionsController(new Mock<ILogger<InteractionsController>>().Object, Configuration, SlashCommandProviderMock.Object, SlashCommandWrapperMock.Object, _restClientProviderMock.Object);
 		}
 

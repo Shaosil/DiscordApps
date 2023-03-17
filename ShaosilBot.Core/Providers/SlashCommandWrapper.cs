@@ -1,11 +1,18 @@
 ﻿using Discord;
 using Discord.Rest;
+using Microsoft.Extensions.Logging;
 
 namespace ShaosilBot.Core.Providers
 {
 	public class SlashCommandWrapper
 	{
 		private RestSlashCommand _slashCommand;
+		private readonly ILogger<SlashCommandWrapper> _logger;
+
+		public SlashCommandWrapper(ILogger<SlashCommandWrapper> logger)
+		{
+			_logger = logger;
+		}
 
 		public void SetSlashCommand(RestSlashCommand slash)
 		{
@@ -20,16 +27,11 @@ namespace ShaosilBot.Core.Providers
 
 		public virtual IUser User => _slashCommand.User;
 
-		public virtual string DeferWithCode(Func<Task> code)
+		public virtual Task<string> DeferWithCode(Func<Task> code)
 		{
 			// Run the code asynchronously before returning a defer response to the client
-			Task.Run(() => code().GetAwaiter().GetResult());
-			return _slashCommand.Defer();
-		}
-
-		public virtual Task<string> DeferWithCodeTask(Func<Task> code)
-		{
-			return Task.FromResult(DeferWithCode(code));
+			Task.Run(code).ConfigureAwait(false);
+			return Task.FromResult(_slashCommand.Defer());
 		}
 
 		public virtual Task<RestFollowupMessage> FollowupAsync(string text = null, bool ephemeral = false, MessageComponent components = null, Embed embed = null)

@@ -1,29 +1,17 @@
 using Discord;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using ShaosilBot.Core.Models;
 using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Models;
-using System.Text.Json;
 
 namespace ShaosilBot.Tests.SlashCommands
 {
 	[TestClass]
 	public class GitBlameCommandTests : SlashCommandTestBase<GitBlameCommand>
 	{
-		private static List<SimpleDiscordUser> _blameables = new List<SimpleDiscordUser>();
 		private List<string> _preppedResponses = new List<string>();
 
-		protected override GitBlameCommand GetInstance() => new GitBlameCommand(CommandLoggerMock.Object, HttpUtilitiesMock.Object, FileAccessProviderMock.Object);
-
-		[ClassInitialize]
-		public static new void ClassInitialize(TestContext context)
-		{
-			// Init blameables and return them serialized when asked
-			for (int i = 0; i < 10; i++)
-				_blameables.Add(new SimpleDiscordUser { ID = Random.Shared.NextULong(), FriendlyName = $"Friendly name {i + 1}" });
-			FileAccessProviderMock.Setup(m => m.GetFileText(GitBlameCommand.BlameablesFilename, It.IsAny<bool>())).Returns(JsonSerializer.Serialize(_blameables));
-		}
+		protected override GitBlameCommand GetInstance() => new GitBlameCommand(CommandLoggerMock.Object, GuildHelperMock.Object, HttpUtilitiesMock.Object, FileAccessProviderMock.Object);
 
 		[TestInitialize]
 		public override void TestInitialize()
@@ -45,13 +33,13 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Build command with no options
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 
 			// Act
 			await RunInteractions(interaction);
 
 			// Assert - A prepared user and response should both be contained in the captured followup response
-			Assert.IsTrue(preppedUsers.Any(u => FollowupResponseCapture.Contains(u.FriendlyName)));
+			Assert.IsTrue(preppedUsers.Any(u => FollowupResponseCapture.Contains($"{u}")));
 			Assert.IsTrue(_preppedResponses.Any(r => FollowupResponseCapture.Contains(r.Replace("{USER}", string.Empty))));
 		}
 
@@ -60,14 +48,14 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Build command with no options and ensure users have no permissions
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 
 			// Act
 			await RunInteractions(interaction);
 
 			// Assert - Response should still contain a message but NOT contain a user or response
 			Assert.IsFalse(string.IsNullOrEmpty(FollowupResponseCapture));
-			Assert.IsFalse(preppedUsers.Any(u => FollowupResponseCapture.Contains(u.FriendlyName)));
+			Assert.IsFalse(preppedUsers.Any(u => FollowupResponseCapture.Contains($"{u}")));
 			Assert.IsFalse(_preppedResponses.Any(r => FollowupResponseCapture.Contains(r.Replace("{USER}", string.Empty))));
 		}
 
@@ -77,7 +65,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Arrange - Build command with no options and ensure HTTP call throws exception
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			HttpUtilitiesMock.Setup(m => m.GetRandomGitBlameImage()).Throws(new Exception());
-			Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
+			Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 
 			// Act
 			await RunInteractions(interaction);
@@ -90,9 +78,9 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task TargetedBlame_WorksAndNotifies()
 		{
 			// Arrange - Build command with mocked target option
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
-			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser.ID).Result;
+			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser).Result;
 			AddOption("target-user", targetUser);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 
@@ -109,9 +97,9 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task TargetedNoAccessUser_DoesNotBlame()
 		{
 			// Arrange - Build command with mock target and ensure users have no permissions
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
-			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser.ID).Result;
+			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser).Result;
 			AddOption("target-user", targetUser);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 
@@ -128,7 +116,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task TargetedSelf_SpecialBlame()
 		{
 			// Arrange - Build command with mock users and ensure target user is the caller
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			AddOption("target-user", UserMock.Object);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 
@@ -138,7 +126,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Assert - Response should still contain a message with the target user but NOT contain a response URL or any other user
 			Assert.IsFalse(string.IsNullOrEmpty(FollowupResponseCapture));
 			Assert.IsTrue(FollowupResponseCapture.Contains(UserMock.Object.Mention));
-			Assert.IsFalse(preppedUsers.Any(u => FollowupResponseCapture.Contains(u.FriendlyName)));
+			Assert.IsFalse(preppedUsers.Any(u => FollowupResponseCapture.Contains($"{u}")));
 			Assert.IsFalse(_preppedResponses.Any(r => FollowupResponseCapture.Contains(r.Replace("{USER}", string.Empty))));
 		}
 
@@ -146,7 +134,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task ListBlameables_Functions()
 		{
 			// Arrange - Pass the functions option
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			AddOption("functions", 1);
 
@@ -155,7 +143,7 @@ namespace ShaosilBot.Tests.SlashCommands
 
 			// Assert - All blameables are contained in the response and there is no followup message
 			var responseObj = DeserializeResponse(response!.Content);
-			Assert.IsTrue(preppedUsers.All(u => responseObj.data.content.Contains(u.FriendlyName)));
+			Assert.IsTrue(preppedUsers.All(u => responseObj.data.content.Contains($"{u}")));
 			Assert.IsTrue(string.IsNullOrEmpty(FollowupResponseCapture));
 		}
 
@@ -163,7 +151,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task AddAndRemoveBlameables_Works()
 		{
 			// Arrange - Prepare blameables and pass functions option, and capture calls to SaveBlob
-			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(FileAccessProviderMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
+			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var savedBlobs = new List<string>();
 			FileAccessProviderMock.Setup(m => m.SaveFileText(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()))
@@ -177,7 +165,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Act 2 - Toggle remove for an existing user as an admin
 			UserMock.Setup(m => m.GuildPermissions).Returns(GuildPermissions.All);
 			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
-			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser.ID).Result;
+			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser).Result;
 			ClearOptions();
 			AddOption("functions", 0);
 			AddOption("target-user", targetUser);

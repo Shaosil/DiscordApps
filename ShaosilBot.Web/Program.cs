@@ -27,6 +27,7 @@ builder.Services.AddSingleton<IDiscordSocketClientProvider, DiscordSocketClientP
 builder.Services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvider>();
 builder.Services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
 builder.Services.AddSingleton<IChatGPTProvider, ChatGPTProvider>();
+builder.Services.AddSingleton<IGuildHelper, GuildHelper>();
 
 // Add scoped services, including all derivitives of BaseCommand
 builder.Services.AddScoped<IHttpUtilities, HttpUtilities>();
@@ -55,8 +56,10 @@ builder.Services.AddHttpLogging(logging =>
 // Logging
 Log.Logger = new LoggerConfiguration()
 	.MinimumLevel.Information()
+	.Enrich.WithThreadId()
 	.WriteTo.Console()
-	.WriteTo.File("../Logs/Applog-.txt", rollingInterval: RollingInterval.Day)
+	.WriteTo.File("../Logs/Applog-.txt", outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss:fff} ({ThreadId}) [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+		rollingInterval: RollingInterval.Day, retainedFileTimeLimit: TimeSpan.FromDays(7))
 	.CreateLogger();
 builder.Host.UseSerilog();
 

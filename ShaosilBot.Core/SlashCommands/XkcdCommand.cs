@@ -6,19 +6,19 @@ using System.Text.Json;
 namespace ShaosilBot.Core.SlashCommands
 {
 	public class XkcdCommand : BaseCommand
-    {
-        private readonly HttpClient _client;
+	{
+		private readonly HttpClient _client;
 
-        public XkcdCommand(ILogger<XkcdCommand> logger, IHttpClientFactory httpClientFactory) : base(logger)
-        {
-            _client = httpClientFactory.CreateClient();
-        }
+		public XkcdCommand(ILogger<XkcdCommand> logger, IHttpClientFactory httpClientFactory) : base(logger)
+		{
+			_client = httpClientFactory.CreateClient();
+		}
 
-        public override string CommandName => "xkcd";
+		public override string CommandName => "xkcd";
 
-        public override string HelpSummary => "Displays a random (or specified) comic from XKCD.";
+		public override string HelpSummary => "Displays a random (or specified) comic from XKCD.";
 
-        public override string HelpDetails => @$"/{CommandName} [latest] | [random] | [int comic]
+		public override string HelpDetails => @$"/{CommandName} [latest] | [random] | [int comic]
 
 SUBCOMMANDS
 * latest
@@ -30,37 +30,37 @@ SUBCOMMANDS
 * comic (int num)
     Pass a specific 1 based index of the comic you want to see. 1 = first, and so on.";
 
-        public override SlashCommandProperties BuildCommand()
+		public override SlashCommandProperties BuildCommand()
 		{
-            return new SlashCommandBuilder
-            {
-                Description = "Get the latest XKCD comic, or optionally a specific or random one!",
-                Options = new[]
+			return new SlashCommandBuilder
+			{
+				Description = "Get the latest XKCD comic, or optionally a specific or random one!",
+				Options = new[]
 				{
 					new SlashCommandOptionBuilder { Name = "latest", Type = ApplicationCommandOptionType.SubCommand, Description = $"Pulls the latest and greatest comic." },
 					new SlashCommandOptionBuilder { Name = "random", Type = ApplicationCommandOptionType.SubCommand, Description = $"Pulls a random comic. May the odds be ever in your favor." },
 					new SlashCommandOptionBuilder
-                    {
-                        Name = "comic", Type = ApplicationCommandOptionType.SubCommand, Description = "Get a specific comic",
-                        Options = new[]
-                        {
-                            new SlashCommandOptionBuilder
-                            {
-                                Name = "num",
-                                Type = ApplicationCommandOptionType.Integer,
-                                MinValue = 0,
-                                Description = "The 1 based index number of the comic to pull"
-                            }
-                        }.ToList()
-                    },
+					{
+						Name = "comic", Type = ApplicationCommandOptionType.SubCommand, Description = "Get a specific comic",
+						Options = new[]
+						{
+							new SlashCommandOptionBuilder
+							{
+								Name = "num",
+								Type = ApplicationCommandOptionType.Integer,
+								MinValue = 0,
+								Description = "The 1 based index number of the comic to pull"
+							}
+						}.ToList()
+					},
 				}.ToList()
-            }.Build();
-        }
+			}.Build();
+		}
 
-        public override Task<string> HandleCommand(SlashCommandWrapper command)
-        {
-            // Get current comic asynchronously and defer the response for later
-            return command.DeferWithCodeTask(async () =>
+		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		{
+			// Get current comic asynchronously and defer the response for later
+			return command.DeferWithCode(async () =>
 			{
 				HttpResponseMessage response;
 				Xkcd data;
@@ -108,21 +108,21 @@ SUBCOMMANDS
 					await command.FollowupAsync("Unable to download specified xkcd data. Please verify your request.");
 				}
 			});
-        }
+		}
 
-        public class Xkcd
-        {
-            public string month { get; set; }
-            public int num { get; set; }
-            public string link { get; set; }
-            public string year { get; set; }
-            public string news { get; set; }
-            public string safe_title { get; set; }
-            public string transcript { get; set; }
-            public string alt { get; set; }
-            public string img { get; set; }
-            public string title { get; set; }
-            public string day { get; set; }
-        }
-    }
+		public class Xkcd
+		{
+			public string month { get; set; }
+			public int num { get; set; }
+			public string link { get; set; }
+			public string year { get; set; }
+			public string news { get; set; }
+			public string safe_title { get; set; }
+			public string transcript { get; set; }
+			public string alt { get; set; }
+			public string img { get; set; }
+			public string title { get; set; }
+			public string day { get; set; }
+		}
+	}
 }
