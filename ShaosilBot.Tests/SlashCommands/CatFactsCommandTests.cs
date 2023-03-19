@@ -17,7 +17,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var fakeFacts = new List<string>();
 			for (int i = 0; i < 100; i++) fakeFacts.Add(Guid.NewGuid().ToString());
 			var serializedFacts = string.Join(Environment.NewLine, fakeFacts);
-			FileAccessProviderMock.Setup(m => m.GetFileText("CatFacts.txt", It.IsAny<bool>())).Returns(serializedFacts);
+			FileAccessProviderMock.Setup(m => m.LoadFileText("CatFacts.txt", It.IsAny<bool>())).Returns(serializedFacts);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 
 			// Act

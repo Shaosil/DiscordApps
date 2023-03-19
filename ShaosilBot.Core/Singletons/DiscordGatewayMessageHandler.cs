@@ -3,7 +3,6 @@ using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace ShaosilBot.Core.Singletons
@@ -26,6 +25,18 @@ namespace ShaosilBot.Core.Singletons
 			_logger = logger;
 			_fileAccessHelper = fileAccessHelper;
 			_chatGPTProvider = chatGPTProvider;
+		}
+
+		public Task UserJoined(SocketGuildUser user)
+		{
+			// TODO: Update ChatGPT buckets
+			return Task.Run(() => { });
+		}
+
+		public Task UserLeft(SocketGuild guild, SocketUser user)
+		{
+			// TODO: Update ChatGPT buckets
+			return Task.Run(() => { });
 		}
 
 		public async Task MessageReceived(SocketMessage message)
@@ -73,8 +84,7 @@ namespace ShaosilBot.Core.Singletons
 
 		private async Task UpdateChannelVisibilities(ulong messageId, IMessageChannel channel, string emote, ulong userId, bool add)
 		{
-			string contents = _fileAccessHelper.GetFileText(ChannelVisibilitiesFile);
-			var _channelVisibilities = JsonSerializer.Deserialize<List<ChannelVisibility>>(contents);
+			var _channelVisibilities = _fileAccessHelper.LoadFileJSON<List<ChannelVisibility>>(ChannelVisibilitiesFile);
 
 			var visibility = _channelVisibilities.FirstOrDefault(v => v.MessageID == messageId);
 			if (visibility != null)

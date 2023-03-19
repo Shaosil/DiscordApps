@@ -53,8 +53,8 @@ OPTIONAL ARGS:
 		{
 			Logger.LogInformation($"Whackabot Command executed at {DateTime.Now}");
 
-			_equipmentList = JsonSerializer.Deserialize<EquipmentList>(_fileAccessHelper.GetFileText(EquipmentFilename));
-			_gameInfo = JsonSerializer.Deserialize<GameInfo>(_fileAccessHelper.GetFileText(GameFilename, true));
+			_equipmentList = _fileAccessHelper.LoadFileJSON<EquipmentList>(EquipmentFilename);
+			_gameInfo = _fileAccessHelper.LoadFileJSON<GameInfo>(GameFilename, true);
 
 			var sb = new StringBuilder();
 			var playerWeapon = _gameInfo.PlayerWeapons.FirstOrDefault(p => p.PlayerID == command.User.Id);
@@ -79,7 +79,7 @@ OPTIONAL ARGS:
 				// One match - store it and return success
 				playerWeapon.Weapon = matchingWeapons.First();
 				string newInfo = JsonSerializer.Serialize(_gameInfo, new JsonSerializerOptions { WriteIndented = true });
-				_fileAccessHelper.SaveFileText(GameFilename, newInfo);
+				_fileAccessHelper.SaveFileJSON(GameFilename, newInfo);
 				return command.Respond($"{command.User.Mention} is now wielding *<{playerWeapon.Weapon.Name}>*!");
 			}
 
@@ -184,7 +184,7 @@ OPTIONAL ARGS:
 
 			// Update game file
 			string serializedGameInfo = JsonSerializer.Serialize(_gameInfo, new JsonSerializerOptions { WriteIndented = true });
-			_fileAccessHelper.SaveFileText(GameFilename, serializedGameInfo);
+			_fileAccessHelper.SaveFileJSON(GameFilename, serializedGameInfo);
 
 			// Prefix with skull if ded
 			return command.Respond($"{(_gameInfo.Health <= 0 ? ":skull_crossbones: " : string.Empty)}{sb}");

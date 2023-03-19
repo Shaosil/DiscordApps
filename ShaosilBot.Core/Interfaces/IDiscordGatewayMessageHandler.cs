@@ -8,5 +8,7 @@ namespace ShaosilBot.Core.Interfaces
 		Task MessageReceived(SocketMessage message);
 		Task ReactionAdded(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction);
 		Task ReactionRemoved(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction);
+		Task UserJoined(SocketGuildUser user);
+		Task UserLeft(SocketGuild guild, SocketUser user);
 	}
 }

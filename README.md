@@ -50,19 +50,6 @@ First of all, I assume you plan on using this code for your own bot, because run
 ```
 </ul>
 
-The last thing you need to have setup are having certain files in place in the location specified in your config's "FilesBasePath" value. <b>You can grab the required file templates from ShaosilBot.Web/FileTemplates</b> and simply copy them to your FilesBasePath location. Here is what they are used for:
-
-<ul>
-	<li><b>CatFacts.txt</b> - Line feed separated facts about cats. Used with the <b>/cat-fact</b> command.</li>
-	<li><b>ChannelVisibilityMappings.json</b> - Stores reaction based roles and channel visibilities. Won't work unless you change some of the hardcoded channel ID and Bot IDs.</li>
-    <li><b>GitBlameables.json</b> - Stores user IDs and friendly names of people who can be randomly selected from the <b>/git-blame</b> command.</li>
-	<li><b>GitBlameResponses.txt</b> - Line feed separated random responses that <b>/git-blame</b> can choose from.</li>
-	<li><b>TimeoutOptOuts.json</b> - A list of users who do not wish to be targeted by the <b>/timeout-roulette</b> command.</li>
-	<li><b>TwitchOAuth.json</b> - Used by Twitch command and callbacks. Stores authentication information for your Twitch client (not covered in this guide).</li>
-	<li><b>WhackabotEquipment.json</b> - Stores weapon and armor equipment info for the <b>/whackabot</b> command game.</li>
-	<li><b>WhackabotInfo.json</b> - Stores all info about the current <b>/whackabot</b> game and players.</li>
-</ul>
-
 <h2>Conclusion</h2>
 
 Now in theory you should be able run it, and the bot would even show as online and have registered slash commands on your server(s). However, those slash commands punch out to your bot's Interactions Endpoint URL. If you haven't yet, go ahead and set your bot's URL to https://(Your-URL)/interactions.

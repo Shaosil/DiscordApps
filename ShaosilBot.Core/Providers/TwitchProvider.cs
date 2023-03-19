@@ -211,7 +211,7 @@ namespace ShaosilBot.Core.Providers
 
 		private async Task<string> GetOAuthAccessToken()
 		{
-			var oauthInfo = JsonSerializer.Deserialize<OAuthInfo>(_fileAccessHelper.GetFileText(OAuthFileName, true));
+			var oauthInfo = _fileAccessHelper.LoadFileJSON<OAuthInfo>(OAuthFileName, true);
 			if (oauthInfo.Expires.UtcDateTime.AddSeconds(-10) < DateTime.UtcNow)
 			{
 				// Request new token and save
@@ -227,7 +227,7 @@ namespace ShaosilBot.Core.Providers
 				var bodyData = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 				oauthInfo.Token = bodyData.GetProperty("access_token").GetString();
 				oauthInfo.Expires = DateTimeOffset.Now.AddSeconds(bodyData.GetProperty("expires_in").GetInt32());
-				_fileAccessHelper.SaveFileText(OAuthFileName, JsonSerializer.Serialize(oauthInfo));
+				_fileAccessHelper.SaveFileJSON(OAuthFileName, oauthInfo);
 			}
 			else
 				_fileAccessHelper.ReleaseFileLease(OAuthFileName);

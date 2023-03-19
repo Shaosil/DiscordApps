@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
-using System.Text.Json;
 
 namespace ShaosilBot.Core.SlashCommands
 {
@@ -92,7 +91,7 @@ OPTIONAL ARGS:
 							else
 								subscribers.Add(targetUser.Id);
 
-							_fileAccessHelper.SaveFileText(BlameablesFilename, JsonSerializer.Serialize(subscribers, new JsonSerializerOptions { WriteIndented = true }));
+							_fileAccessHelper.SaveFileJSON(BlameablesFilename, subscribers);
 							return command.Respond($"{targetUser.Username} successfully {(oldCount < subscribers.Count ? "added" : "removed")} as a blameable");
 						}
 						else
@@ -123,7 +122,7 @@ OPTIONAL ARGS:
 				}
 
 				// Get a random response line from the blob
-				var responses = _fileAccessHelper.GetFileText(ResponsesFilename).Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+				var responses = _fileAccessHelper.LoadFileText(ResponsesFilename).Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
 				string response = responses[Random.Shared.Next(responses.Length)];
 
 				var channel = await command.Guild.GetChannelAsync(command.Channel.Id);
@@ -147,7 +146,7 @@ OPTIONAL ARGS:
 					}
 
 					// Update the blameables file in case we removed any users
-					_fileAccessHelper.SaveFileText(BlameablesFilename, JsonSerializer.Serialize(existingUsers));
+					_fileAccessHelper.SaveFileJSON(BlameablesFilename, existingUsers);
 
 					// Notify if there are no subscribers
 					if (targetUser == null)

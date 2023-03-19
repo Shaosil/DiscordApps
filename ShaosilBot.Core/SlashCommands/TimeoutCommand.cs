@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
 using System.Text;
-using System.Text.Json;
 
 namespace ShaosilBot.Core.SlashCommands
 {
@@ -127,7 +126,7 @@ OPTIONAL ARGS:
 					optOuts.Add(userArg.Id);
 				else
 					optOuts.Remove(matchingOptOut);
-				_fileAccessHelper.SaveFileText(OptOutsFile, JsonSerializer.Serialize(optOuts));
+				_fileAccessHelper.SaveFileJSON(OptOutsFile, optOuts);
 
 				return isOptOut ? command.Respond($"{userArg.Mention} was successfully opted out of the /{CommandName} command.")
 					: command.Respond($"{userArg.Mention} was successfully removed from the opt-out list of the /{CommandName} command.");

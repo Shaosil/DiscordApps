@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
+using System.Text.Json;
 
 namespace ShaosilBot.Core.Utilities
 {
@@ -16,60 +17,78 @@ namespace ShaosilBot.Core.Utilities
 			_basePath = configuration.GetValue<string>("FilesBasePath");
 		}
 
-		public string GetFileText(string filename, bool acquireLease = false)
+		public T LoadFileJSON<T>(string filename, bool keepLease = false) where T : new()
 		{
-			_logger.LogInformation($"Entered {nameof(GetFileText)}: filename={filename} aquireLease={acquireLease}");
+			_logger.LogInformation($"Entered {nameof(LoadFileJSON)}: filename={filename} keepLease={keepLease}");
+			string fullPath = Path.Combine(_basePath, filename);
 
-			// Await lease if one exists, and aquire if requested
-			lock (_fileLocks)
-			{
-				if (_fileLocks.Contains(filename)) _logger.LogInformation("File locked... waiting...");
-				while (_fileLocks.Contains(filename))
-				{
-					Thread.Sleep(250);
-				}
+			PrepForReading(fullPath, keepLease, () => JsonSerializer.Serialize(new T()));
 
-				if (acquireLease)
-				{
-					if (_fileLocks.Contains(filename)) _logger.LogInformation("Locking file.");
-					_fileLocks.Add(filename);
-				}
-			}
+			// Read text from filesystem
+			_logger.LogInformation("Reading file contents.");
+			return JsonSerializer.Deserialize<T>(File.ReadAllText(fullPath))!;
+		}
+
+		public string LoadFileText(string filename, bool keepLease = false)
+		{
+			_logger.LogInformation($"Entered {nameof(LoadFileText)}: filename={filename} keepLease={keepLease}");
+			string fullPath = Path.Combine(_basePath, filename);
+
+			PrepForReading(fullPath, keepLease, () => JsonSerializer.Serialize(string.Empty));
 
 			// Read text from filesystem
 			_logger.LogInformation("Reading file text.");
-			return File.ReadAllText(Path.Combine(_basePath, filename));
+			return File.ReadAllText(fullPath);
 		}
 
-		public void ReleaseFileLease(string filename)
+		public void ReleaseFileLease(string fullPath)
 		{
-			_logger.LogInformation($"Entered {nameof(ReleaseFileLease)}: filename={filename}");
+			_logger.LogInformation($"Entered {nameof(ReleaseFileLease)}: filename={fullPath}");
 
 			lock (_fileLocks)
 			{
 				_logger.LogInformation("Unlocking file");
-				_fileLocks.Remove(filename);
+				_fileLocks.Remove(fullPath);
 			}
 		}
 
-		public void SaveFileText(string filename, string content, bool releaseLease = true)
+		public void SaveFileJSON<T>(string filename, T content, bool releaseLease = true)
 		{
-			_logger.LogInformation($"Entered {nameof(SaveFileText)}: filename={filename} releaseLease={releaseLease}");
+			_logger.LogInformation($"Entered {nameof(SaveFileJSON)}: filename={filename} releaseLease={releaseLease}");
 
 			// Save file to filesystem
-			File.WriteAllText(Path.Combine(_basePath, filename), content);
+			string fullPath = Path.Combine(_basePath, filename);
+			lock (_fileLocks)
+			{
+				File.WriteAllText(fullPath, JsonSerializer.Serialize(content, new JsonSerializerOptions { WriteIndented = true }));
+			}
 
 			// Release lease if any exists by default
 			if (releaseLease)
 			{
-				lock (_fileLocks)
+				ReleaseFileLease(fullPath);
+			}
+		}
+
+		private void PrepForReading(string fullPath, bool keepLease, Func<string> defaultContentFunc)
+		{
+			// Await lease if one exists, and aquire if requested
+			lock (_fileLocks)
+			{
+				if (_fileLocks.Contains(fullPath)) _logger.LogInformation("File locked... waiting...");
+				while (_fileLocks.Contains(fullPath))
 				{
-					if (_fileLocks.Contains(filename))
-					{
-						_logger.LogInformation("Unlocking file");
-						_fileLocks.Remove(filename);
-					}
+					Thread.Sleep(250);
 				}
+
+				if (keepLease)
+				{
+					if (_fileLocks.Contains(fullPath)) _logger.LogInformation("Locking file.");
+					_fileLocks.Add(fullPath);
+				}
+
+				// If the file doesn't exist, created it from the default while we have the lock
+				if (!new FileInfo(fullPath).Exists) File.WriteAllText(fullPath, defaultContentFunc());
 			}
 		}
 	}

@@ -2,7 +2,6 @@
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
-using System.Text.Json;
 
 namespace ShaosilBot.Core.Utilities
 {
@@ -35,7 +34,7 @@ namespace ShaosilBot.Core.Utilities
 		public List<ulong> LoadUserIDs(string userFile)
 		{
 			// Load list of ulongs from specified file
-			return JsonSerializer.Deserialize<List<ulong>>(_fileAccessHelper.GetFileText(userFile))!;
+			return _fileAccessHelper.LoadFileJSON<List<ulong>>(userFile)!;
 		}
 	}
 }

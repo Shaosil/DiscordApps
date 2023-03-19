@@ -32,6 +32,8 @@ namespace ShaosilBot.Core.Singletons
 			Client.Ready += async () => await Client.SetGameAsync("/help for info, !c to chat");
 			if (!isDevelopment)
 			{
+				Client.UserJoined += _messageHandler.UserJoined;
+				Client.UserLeft += _messageHandler.UserLeft;
 				Client.MessageReceived += _messageHandler.MessageReceived;
 				Client.ReactionAdded += _messageHandler.ReactionAdded;
 				Client.ReactionRemoved += _messageHandler.ReactionRemoved;

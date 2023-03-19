@@ -25,7 +25,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Fake response texts
 			_preppedResponses = new List<string>();
 			for (int i = 0; i < 10; i++) _preppedResponses.Add($"{{USER}} BLAME RESPONSE {i + 1}");
-			FileAccessProviderMock.Setup(m => m.GetFileText(GitBlameCommand.ResponsesFilename, It.IsAny<bool>())).Returns(string.Join(Environment.NewLine, _preppedResponses));
+			FileAccessProviderMock.Setup(m => m.LoadFileText(GitBlameCommand.ResponsesFilename, It.IsAny<bool>())).Returns(string.Join(Environment.NewLine, _preppedResponses));
 		}
 
 		[TestMethod]
@@ -150,12 +150,12 @@ namespace ShaosilBot.Tests.SlashCommands
 		[TestMethod]
 		public async Task AddAndRemoveBlameables_Works()
 		{
-			// Arrange - Prepare blameables and pass functions option, and capture calls to SaveBlob
+			// Arrange - Prepare blameables and pass functions option, and capture calls to SaveFile
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
-			var savedBlobs = new List<string>();
-			FileAccessProviderMock.Setup(m => m.SaveFileText(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()))
-				.Callback<string, string, bool>((file, content, lease) => savedBlobs.Add(content));
+			var savedFiles = new List<List<ulong>>();
+			FileAccessProviderMock.Setup(m => m.SaveFileJSON(GitBlameCommand.BlameablesFilename, It.IsAny<List<ulong>>(), It.IsAny<bool>()))
+				.Callback<string, List<ulong>, bool>((file, content, lease) => savedFiles.Add(content));
 
 			// Act 1 - Toggle add for ourselves
 			AddOption("functions", 0);
@@ -174,10 +174,10 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Assert - Verify the blob provider was called with the expected arguments, the word "success" exists, and there is no followup message.
 			var addResponseObj = DeserializeResponse(addResponse!.Content);
 			var removeResponseObj = DeserializeResponse(removeResponse!.Content);
-			FileAccessProviderMock.Verify(m => m.SaveFileText(GitBlameCommand.BlameablesFilename, It.IsAny<string>(), It.IsAny<bool>()), Times.Exactly(2));
-			Assert.AreEqual(2, savedBlobs.Count);
-			Assert.IsTrue(savedBlobs[0].Contains(UserMock.Object.Id.ToString()));
-			Assert.IsFalse(savedBlobs[1].Contains(targetUser.Id.ToString()));
+			FileAccessProviderMock.Verify(m => m.SaveFileJSON(GitBlameCommand.BlameablesFilename, It.IsAny<List<ulong>>(), It.IsAny<bool>()), Times.Exactly(2));
+			Assert.AreEqual(2, savedFiles.Count);
+			Assert.IsTrue(savedFiles[0].Contains(UserMock.Object.Id));
+			Assert.IsFalse(savedFiles[1].Contains(targetUser.Id));
 			Assert.IsTrue(addResponseObj.data.content.ToLower().Contains("success"));
 			Assert.IsTrue(removeResponseObj.data.content.ToLower().Contains("success"));
 			Assert.IsNull(FollowupResponseCapture);

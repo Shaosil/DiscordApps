@@ -13,15 +13,18 @@ namespace ShaosilBot.Core.Providers
 		// Todo: Store previous messages
 		// Todo: Limit rates
 
+		private const string ChatGPTUsersFile = "ChatGPTUsers.json";
 		private readonly ILogger<ChatGPTProvider> _logger;
+		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IConfiguration _configuration;
 		private readonly IOpenAIService _openAIService;
 		private class Typing { public bool InUse; public IDisposable TypingState; }
 		private Typing _typingInstance = new Typing();
 
-		public ChatGPTProvider(ILogger<ChatGPTProvider> logger, IConfiguration configuration, IOpenAIService openAIService)
+		public ChatGPTProvider(ILogger<ChatGPTProvider> logger, IFileAccessHelper fileAccessHelper, IConfiguration configuration, IOpenAIService openAIService)
 		{
 			_logger = logger;
+			_fileAccessHelper = fileAccessHelper;
 			_configuration = configuration;
 			_openAIService = openAIService;
 		}
@@ -75,8 +78,7 @@ namespace ShaosilBot.Core.Providers
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "Error in HandleChatRequest");
-				var shaosil = await message.Channel.GetUserAsync(392127164570664962) as SocketUser;
-				await message.Channel.SendMessageAsync($"[Internal exception occurred. {shaosil!.Mention}, check the logs.]");
+				await message.Channel.SendMessageAsync("*[Internal exception occurred. <@392127164570664962>, check the logs.]*");
 			}
 			finally
 			{

@@ -2,8 +2,9 @@
 {
 	public interface IFileAccessHelper
 	{
-		string GetFileText(string filename, bool keepLease = false);
-		void SaveFileText(string filename, string content, bool releaseLease = true);
+		T LoadFileJSON<T>(string filename, bool keepLease = false) where T : new();
+		string LoadFileText(string filename, bool keepLease = false);
 		void ReleaseFileLease(string filename);
+		void SaveFileJSON<T>(string filename, T content, bool releaseLease = true);
 	}
 }
