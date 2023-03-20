@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Moq;
 using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Models;
 

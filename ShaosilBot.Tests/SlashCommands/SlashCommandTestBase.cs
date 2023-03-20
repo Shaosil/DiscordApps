@@ -1,7 +1,5 @@
 using Discord;
 using Discord.Rest;
-using Microsoft.Extensions.Logging;
-using Moq;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Endpoints;

@@ -14,31 +14,20 @@ namespace ShaosilBot.Core.Singletons
 		public FileAccessHelper(ILogger<FileAccessHelper> logger, IConfiguration configuration)
 		{
 			_logger = logger;
-			_basePath = configuration.GetValue<string>("FilesBasePath");
+			_basePath = configuration["FilesBasePath"]!.ToString();
 		}
 
 		public T LoadFileJSON<T>(string filename, bool keepLease = false) where T : new()
 		{
 			_logger.LogInformation($"Entered {nameof(LoadFileJSON)}: filename={filename} keepLease={keepLease}");
-			string fullPath = Path.Combine(_basePath, filename);
-
-			PrepForReading(fullPath, keepLease, () => JsonSerializer.Serialize(new T()));
-
-			// Read text from filesystem
-			_logger.LogInformation("Reading file contents.");
-			return JsonSerializer.Deserialize<T>(File.ReadAllText(fullPath))!;
+			string contents = GetTextFromFile(filename, keepLease, () => JsonSerializer.Serialize(new T()));
+			return JsonSerializer.Deserialize<T>(contents)!;
 		}
 
 		public string LoadFileText(string filename, bool keepLease = false)
 		{
 			_logger.LogInformation($"Entered {nameof(LoadFileText)}: filename={filename} keepLease={keepLease}");
-			string fullPath = Path.Combine(_basePath, filename);
-
-			PrepForReading(fullPath, keepLease, () => JsonSerializer.Serialize(string.Empty));
-
-			// Read text from filesystem
-			_logger.LogInformation("Reading file text.");
-			return File.ReadAllText(fullPath);
+			return GetTextFromFile(filename, keepLease, () => string.Empty);
 		}
 
 		public void ReleaseFileLease(string fullPath)
@@ -70,17 +59,20 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		private void PrepForReading(string fullPath, bool keepLease, Func<string> defaultContentFunc)
+		private string GetTextFromFile(string fileName, bool keepLease, Func<string> defaultContentFunc)
 		{
-			// Await lease if one exists, and aquire if requested
+			string fullPath = Path.Combine(_basePath, fileName);
+
+			// Wait here if another thread has a lock on the requested file
+			if (_fileLocks.Contains(fullPath)) _logger.LogInformation("File locked... waiting...");
+			while (_fileLocks.Contains(fullPath))
+			{
+				Thread.Sleep(100);
+			}
+
+			// Aquire lease if requested
 			lock (_fileLocks)
 			{
-				if (_fileLocks.Contains(fullPath)) _logger.LogInformation("File locked... waiting...");
-				while (_fileLocks.Contains(fullPath))
-				{
-					Thread.Sleep(250);
-				}
-
 				if (keepLease)
 				{
 					if (_fileLocks.Contains(fullPath)) _logger.LogInformation("Locking file.");
@@ -90,6 +82,9 @@ namespace ShaosilBot.Core.Singletons
 				// If the file doesn't exist, created it from the default while we have the lock
 				if (!new FileInfo(fullPath).Exists) File.WriteAllText(fullPath, defaultContentFunc());
 			}
+
+			_logger.LogInformation("Reading file contents.");
+			return File.ReadAllText(fullPath);
 		}
 	}
 }

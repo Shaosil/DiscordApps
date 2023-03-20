@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Moq;
 using ShaosilBot.Core.Interfaces;
 
 namespace ShaosilBot.Tests

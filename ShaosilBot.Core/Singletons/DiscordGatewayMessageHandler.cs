@@ -45,10 +45,10 @@ namespace ShaosilBot.Core.Singletons
 
 		public async Task MessageReceived(SocketMessage message)
 		{
-			// If not debugging, in bot channel, and not ourself, do chat stuff on a separate thread
+			// If not ourself, do chat stuff on a separate thread
 			ulong ourself = 971049069986316338;
 			var mentionedSelf = message.MentionedUsers.FirstOrDefault(m => m.Id == ourself);
-			if (message.Channel.Id == 1085277525283975318 && message.Author.Id != ourself)
+			if (message.Author.Id != ourself)
 			{
 				// Respond to chat request
 				if (Regex.IsMatch(message.Content.Trim(), "^[\\.!]c ", RegexOptions.IgnoreCase))

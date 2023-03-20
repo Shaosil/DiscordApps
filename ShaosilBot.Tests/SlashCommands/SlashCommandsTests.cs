@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-using Moq;
 using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Endpoints;
 using ShaosilBot.Tests.Models;

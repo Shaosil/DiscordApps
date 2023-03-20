@@ -1,16 +1,12 @@
 using Discord.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Moq;
 using NSec.Cryptography;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
 using ShaosilBot.Tests.Models;
 using ShaosilBot.Web.Controllers;
 using System.Text;
-using System.Text.Json;
 
 namespace ShaosilBot.Tests.Endpoints
 {
