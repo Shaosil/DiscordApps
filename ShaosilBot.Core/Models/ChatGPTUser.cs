@@ -1,4 +1,6 @@
-﻿namespace ShaosilBot.Core.Models
+﻿using System.Text.Json.Serialization;
+
+namespace ShaosilBot.Core.Models
 {
 	public class ChatGPTUser
 	{
@@ -6,6 +8,7 @@
 
 		public int BorrowedTokens { get; set; } // The amount of tokens that have been borrowed by others Overlaps with AvailableTokens.
 
+		[JsonIgnore]
 		public int BorrowableTokens => AvailableTokens - BorrowedTokens; // Helper calculation
 
 		public Dictionary<DateTime, int> TokensUsed { get; set; } = new Dictionary<DateTime, int>();
