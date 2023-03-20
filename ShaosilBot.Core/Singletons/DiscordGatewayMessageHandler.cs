@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.WebSocket;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
@@ -15,28 +16,31 @@ namespace ShaosilBot.Core.Singletons
 		private const ulong CHANNEL_VISIBILITIES_ID = 1052640054100639784;
 
 		private readonly ILogger<IDiscordGatewayMessageHandler> _logger;
+		private readonly IConfiguration _configuration;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IChatGPTProvider _chatGPTProvider;
 
 		public DiscordGatewayMessageHandler(ILogger<IDiscordGatewayMessageHandler> logger,
+			IConfiguration configuration,
 			IFileAccessHelper fileAccessHelper,
 			IChatGPTProvider chatGPTProvider)
 		{
 			_logger = logger;
+			_configuration = configuration;
 			_fileAccessHelper = fileAccessHelper;
 			_chatGPTProvider = chatGPTProvider;
 		}
 
 		public Task UserJoined(SocketGuildUser user)
 		{
-			// TODO: Update ChatGPT buckets
-			return Task.Run(() => { });
+			// Update ChatGPT buckets
+			return Task.FromResult(() => { if (!user.IsBot) _chatGPTProvider.UpdateAllUserBuckets(user.Id, true); });
 		}
 
 		public Task UserLeft(SocketGuild guild, SocketUser user)
 		{
-			// TODO: Update ChatGPT buckets
-			return Task.Run(() => { });
+			// Update ChatGPT buckets
+			return Task.FromResult(() => { if (!user.IsBot) _chatGPTProvider.UpdateAllUserBuckets(user.Id, false); });
 		}
 
 		public async Task MessageReceived(SocketMessage message)
@@ -46,9 +50,18 @@ namespace ShaosilBot.Core.Singletons
 			var mentionedSelf = message.MentionedUsers.FirstOrDefault(m => m.Id == ourself);
 			if (message.Channel.Id == 1085277525283975318 && message.Author.Id != ourself)
 			{
+				// Respond to chat request
 				if (Regex.IsMatch(message.Content.Trim(), "^[\\.!]c ", RegexOptions.IgnoreCase))
 				{
-					await Task.Run(async () => await _chatGPTProvider.HandleChatRequest(message)).ConfigureAwait(false);
+					// If we are not enabled, notify the channel. Else, handle request on a separate thread
+					if (!_configuration.GetValue<bool>("ChatGPTEnabled"))
+					{
+						await message.Channel.SendMessageAsync("Sorry, my chatting feature is currently disabled.");
+					}
+					else
+					{
+						await Task.Factory.StartNew(async () => await _chatGPTProvider.HandleChatRequest(message), TaskCreationOptions.LongRunning).ConfigureAwait(false);
+					}
 				}
 				// If it starts with a ping that isn't a reply, remind users to use the proper prefix
 				else if (mentionedSelf != null && message.Content.TrimStart().StartsWith(mentionedSelf.Mention) && message.Reference == null)

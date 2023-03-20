@@ -46,8 +46,9 @@ namespace ShaosilBot.Core.Singletons
 		public void CleanupNoNoZone()
 		{
 			// Delete all messages that are older than 12 hours
-			var channel = Client.GetGuild(628019972316069890)?.GetTextChannel(1022371866272346112);
-			var messages = channel?.GetMessagesAsync().FlattenAsync().GetAwaiter().GetResult() ?? new List<IMessage>();
+			ulong guildID = _configuration.GetValue<ulong>("TargetGuild");
+			var channel = Client.GetGuild(guildID)?.GetTextChannel(1022371866272346112)!;
+			var messages = channel.GetMessagesAsync().FlattenAsync().GetAwaiter().GetResult() ?? new List<IMessage>();
 			var oldMessages = messages.Where(m => m.CreatedAt.AddHours(12) < DateTimeOffset.Now);
 
 			if (oldMessages.Any())

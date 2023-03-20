@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using System.Text.Json;
 
-namespace ShaosilBot.Core.Utilities
+namespace ShaosilBot.Core.Singletons
 {
 	public class FileAccessHelper : IFileAccessHelper
 	{

@@ -30,7 +30,7 @@ namespace ShaosilBot.Core.Providers
 		public virtual Task<string> DeferWithCode(Func<Task> code)
 		{
 			// Run the code asynchronously before returning a defer response to the client
-			Task.Run(code).ConfigureAwait(false);
+			Task.Factory.StartNew(code, TaskCreationOptions.LongRunning).ConfigureAwait(false);
 			return Task.FromResult(_slashCommand.Defer());
 		}
 

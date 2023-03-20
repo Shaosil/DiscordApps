@@ -3,7 +3,7 @@ using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 
-namespace ShaosilBot.Core.Utilities
+namespace ShaosilBot.Core.Singletons
 {
 	public class GuildHelper : IGuildHelper
 	{

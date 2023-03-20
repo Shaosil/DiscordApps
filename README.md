@@ -2,6 +2,8 @@
 
 Instead of using the basic JS libraries as referenced by Discord's docucmentation, this project uses the Discord.NET package. This branch uses an ASP Core app, which can be hosted on the server of your choice. Personally, I'm using IIS on my local machine.
 
+Note: Currently, this bot is mostly built to target a SINGLE server (guild) per hosting instance. Most commands may work if it's a part of multiple servers, but some will most likely break altogether.
+
 <h2>Compile Requirements</h2>
 <ul>
 	<li>Visual Studio 2022</li>
@@ -31,6 +33,7 @@ First of all, I assume you plan on using this code for your own bot, because run
     },
     "AllowedHosts": "*",
 	
+    "TargetGuild": "<Your guild ID. Certain services can only target a single guild at the moment>",
     "FilesBasePath": "<The path where the bot will read/write certain files. More on this below. Make sure your IIS user has permissions to the folder>",
     "UtilitiesAuthToken": "<Used to authenticate external pings to the Utilities controller. You can generate your own token for this.>",
     "PublicKey": "<Your bot's application ID. You can get this from your Discord portal>",
@@ -38,12 +41,14 @@ First of all, I assume you plan on using this code for your own bot, because run
     "RandomWowURL": "https://owen-wilson-wow-api.onrender.com/wows/random",
     "ImgurClientID": "<Only needed if using the /git-blame command>",
     "ImgurGitBlameAlbum": "<The Imgur API album URL to pull blame images from. Only needed if using the /git-blame command. My current images are at https://imgur.com/a/1IzijHj>",
+
     "OpenAIAPIKey": "<Only needed if integrating with ChatGPT>",
     "OpenAIOrganization": "<Only needed if integrating with ChatGPT>",
     "ChatGPTEnabled": "false (Unless you are integrating with ChatGPT)",
     "ChatGPTSystemMessage": "<The setup prompt used in each ChatGPT request - Only needed if integrating with ChatGPT>",
     "ChatGPTMessageTokenLimit": "<A hard limit on ChatGPT's response length - Only needed if integrating with ChatGPT>",
     "ChatGPTMonthlyTokenLimit": "<The max amount of tokens your bot should use in a month. Used for rate limiting calculations per hour>",
+
     "TwitchClientID": "<Only needed if using the bot to announce twitch streams>",
     "TwitchClientSecret": "Only needed if using the bot to announce twitch streams>",
 }

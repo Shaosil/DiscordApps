@@ -7,7 +7,6 @@ using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
 using ShaosilBot.Core.Singletons;
 using ShaosilBot.Core.SlashCommands;
-using ShaosilBot.Core.Utilities;
 using ShaosilBot.Web.CustomAuth;
 
 var builder = WebApplication.CreateBuilder(args);
