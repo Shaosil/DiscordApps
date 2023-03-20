@@ -12,7 +12,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		private static Dictionary<string, BaseCommand> _mappedInstances;
 		private static Dictionary<string, SlashCommandProperties> _mappedCommands;
 
-		protected override HelpCommand GetInstance() => new HelpCommand(CommandLoggerMock.Object, SlashCommandProviderMock.Object);
+		protected override HelpCommand GetInstance() => new HelpCommand(Logger, SlashCommandProviderMock.Object);
 
 		[ClassInitialize]
 		public static new void ClassInitialize(TestContext context)

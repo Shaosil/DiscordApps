@@ -7,7 +7,7 @@ namespace ShaosilBot.Tests.SlashCommands
 	[TestClass]
 	public class TestCommandTests : SlashCommandTestBase<TestCommand>
 	{
-		protected override TestCommand GetInstance() => new TestCommand(CommandLoggerMock.Object);
+		protected override TestCommand GetInstance() => new TestCommand(Logger);
 
 		[TestMethod]
 		public async Task ReturnsSuccess()

@@ -9,7 +9,7 @@ namespace ShaosilBot.Core.SlashCommands
 	{
 		private readonly HttpClient _client;
 
-		public XkcdCommand(ILogger<XkcdCommand> logger, IHttpClientFactory httpClientFactory) : base(logger)
+		public XkcdCommand(ILogger<BaseCommand> logger, IHttpClientFactory httpClientFactory) : base(logger)
 		{
 			_client = httpClientFactory.CreateClient();
 		}

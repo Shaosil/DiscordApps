@@ -14,7 +14,7 @@ namespace ShaosilBot.Core.SlashCommands
 		private readonly IHttpUtilities _httpUtilities;
 		private readonly IFileAccessHelper _fileAccessHelper;
 
-		public GitBlameCommand(ILogger<GitBlameCommand> logger, IGuildHelper guildHelper, IHttpUtilities httpUtilities, IFileAccessHelper fileAccessHelper) : base(logger)
+		public GitBlameCommand(ILogger<BaseCommand> logger, IGuildHelper guildHelper, IHttpUtilities httpUtilities, IFileAccessHelper fileAccessHelper) : base(logger)
 		{
 			_guildHelper = guildHelper;
 			_httpUtilities = httpUtilities;

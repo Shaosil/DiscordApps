@@ -7,7 +7,7 @@ namespace ShaosilBot.Tests.SlashCommands
 	[TestClass]
 	public class CatFactsCommandTests : SlashCommandTestBase<CatFactsCommand>
 	{
-		protected override CatFactsCommand GetInstance() => new CatFactsCommand(CommandLoggerMock.Object, FileAccessProviderMock.Object);
+		protected override CatFactsCommand GetInstance() => new CatFactsCommand(Logger, FileAccessProviderMock.Object);
 
 		[TestMethod]
 		public async Task PullsRandomCatFact()

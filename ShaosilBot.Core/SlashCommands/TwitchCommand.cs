@@ -10,7 +10,7 @@ namespace ShaosilBot.Core.SlashCommands
 	{
 		private readonly ITwitchProvider _twitchProvider;
 
-		public TwitchCommand(ILogger<TwitchCommand> logger, ITwitchProvider twitchProvider) : base(logger)
+		public TwitchCommand(ILogger<BaseCommand> logger, ITwitchProvider twitchProvider) : base(logger)
 		{
 			_twitchProvider = twitchProvider;
 		}

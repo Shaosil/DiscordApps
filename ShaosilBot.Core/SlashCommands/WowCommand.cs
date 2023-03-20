@@ -12,7 +12,7 @@ namespace ShaosilBot.Core.SlashCommands
 		private readonly HttpClient _client;
 		private readonly IConfiguration _configuration;
 
-		public WowCommand(ILogger<WowCommand> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration) : base(logger)
+		public WowCommand(ILogger<BaseCommand> logger, IHttpClientFactory httpClientFactory, IConfiguration configuration) : base(logger)
 		{
 			_client = httpClientFactory.CreateClient();
 			_configuration = configuration;

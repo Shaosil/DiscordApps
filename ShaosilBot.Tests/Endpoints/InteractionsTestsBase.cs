@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using NSec.Cryptography;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
+using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Models;
 using ShaosilBot.Web.Controllers;
 using System.Text;
@@ -11,7 +12,7 @@ using System.Text;
 namespace ShaosilBot.Tests.Endpoints
 {
 	[TestClass]
-	public abstract class InteractionsTestsBase
+	public abstract class InteractionsTestsBase : LoggerTestBase<BaseCommand>
 	{
 		private InteractionsController _interactionsSUT;
 		protected Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
@@ -37,9 +38,10 @@ namespace ShaosilBot.Tests.Endpoints
 		[TestInitialize]
 		public virtual void TestInitialize()
 		{
+			var logWrapper = new LoggerTestBase<InteractionsController>.LoggerWrapper<InteractionsController>();
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
 			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>(new Mock<ILogger<SlashCommandWrapper>>().Object);
-			_interactionsSUT = new InteractionsController(new Mock<ILogger<InteractionsController>>().Object, Configuration, SlashCommandProviderMock.Object, SlashCommandWrapperMock.Object, _restClientProviderMock.Object);
+			_interactionsSUT = new InteractionsController(logWrapper, Configuration, SlashCommandProviderMock.Object, SlashCommandWrapperMock.Object, _restClientProviderMock.Object);
 		}
 
 		protected DiscordInteractionResponse DeserializeResponse(string? content)

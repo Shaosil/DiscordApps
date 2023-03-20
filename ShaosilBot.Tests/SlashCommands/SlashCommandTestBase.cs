@@ -17,7 +17,6 @@ namespace ShaosilBot.Tests.SlashCommands
 		protected Mock<IRestMessageChannel> ChannelMock { get; private set; }
 		protected string FollowupResponseCapture { get; private set; }
 
-		protected static Mock<ILogger<T>> CommandLoggerMock { get; private set; }
 		protected static Mock<IGuildHelper> GuildHelperMock { get; private set; }
 		protected static Mock<IHttpUtilities> HttpUtilitiesMock { get; private set; }
 		protected static Mock<IFileAccessHelper> FileAccessProviderMock { get; private set; }
@@ -25,7 +24,6 @@ namespace ShaosilBot.Tests.SlashCommands
 		[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
 		public static new void ClassInitialize(TestContext context)
 		{
-			CommandLoggerMock = new Mock<ILogger<T>>();
 			GuildHelperMock = new Mock<IGuildHelper>();
 			HttpUtilitiesMock = new Mock<IHttpUtilities>();
 			FileAccessProviderMock = new Mock<IFileAccessHelper>();

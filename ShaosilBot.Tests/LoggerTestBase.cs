@@ -11,7 +11,7 @@
 			Logger = new LoggerWrapper<T>();
 		}
 
-		private class LoggerWrapper<LT> : ILogger<T>
+		public class LoggerWrapper<LT> : ILogger<T>
 		{
 			public IDisposable? BeginScope<TState>(TState state) where TState : notnull
 			{

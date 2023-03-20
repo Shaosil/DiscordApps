@@ -11,7 +11,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task InteractionParses()
 		{
 			// Arrange
-			var testCommand = new TestCommand(new Mock<ILogger<TestCommand>>().Object);
+			var testCommand = new TestCommand(Logger);
 			var interaction = DiscordInteraction.CreateSlash(testCommand);
 
 			// Act - ignore exceptions, we don't care if the handling actually worked

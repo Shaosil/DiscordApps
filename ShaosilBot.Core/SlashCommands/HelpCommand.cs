@@ -10,7 +10,7 @@ namespace ShaosilBot.Core.SlashCommands
 	{
 		private readonly ISlashCommandProvider _slashCommandProvider;
 
-		public HelpCommand(ILogger<HelpCommand> logger, ISlashCommandProvider slashCommandProvider) : base(logger)
+		public HelpCommand(ILogger<BaseCommand> logger, ISlashCommandProvider slashCommandProvider) : base(logger)
 		{
 			_slashCommandProvider = slashCommandProvider;
 		}

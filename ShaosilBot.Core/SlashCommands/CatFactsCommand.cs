@@ -11,7 +11,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 		private readonly IFileAccessHelper _fileAccessHelper;
 
-		public CatFactsCommand(ILogger<CatFactsCommand> logger, IFileAccessHelper fileAccessHelper) : base(logger)
+		public CatFactsCommand(ILogger<BaseCommand> logger, IFileAccessHelper fileAccessHelper) : base(logger)
 		{
 			_fileAccessHelper = fileAccessHelper;
 		}

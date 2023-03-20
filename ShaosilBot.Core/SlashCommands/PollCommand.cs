@@ -8,7 +8,7 @@ namespace ShaosilBot.Core.SlashCommands
 {
 	public class PollCommand : BaseCommand
 	{
-		public PollCommand(ILogger<PollCommand> logger) : base(logger) { }
+		public PollCommand(ILogger<BaseCommand> logger) : base(logger) { }
 
 		public override string CommandName => "poll";
 

@@ -13,7 +13,7 @@ namespace ShaosilBot.Core.SlashCommands
 		private readonly IGuildHelper _guildHelper;
 		private readonly IFileAccessHelper _fileAccessHelper;
 
-		public TimeoutCommand(ILogger<TimeoutCommand> logger, IGuildHelper guildHelper, IFileAccessHelper fileAccessHelper) : base(logger)
+		public TimeoutCommand(ILogger<BaseCommand> logger, IGuildHelper guildHelper, IFileAccessHelper fileAccessHelper) : base(logger)
 		{
 			_guildHelper = guildHelper;
 			_fileAccessHelper = fileAccessHelper;

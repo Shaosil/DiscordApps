@@ -19,7 +19,7 @@ namespace ShaosilBot.Core.SlashCommands
 		private EquipmentList _equipmentList;
 		private GameInfo _gameInfo;
 
-		public WhackabotCommand(ILogger<WhackabotCommand> logger, IFileAccessHelper fileAccessHelper) : base(logger)
+		public WhackabotCommand(ILogger<BaseCommand> logger, IFileAccessHelper fileAccessHelper) : base(logger)
 		{
 			_fileAccessHelper = fileAccessHelper;
 		}
