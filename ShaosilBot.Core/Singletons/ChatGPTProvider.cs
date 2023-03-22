@@ -12,12 +12,14 @@ namespace ShaosilBot.Core.Singletons
 	public class ChatGPTProvider : IChatGPTProvider
 	{
 		private const string ChatGPTUsersFile = "ChatGPTUsers.json";
+		private const string ChatLogFile = "ChatGPTLog.json";
 
 		private readonly ILogger<ChatGPTProvider> _logger;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IConfiguration _configuration;
 		private readonly IOpenAIService _openAIService;
 		private readonly Dictionary<ulong, ChatGPTUser> _allUsers;
+		private readonly Dictionary<ulong, Queue<ChatGPTChannelMessage>> _chatHistory;
 		private class TypingState { public IDisposable? State; }
 		private Dictionary<ulong, TypingState> _typingInstances = new Dictionary<ulong, TypingState>();
 
@@ -28,7 +30,8 @@ namespace ShaosilBot.Core.Singletons
 			_configuration = configuration;
 			_openAIService = openAIService;
 
-			// Load all users once for the lifetime of the app. Anytime a change is made, simply overwrite the file
+			// Load all users and chat histories once for the lifetime of the app. Anytime changes are made, simply overwrite the files
+			_chatHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatLogFile);
 			_allUsers = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTUsersFile, true);
 			if (!_allUsers.Any()) FillAllUserBuckets();
 			_fileAccessHelper.ReleaseFileLease(ChatGPTUsersFile);
@@ -53,16 +56,24 @@ namespace ShaosilBot.Core.Singletons
 				{
 					sanitizedMessage = sanitizedMessage.Replace($"<@{mention.Id}>", mention.Username);
 				}
+				sanitizedMessage = $"Message from {message.Author.Username}:\n\n{sanitizedMessage}";
 
+				// Load history for this channel
+				Queue<ChatGPTChannelMessage> history;
+				lock (_chatHistory)
+				{
+					if (!_chatHistory.ContainsKey(message.Channel.Id)) _chatHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
+					history = _chatHistory[message.Channel.Id];
+				}
+
+				var botUser = DiscordSocketClientProvider.Client.CurrentUser;
 				int messageTokenLimit = _configuration.GetValue<int>("ChatGPTMessageTokenLimit");
 				var response = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
 				{
 					Messages = new List<ChatMessage>
-					{
-						// Todo: Store previous messages
-						ChatMessage.FromSystem(_configuration.GetValue<string>("ChatGPTSystemMessage")!),
-						ChatMessage.FromUser($"Message from {message.Author.Username}:\n\n{sanitizedMessage}")
-					},
+						{ ChatMessage.FromSystem($"{_configuration.GetValue<string>("ChatGPTSystemMessage")} Current Channel: #{message.Channel.Name}") }   // System message
+						.Concat(history.Select(h => h.UserID != botUser.Id ? ChatMessage.FromUser(h.Message) : ChatMessage.FromAssistant(h.Message)))       // Historical messages
+						.Concat(new[] { ChatMessage.FromUser(sanitizedMessage) }).ToList(),                                                                 // Current message
 					MaxTokens = messageTokenLimit
 				});
 
@@ -75,14 +86,39 @@ namespace ShaosilBot.Core.Singletons
 				var reference = new MessageReference(message.Id);
 				string? content = responseMessage!.Content;
 				if (response.Usage?.CompletionTokens == messageTokenLimit) content += "...\n\n[Message token limit reached]";
-				if ((content?.Length ?? 0) > 1997) content = $"{content!.Substring(0, 1997)}..."; // Discord limits responses to 2000 characters. In theory our token limit should prevent this
+				if ((content?.Length ?? 0) > 1997) content = $"{content!.Substring(0, 1997)}..."; // Discord limits responses to 2000 characters.
 
 				// Handle error or empty responses and send the response, suprressing embeds
 				var sendMsg = async (string msg) => await message.Channel.SendMessageAsync(msg, messageReference: reference, flags: MessageFlags.SuppressEmbeds);
 				if (!string.IsNullOrWhiteSpace(response.Error?.Message)) await sendMsg($"Error from Chat API: {response.Error.Message}. Please try again later.");
 				else if (responseMessage == null) await sendMsg("Error: No message content received from Chat API.");
 				else if (string.IsNullOrWhiteSpace(content)) await sendMsg("[Empty response message received]");
-				else await sendMsg(content);
+				else
+				{
+					// Trim and add to history queue as dictated by the config limit
+					int maxHistoryPairs = _configuration.GetValue<int>("ChatGPTMessagePairsToKeep");
+					while (history.Count / 2 >= maxHistoryPairs) for (int i = 0; i < 2; i++) history.Dequeue();
+					if (history.Count / 2 < maxHistoryPairs)
+					{
+						history.Enqueue(new ChatGPTChannelMessage { UserID = message.Author.Id, Username = message.Author.Username, Message = sanitizedMessage });
+						history.Enqueue(new ChatGPTChannelMessage { UserID = botUser.Id, Username = botUser.Username, Message = content });
+					}
+					if (maxHistoryPairs > 0)
+					{
+						lock (_chatHistory)
+						{
+							_fileAccessHelper.SaveFileJSON(ChatLogFile, _chatHistory);
+						}
+					}
+
+					// Send cleaned message
+					await sendMsg(content);
+				}
+			}
+			catch (Exception ex) when (ex is TimeoutException)
+			{
+				_logger.LogError(ex, "Timeout in HandleChatRequest");
+				await message.Channel.SendMessageAsync("*[Chat server timeout. Please try again.]*");
 			}
 			catch (Exception ex)
 			{
@@ -118,12 +154,24 @@ namespace ShaosilBot.Core.Singletons
 			// Add the channel key to the Dictionary if needed
 			if (!_typingInstances.ContainsKey(channel.Id)) _typingInstances[channel.Id] = new();
 
+			// If we are trying to type in the same channel, spin here until the old lock is released
+			while (typing && _typingInstances[channel.Id].State != null)
+			{
+				Thread.Sleep(100);
+			}
+
 			// Either enter the typing state or leave it, making sure to dispose first
 			lock (_typingInstances[channel.Id])
 			{
-				if (_typingInstances[channel.Id].State != null) _typingInstances[channel.Id].State!.Dispose();
+				_logger.LogInformation("Entered channel typing lock");
 				if (typing) _typingInstances[channel.Id].State = channel.EnterTypingState();
+				else
+				{
+					_typingInstances[channel.Id].State!.Dispose();
+					_typingInstances[channel.Id].State = null;
+				}
 			}
+			_logger.LogInformation("Exited channel typing lock");
 		}
 
 		public void FillAllUserBuckets()

@@ -48,6 +48,7 @@ First of all, I assume you plan on using this code for your own bot, because run
     "ChatGPTSystemMessage": "<The setup prompt used in each ChatGPT request - Only needed if integrating with ChatGPT>",
     "ChatGPTMessageTokenLimit": "<A hard limit on ChatGPT's response length - Only needed if integrating with ChatGPT>",
     "ChatGPTMonthlyTokenLimit": "<The max amount of tokens your bot should use in a month. Used for rate limiting calculations per hour>",
+    "ChatGPTMessagePairsToKeep": "<How many prompt/response pairs per channel to keep in local history for sending in each request. 0-3 recommended>",
 
     "TwitchClientID": "<Only needed if using the bot to announce twitch streams>",
     "TwitchClientSecret": "Only needed if using the bot to announce twitch streams>",
