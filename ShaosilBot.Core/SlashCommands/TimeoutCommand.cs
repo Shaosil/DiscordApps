@@ -25,8 +25,8 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string HelpDetails => @$"/{CommandName} (string user) [int duration=1] [string reason] [bool opt-out]
 
-Has a (50 - (30 * ((s - 30) / 230)% (where s = seconds) chance of successfully timing out the target user for the specified duration. If the chance fails, you will be timed out for double that time.
-As a result, 30 seconds has a 50% chance of success, 5 minutes only has a 20% chance.
+Uses a quadratic formula to determine the chance of successfully timing out the target user for the specified duration. If the chance fails, you will be timed out for double that time.
+As a result, 30 seconds has a 50% chance of success, 5 minutes only has a 15% chance, and 10 minutes has a 5%.
 
 REQUIRED ARGS:
 * user
@@ -63,7 +63,8 @@ OPTIONAL ARGS:
 							new ApplicationCommandOptionChoiceProperties { Name = "2 minutes", Value = 120 },
 							new ApplicationCommandOptionChoiceProperties { Name = "3 minutes", Value = 180 },
 							new ApplicationCommandOptionChoiceProperties { Name = "4 minutes", Value = 240 },
-							new ApplicationCommandOptionChoiceProperties { Name = "5 minutes", Value = 300 }
+							new ApplicationCommandOptionChoiceProperties { Name = "5 minutes", Value = 300 },
+							new ApplicationCommandOptionChoiceProperties { Name = "10 minutes", Value = 600 }
 						}
 					},
 					new SlashCommandOptionBuilder { Name = "reason", Type = ApplicationCommandOptionType.String, Description = "Provide the reason why you wish to time out the target user." },
@@ -142,7 +143,7 @@ OPTIONAL ARGS:
 				// Get minutes and calculate percentage of success for which user to affect
 				int seconds = int.Parse(command.Data.Options.FirstOrDefault(c => c.Name == "duration")?.Value.ToString() ?? "60");
 				if (seconds == 0) seconds = Random.Shared.Next(30, 301);
-				int toHit = 50 - (int)Math.Round(30 * ((seconds - 30) / 230f));
+				int toHit = (int)Math.Round((0.000169 * Math.Pow(seconds, 2)) - (0.185 * seconds) + 55.409); // Predetermined quadratic formula
 				int result = Random.Shared.Next(1, 101);
 				bool success = result <= toHit;
 				var targetUser = success ? userArg : cmdUser;

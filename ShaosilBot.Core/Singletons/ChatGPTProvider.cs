@@ -40,7 +40,7 @@ namespace ShaosilBot.Core.Singletons
 			// Make sure the author hasn't surpassed the token limit
 			if (!UserHasTokens(message.Author.Id))
 			{
-				await message.Channel.SendMessageAsync("(WIP) You have no remaining tokens. Check back later.");
+				await message.Channel.SendMessageAsync("You have no remaining tokens for this month! Check back on the 1st of next month.");
 				return;
 			}
 
@@ -119,11 +119,11 @@ namespace ShaosilBot.Core.Singletons
 			// Add the channel key to the Dictionary if needed
 			if (!_typingInstances.ContainsKey(channel.Id)) _typingInstances[channel.Id] = new();
 
-			// Either enter the typing state or leave it
+			// Either enter the typing state or leave it, making sure to dispose first
 			lock (_typingInstances[channel.Id])
 			{
+				if (_typingInstances[channel.Id].State != null) _typingInstances[channel.Id].State!.Dispose();
 				if (typing) _typingInstances[channel.Id].State = channel.EnterTypingState();
-				else _typingInstances[channel.Id].State!.Dispose();
 			}
 		}
 
