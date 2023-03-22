@@ -12,22 +12,21 @@ namespace ShaosilBot.Core.Singletons
 	public class ChatGPTProvider : IChatGPTProvider
 	{
 		private const string ChatGPTUsersFile = "ChatGPTUsers.json";
+
 		private readonly ILogger<ChatGPTProvider> _logger;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IConfiguration _configuration;
 		private readonly IOpenAIService _openAIService;
-		private readonly IDiscordRestClientProvider _restClientProvider;
 		private readonly Dictionary<ulong, ChatGPTUser> _allUsers;
 		private class TypingState { public IDisposable? State; }
 		private Dictionary<ulong, TypingState> _typingInstances = new Dictionary<ulong, TypingState>();
 
-		public ChatGPTProvider(ILogger<ChatGPTProvider> logger, IFileAccessHelper fileAccessHelper, IConfiguration configuration, IOpenAIService openAIService, IDiscordRestClientProvider restClientProvider)
+		public ChatGPTProvider(ILogger<ChatGPTProvider> logger, IFileAccessHelper fileAccessHelper, IConfiguration configuration, IOpenAIService openAIService)
 		{
 			_logger = logger;
 			_fileAccessHelper = fileAccessHelper;
 			_configuration = configuration;
 			_openAIService = openAIService;
-			_restClientProvider = restClientProvider;
 
 			// Load all users once for the lifetime of the app. Anytime a change is made, simply overwrite the file
 			_allUsers = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTUsersFile, true);
@@ -131,7 +130,7 @@ namespace ShaosilBot.Core.Singletons
 		{
 			// Load all current users and give all non-bots full tokens - This may take a while on large servers
 			ulong guildID = _configuration.GetValue<ulong>("TargetGuild");
-			var guild = _restClientProvider.Client.GetGuildAsync(guildID).Result;
+			var guild = DiscordRestClientProvider.Client.GetGuildAsync(guildID).Result;
 			var guildUsers = (guild.GetUsersAsync().FlattenAsync().Result).Where(u => !u.IsBot).ToList();
 
 			// Calculate how many tokes each user should have (round up)

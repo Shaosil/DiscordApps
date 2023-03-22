@@ -46,7 +46,7 @@ namespace ShaosilBot.Core.Singletons
 		public async Task MessageReceived(SocketMessage message)
 		{
 			// If not ourself, do chat stuff on a separate thread
-			ulong ourself = 971049069986316338;
+			ulong ourself = DiscordSocketClientProvider.Client.CurrentUser.Id;
 			var mentionedSelf = message.MentionedUsers.FirstOrDefault(m => m.Id == ourself);
 			if (message.Author.Id != ourself)
 			{

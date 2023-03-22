@@ -72,6 +72,6 @@ app.MapControllers();
 // Init the websocket and rest clients
 app.Services.GetService<IDiscordRestClientProvider>()!.Init();
 app.Services.GetService<IDiscordSocketClientProvider>()!.Init(isDev);
-app.Services.GetService<IDiscordSocketClientProvider>()!.Client.Ready += async () => await app.Services.GetService<ISlashCommandProvider>()!.BuildGuildCommands();
+DiscordSocketClientProvider.Client.Ready += async () => await app.Services.GetService<ISlashCommandProvider>()!.BuildGuildCommands();
 
 app.Run();

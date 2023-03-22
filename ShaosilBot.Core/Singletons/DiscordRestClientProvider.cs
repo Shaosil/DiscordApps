@@ -12,7 +12,7 @@ namespace ShaosilBot.Core.Singletons
 		private readonly ILogger<DiscordRestClientProvider> _logger;
 		private readonly IConfiguration _configuration;
 
-		public DiscordRestClient Client { get; private set; }
+		public static DiscordRestClient Client { get; private set; }
 
 		public DiscordRestClientProvider(ILogger<DiscordRestClientProvider> logger, IConfiguration configuration)
 		{

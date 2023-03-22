@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 
@@ -8,13 +7,11 @@ namespace ShaosilBot.Core.Singletons
 	public class GuildHelper : IGuildHelper
 	{
 		private readonly ILogger<GuildHelper> _logger;
-		private DiscordRestClient _restClient;
 		private IFileAccessHelper _fileAccessHelper;
 
-		public GuildHelper(ILogger<GuildHelper> logger, IDiscordRestClientProvider restClientProvider, IFileAccessHelper fileAccessHelper)
+		public GuildHelper(ILogger<GuildHelper> logger, IFileAccessHelper fileAccessHelper)
 		{
 			_logger = logger;
-			_restClient = restClientProvider.Client;
 			_fileAccessHelper = fileAccessHelper;
 		}
 

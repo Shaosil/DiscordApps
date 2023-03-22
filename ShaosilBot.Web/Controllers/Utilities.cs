@@ -1,6 +1,7 @@
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Mvc;
 using ShaosilBot.Core.Interfaces;
+using ShaosilBot.Core.Singletons;
 using ShaosilBot.Web.CustomAuth;
 
 namespace ShaosilBot.Web
@@ -24,6 +25,7 @@ namespace ShaosilBot.Web
 		[HttpPost("/CleanupNoNoZone")]
 		public void CleanupNoNoZone()
 		{
+			// TODO: Change to Quartz.NET scheduling per each message that comes in
 			_socketClientProvider.CleanupNoNoZone();
 		}
 
@@ -48,15 +50,15 @@ namespace ShaosilBot.Web
 		[HttpPost("/SendChat")]
 		public async Task<IActionResult> SendChat([FromForm] SendChatModel model)
 		{
-			// Default to the bot-test channel unless specified in Text-Channel header
-			var channelId = model.Channel ?? 971047774311288983;
+			// Default to the bot-chat channel unless specified in Text-Channel header
+			var channelId = model.Channel ?? 1085277525283975318;
 
 			// Return no content if no message was provided
 			if (string.IsNullOrWhiteSpace(model.prompt))
 				return NoContent();
 
 			// Send prompt
-			var channel = _socketClientProvider.Client.GetChannel(channelId) as ISocketMessageChannel;
+			var channel = DiscordSocketClientProvider.Client.GetChannel(channelId) as ISocketMessageChannel;
 			await _chatGPTProvider.SendChatMessage(channel!, model.prompt);
 			return Ok();
 		}
