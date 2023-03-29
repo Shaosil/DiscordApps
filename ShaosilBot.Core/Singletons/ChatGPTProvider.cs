@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -6,6 +7,7 @@ using OpenAI.GPT3.Interfaces;
 using OpenAI.GPT3.ObjectModels.RequestModels;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
+using System.Globalization;
 
 namespace ShaosilBot.Core.Singletons
 {
@@ -33,7 +35,7 @@ namespace ShaosilBot.Core.Singletons
 			// Load all users and chat histories once for the lifetime of the app. Anytime changes are made, simply overwrite the files
 			_chatHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatLogFile);
 			_allUsers = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTUsersFile, true);
-			if (!_allUsers.Any()) FillAllUserBuckets();
+			if (!_allUsers.Any()) ResetAndFillAllUserBuckets();
 			_fileAccessHelper.ReleaseFileLease(ChatGPTUsersFile);
 		}
 
@@ -50,30 +52,29 @@ namespace ShaosilBot.Core.Singletons
 			{
 				SetTypingLock(true, message.Channel);
 
+				Func<string> timestamp = () => DateTime.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"));
+
 				// Replace any mentions with the root usernames
 				string sanitizedMessage = message.Content.Trim().Substring(3);
 				foreach (var mention in message.MentionedUsers)
 				{
 					sanitizedMessage = sanitizedMessage.Replace($"<@{mention.Id}>", mention.Username);
 				}
-				sanitizedMessage = $"Message from {message.Author.Username}:\n\n{sanitizedMessage}";
+				sanitizedMessage = $"[{timestamp} - {message.Author.Username}]: {sanitizedMessage}";
 
 				// Load history for this channel
-				Queue<ChatGPTChannelMessage> history;
-				lock (_chatHistory)
-				{
-					if (!_chatHistory.ContainsKey(message.Channel.Id)) _chatHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
-					history = _chatHistory[message.Channel.Id];
-				}
+				if (!_chatHistory.ContainsKey(message.Channel.Id)) _chatHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
+				var history = _chatHistory[message.Channel.Id];
 
+				// Send request
 				var botUser = DiscordSocketClientProvider.Client.CurrentUser;
 				int messageTokenLimit = _configuration.GetValue<int>("ChatGPTMessageTokenLimit");
 				var response = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
 				{
 					Messages = new List<ChatMessage>
-						{ ChatMessage.FromSystem($"{_configuration.GetValue<string>("ChatGPTSystemMessage")} Current Channel: #{message.Channel.Name}") }   // System message
-						.Concat(history.Select(h => h.UserID != botUser.Id ? ChatMessage.FromUser(h.Message) : ChatMessage.FromAssistant(h.Message)))       // Historical messages
-						.Concat(new[] { ChatMessage.FromUser(sanitizedMessage) }).ToList(),                                                                 // Current message
+						{ ChatMessage.FromSystem($"{_configuration.GetValue<string>("ChatGPTSystemMessage")}\n\nCurrent Channel: #{message.Channel.Name}") }    // System message
+						.Concat(history.Select(h => h.UserID != botUser.Id ? ChatMessage.FromUser(h.Message) : ChatMessage.FromAssistant(h.Message)))           // Historical messages
+						.Concat(new[] { ChatMessage.FromUser(sanitizedMessage) }).ToList(),                                                                     // Current message
 					MaxTokens = messageTokenLimit
 				});
 
@@ -97,16 +98,17 @@ namespace ShaosilBot.Core.Singletons
 				{
 					// Trim and add to history queue as dictated by the config limit
 					int maxHistoryPairs = _configuration.GetValue<int>("ChatGPTMessagePairsToKeep");
-					while (history.Count / 2 >= maxHistoryPairs) for (int i = 0; i < 2; i++) history.Dequeue();
-					if (history.Count / 2 < maxHistoryPairs)
-					{
-						history.Enqueue(new ChatGPTChannelMessage { UserID = message.Author.Id, Username = message.Author.Username, Message = sanitizedMessage });
-						history.Enqueue(new ChatGPTChannelMessage { UserID = botUser.Id, Username = botUser.Username, Message = content });
-					}
 					if (maxHistoryPairs > 0)
 					{
 						lock (_chatHistory)
 						{
+							while (history.Count / 2 >= maxHistoryPairs) for (int i = 0; i < 2; i++) history.Dequeue();
+							if (history.Count / 2 < maxHistoryPairs)
+							{
+								history.Enqueue(new ChatGPTChannelMessage { UserID = message.Author.Id, Username = message.Author.Username, Message = sanitizedMessage });
+								history.Enqueue(new ChatGPTChannelMessage { UserID = botUser.Id, Username = botUser.Username, Message = $"[{timestamp} - Me]: {content}" });
+							}
+
 							_fileAccessHelper.SaveFileJSON(ChatLogFile, _chatHistory);
 						}
 					}
@@ -115,7 +117,7 @@ namespace ShaosilBot.Core.Singletons
 					await sendMsg(content);
 				}
 			}
-			catch (Exception ex) when (ex is TimeoutException)
+			catch (Exception ex) when (ex is TaskCanceledException && ex.InnerException is TimeoutException)
 			{
 				_logger.LogError(ex, "Timeout in HandleChatRequest");
 				await message.Channel.SendMessageAsync("*[Chat server timeout. Please try again.]*");
@@ -174,7 +176,7 @@ namespace ShaosilBot.Core.Singletons
 			_logger.LogInformation("Exited channel typing lock");
 		}
 
-		public void FillAllUserBuckets()
+		public async void ResetAndFillAllUserBuckets()
 		{
 			// Load all current users and give all non-bots full tokens - This may take a while on large servers
 			ulong guildID = _configuration.GetValue<ulong>("TargetGuild");
@@ -185,6 +187,10 @@ namespace ShaosilBot.Core.Singletons
 			int totalMonthlyTokensPerUser = (int)Math.Ceiling(_configuration.GetValue<float>("ChatGPTMonthlyTokenLimit") / guildUsers.Count);
 			var serialized = guildUsers.ToDictionary(u => u.Id, u => new ChatGPTUser { AvailableTokens = totalMonthlyTokensPerUser });
 			_fileAccessHelper.SaveFileJSON(ChatGPTUsersFile, serialized, false);
+
+			// Let everyone know it's a new month
+			var generalChannel = await guild.GetChannelAsync(_configuration.GetValue<ulong>("MainChannel")) as RestTextChannel;
+			await generalChannel!.SendMessageAsync("It's a brand new month, and as a result, my chatting usage has been reset and everyone has a fresh new bucket of tokens! Happy `!c`hatting everyone. :blush:");
 		}
 
 		public void UpdateAllUserBuckets(ulong id, bool userAdded)

@@ -2,6 +2,7 @@ using Discord;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.HttpLogging;
 using OpenAI.GPT3.Extensions;
+using Quartz;
 using Serilog;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
@@ -44,6 +45,24 @@ builder.Services.AddOpenAIService(a =>
 	a.Organization = builder.Configuration["OpenAIOrganization"]!.ToString();
 	a.DefaultModelId = "gpt-3.5-turbo";
 });
+
+builder.Services.AddQuartz(c =>
+{
+	c.UseMicrosoftDependencyInjectionJobFactory();
+
+	c.UsePersistentStore(s =>
+	{
+		string connString = $"Data Source={Path.Combine(builder.Configuration.GetValue<string>("FilesBasePath")!, "quartz.db")}";
+		QuartzHelper.EnsureSchemaExists(connString); // Will create DB file and tables if needed
+
+		s.UseProperties = true;
+		s.UseMicrosoftSQLite(connString);
+		s.UseJsonSerializer();
+	});
+
+	QuartzHelper.SetupPersistantJobs(c);
+
+}).AddQuartzServer(c => { c.WaitForJobsToComplete = true; });
 
 builder.Services.AddHttpLogging(logging =>
 {
