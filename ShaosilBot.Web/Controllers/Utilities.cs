@@ -22,13 +22,6 @@ namespace ShaosilBot.Web
 			_chatGPTProvider = chatGPTProvider;
 		}
 
-		[HttpPost("/CleanupNoNoZone")]
-		public void CleanupNoNoZone()
-		{
-			// TODO: Change to Quartz.NET scheduling per each message that comes in
-			_socketClientProvider.CleanupNoNoZone();
-		}
-
 		public record SendTextModel(ulong? Channel, string Message);
 		[HttpPost("/SendText")]
 		public async Task<IActionResult> SendText([FromForm] SendTextModel model)

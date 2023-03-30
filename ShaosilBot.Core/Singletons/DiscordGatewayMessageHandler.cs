@@ -19,16 +19,19 @@ namespace ShaosilBot.Core.Singletons
 		private readonly IConfiguration _configuration;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IChatGPTProvider _chatGPTProvider;
+		private readonly IQuartzProvider _quartzProvider;
 
 		public DiscordGatewayMessageHandler(ILogger<IDiscordGatewayMessageHandler> logger,
 			IConfiguration configuration,
 			IFileAccessHelper fileAccessHelper,
-			IChatGPTProvider chatGPTProvider)
+			IChatGPTProvider chatGPTProvider,
+			IQuartzProvider quartzProvider)
 		{
 			_logger = logger;
 			_configuration = configuration;
 			_fileAccessHelper = fileAccessHelper;
 			_chatGPTProvider = chatGPTProvider;
+			_quartzProvider = quartzProvider;
 		}
 
 		public Task UserJoined(SocketGuildUser user)
@@ -45,12 +48,12 @@ namespace ShaosilBot.Core.Singletons
 
 		public async Task MessageReceived(SocketMessage message)
 		{
-			// If not ourself, do chat stuff on a separate thread
 			ulong ourself = DiscordSocketClientProvider.Client.CurrentUser.Id;
 			var mentionedSelf = message.MentionedUsers.FirstOrDefault(m => m.Id == ourself);
+
+			// Respond to chat request
 			if (message.Author.Id != ourself)
 			{
-				// Respond to chat request
 				if (Regex.IsMatch(message.Content.Trim(), "^[\\.!]c ", RegexOptions.IgnoreCase))
 				{
 					// If we are not enabled, notify the channel. Else, handle request on a separate thread
@@ -68,6 +71,12 @@ namespace ShaosilBot.Core.Singletons
 				{
 					await message.Channel.SendMessageAsync("Hey there! If you want to chat with me, just start your message with `!c` and chat away! No need to tag me.");
 				}
+			}
+
+			// Automatically delete no-no zone messages after 12 hours
+			if (message.Channel.Id == 1022371866272346112)
+			{
+				_quartzProvider.SelfDestructMessage(message, 12);
 			}
 		}
 

@@ -1,7 +1,7 @@
 ﻿using Quartz;
 using ShaosilBot.Core.Interfaces;
 
-namespace ShaosilBot.Web.Jobs
+namespace ShaosilBot.Core.Jobs
 {
 	public class FillMonthlyChatGPTTokensJob : IJob
 	{

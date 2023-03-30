@@ -28,6 +28,7 @@ builder.Services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvi
 builder.Services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
 builder.Services.AddSingleton<IChatGPTProvider, ChatGPTProvider>();
 builder.Services.AddSingleton<IGuildHelper, GuildHelper>();
+builder.Services.AddSingleton<IQuartzProvider, QuartzProvider>();
 
 // Add scoped services, including all derivitives of BaseCommand
 builder.Services.AddScoped<IHttpUtilities, HttpUtilities>();
@@ -53,7 +54,7 @@ builder.Services.AddQuartz(c =>
 	c.UsePersistentStore(s =>
 	{
 		string connString = $"Data Source={Path.Combine(builder.Configuration.GetValue<string>("FilesBasePath")!, "quartz.db")}";
-		QuartzHelper.EnsureSchemaExists(connString); // Will create DB file and tables if needed
+		QuartzProvider.EnsureSchemaExists(connString); // Will create DB file and tables if needed
 
 		s.UseProperties = true;
 		s.UseMicrosoftSQLite(connString);
@@ -87,7 +88,7 @@ if (!isDev) app.UseHsts().UseHttpsRedirection();
 app.MapControllers();
 
 // Init the Quartz scheduler jobs if not in development mode
-if (!isDev) QuartzHelper.SetupPersistantJobs(app.Services.GetRequiredService<ISchedulerFactory>().GetScheduler().Result, app.Configuration);
+if (!isDev) app.Services.GetRequiredService<IQuartzProvider>().SetupPersistantJobs();
 
 // Init the websocket and rest clients
 app.Services.GetService<IDiscordRestClientProvider>()!.Init();

@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="7.0.4" />
     <PackageReference Include="Quartz.AspNetCore" Version="3.6.2">
       <TreatAsUsed>true</TreatAsUsed>
     </PackageReference>
