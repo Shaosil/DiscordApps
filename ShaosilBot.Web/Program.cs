@@ -41,8 +41,8 @@ foreach (var commandType in derivedCommandTypes)
 
 builder.Services.AddOpenAIService(a =>
 {
-	a.ApiKey = builder.Configuration["OpenAIAPIKey"]!.ToString();
-	a.Organization = builder.Configuration["OpenAIOrganization"]!.ToString();
+	a.ApiKey = builder.Configuration.GetValue<string>("OpenAIAPIKey") ?? string.Empty;
+	a.Organization = builder.Configuration.GetValue<string>("OpenAIOrganization") ?? string.Empty;
 	a.DefaultModelId = "gpt-3.5-turbo";
 });
 
@@ -59,8 +59,6 @@ builder.Services.AddQuartz(c =>
 		s.UseMicrosoftSQLite(connString);
 		s.UseJsonSerializer();
 	});
-
-	QuartzHelper.SetupPersistantJobs(c);
 
 }).AddQuartzServer(c => { c.WaitForJobsToComplete = true; });
 
@@ -87,6 +85,9 @@ app.UseHttpLogging(); // Enable for detailed HTTP logging at a slight performanc
 bool isDev = app.Environment.IsDevelopment();
 if (!isDev) app.UseHsts().UseHttpsRedirection();
 app.MapControllers();
+
+// Init the Quartz scheduler jobs if not in development mode
+if (!isDev) QuartzHelper.SetupPersistantJobs(app.Services.GetRequiredService<ISchedulerFactory>().GetScheduler().Result, app.Configuration);
 
 // Init the websocket and rest clients
 app.Services.GetService<IDiscordRestClientProvider>()!.Init();

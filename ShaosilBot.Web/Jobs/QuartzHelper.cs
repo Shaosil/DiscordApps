@@ -26,16 +26,20 @@ public static class QuartzHelper
 		}
 	}
 
-	public static void SetupPersistantJobs(IServiceCollectionQuartzConfigurator c)
+	public static void SetupPersistantJobs(IScheduler scheduler, IConfiguration configuration)
 	{
 		// Once a month ChatGPT token reset
 		var chatGPTTokensKey = new JobKey(FillMonthlyChatGPTTokensJobIdentity);
-		c.AddJob<FillMonthlyChatGPTTokensJob>(o => o.WithIdentity(chatGPTTokensKey));
-		c.AddTrigger(c =>
+		if (configuration.GetValue<bool>("ChatGPTEnabled"))
 		{
-			c.WithIdentity(FillMonthlyChatGPTTokensJobIdentity);
-			c.ForJob(chatGPTTokensKey);
-			c.WithCronSchedule("0 0 0 1 * ? *", s => s.WithMisfireHandlingInstructionFireAndProceed());
-		});
+			var job = JobBuilder.Create<FillMonthlyChatGPTTokensJob>().WithIdentity(chatGPTTokensKey).Build();
+			var trigger = TriggerBuilder.Create().WithIdentity(FillMonthlyChatGPTTokensJobIdentity).WithCronSchedule("0 0 0 1 * ? *", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+
+			scheduler.ScheduleJob(job, trigger);
+		}
+		else
+		{
+			scheduler.DeleteJob(chatGPTTokensKey).Wait();
+		}
 	}
 }

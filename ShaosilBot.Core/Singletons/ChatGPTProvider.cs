@@ -52,15 +52,13 @@ namespace ShaosilBot.Core.Singletons
 			{
 				SetTypingLock(true, message.Channel);
 
-				Func<string> timestamp = () => DateTime.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"));
-
 				// Replace any mentions with the root usernames
 				string sanitizedMessage = message.Content.Trim().Substring(3);
 				foreach (var mention in message.MentionedUsers)
 				{
 					sanitizedMessage = sanitizedMessage.Replace($"<@{mention.Id}>", mention.Username);
 				}
-				sanitizedMessage = $"[{timestamp} - {message.Author.Username}]: {sanitizedMessage}";
+				sanitizedMessage = $"[{DateTime.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"))} - {message.Author.Username}]: {sanitizedMessage}";
 
 				// Load history for this channel
 				if (!_chatHistory.ContainsKey(message.Channel.Id)) _chatHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
@@ -106,7 +104,7 @@ namespace ShaosilBot.Core.Singletons
 							if (history.Count / 2 < maxHistoryPairs)
 							{
 								history.Enqueue(new ChatGPTChannelMessage { UserID = message.Author.Id, Username = message.Author.Username, Message = sanitizedMessage });
-								history.Enqueue(new ChatGPTChannelMessage { UserID = botUser.Id, Username = botUser.Username, Message = $"[{timestamp} - Me]: {content}" });
+								history.Enqueue(new ChatGPTChannelMessage { UserID = botUser.Id, Username = botUser.Username, Message = content });
 							}
 
 							_fileAccessHelper.SaveFileJSON(ChatLogFile, _chatHistory);
