@@ -11,12 +11,14 @@ namespace ShaosilBot.Web.Controllers
 		private readonly ILogger<InteractionsController> _logger;
 		private readonly IConfiguration _configuration;
 		private readonly ISlashCommandProvider _slashCommandProvider;
+		private readonly IMessageCommandProvider _messageCommandProvider;
 		private readonly SlashCommandWrapper _slashCommandWrapper;
 		private readonly IDiscordRestClientProvider _restClientProvider;
 
 		public InteractionsController(ILogger<InteractionsController> logger,
 			IConfiguration configuration,
 			ISlashCommandProvider slashCommandProvider,
+			IMessageCommandProvider messageCommandProvider,
 			SlashCommandWrapper slashCommandWrapper,
 			IDiscordRestClientProvider restClientProvider)
 		{
@@ -25,6 +27,7 @@ namespace ShaosilBot.Web.Controllers
 			_slashCommandWrapper = slashCommandWrapper;
 			_restClientProvider = restClientProvider;
 			_slashCommandProvider = slashCommandProvider;
+			_messageCommandProvider = messageCommandProvider;
 		}
 
 		[HttpPost("/interactions")]
@@ -62,12 +65,16 @@ namespace ShaosilBot.Web.Controllers
 					{
 						_slashCommandWrapper.SetSlashCommand(slash);
 						_logger.LogInformation("Executing slash command");
-						string result = await commandHandler.HandleCommand(_slashCommandWrapper);
+						string slashCommandResult = await commandHandler.HandleCommand(_slashCommandWrapper);
 						_logger.LogInformation("Received slash command result - sending response");
-						return Content(result);
+						return Content(slashCommandResult);
 					}
 
 					return NotFound();
+
+				case RestMessageCommand message:
+					string messageCommandResult = _messageCommandProvider.HandleMessageCommand(message);
+					return Content(messageCommandResult);
 
 				default:
 					return NotFound();

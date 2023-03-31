@@ -16,17 +16,16 @@ namespace ShaosilBot.Tests.Endpoints
 	{
 		private InteractionsController _interactionsSUT;
 		protected Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
+		protected Mock<IMessageCommandProvider> MessageCommandProviderMock { get; private set; }
 		protected Mock<SlashCommandWrapper> SlashCommandWrapperMock { get; private set; }
 
 		protected static IConfiguration Configuration;
-		private static Mock<IDiscordSocketClientProvider> _socketClientProviderMock;
 		private static Mock<IDiscordRestClientProvider> _restClientProviderMock;
 
 		[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
 		public static void ClassInitialize(TestContext context)
 		{
 			Configuration = new ConfigurationBuilder().AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json")).Build();
-			_socketClientProviderMock = new Mock<IDiscordSocketClientProvider>();
 			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();
 
 			// Bypass our rest interaction client wrapper by calling Discord.Net's client parse
@@ -40,8 +39,9 @@ namespace ShaosilBot.Tests.Endpoints
 		{
 			var logWrapper = new LoggerTestBase<InteractionsController>.LoggerWrapper<InteractionsController>();
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
+			MessageCommandProviderMock = new Mock<IMessageCommandProvider>();
 			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>(new Mock<ILogger<SlashCommandWrapper>>().Object);
-			_interactionsSUT = new InteractionsController(logWrapper, Configuration, SlashCommandProviderMock.Object, SlashCommandWrapperMock.Object, _restClientProviderMock.Object);
+			_interactionsSUT = new InteractionsController(logWrapper, Configuration, SlashCommandProviderMock.Object, MessageCommandProviderMock.Object, SlashCommandWrapperMock.Object, _restClientProviderMock.Object);
 		}
 
 		protected DiscordInteractionResponse DeserializeResponse(string? content)

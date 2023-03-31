@@ -44,7 +44,7 @@ OPTIONAL ARGS:
 		{
 			return new SlashCommandBuilder
 			{
-				Description = "Blame a random or specific user.",
+				Description = HelpSummary,
 				Options = new[]
 				{
 					new SlashCommandOptionBuilder { Name = "target-user", Type = ApplicationCommandOptionType.User, Description = "Blame someone specific" },

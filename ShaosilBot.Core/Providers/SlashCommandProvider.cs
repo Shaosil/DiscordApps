@@ -12,7 +12,6 @@ namespace ShaosilBot.Core.Providers
 	{
 		private readonly ILogger<SlashCommandProvider> _logger;
 		private readonly IServiceProvider _serviceProvider;
-		private readonly IDiscordSocketClientProvider _socketClientProvider;
 		private Dictionary<string, SlashCommandProperties> _commandProperties = new Dictionary<string, SlashCommandProperties>();
 		private readonly Dictionary<string, Type> _commandToTypeMappings = new Dictionary<string, Type>();
 
@@ -20,11 +19,10 @@ namespace ShaosilBot.Core.Providers
 
 		public IReadOnlyDictionary<string, SlashCommandProperties> CommandProperties => _commandProperties;
 
-		public SlashCommandProvider(ILogger<SlashCommandProvider> logger, IServiceProvider serviceProvider, IDiscordSocketClientProvider socketClientProvider)
+		public SlashCommandProvider(ILogger<SlashCommandProvider> logger, IServiceProvider serviceProvider)
 		{
 			_logger = logger;
 			_serviceProvider = serviceProvider;
-			_socketClientProvider = socketClientProvider;
 		}
 
 		public async Task BuildGuildCommands()
@@ -48,7 +46,7 @@ namespace ShaosilBot.Core.Providers
 
 			foreach (var guild in guilds)
 			{
-				var existingCommands = (await guild.GetApplicationCommandsAsync()).ToList();
+				var existingCommands = (await guild.GetApplicationCommandsAsync()).Where(c => c.Type == ApplicationCommandType.Slash).ToList();
 
 				// Delete any commands that are no longer defined
 				foreach (var existingCommand in existingCommands.Where(c => !_commandProperties.Values.Any(b => b.Name.GetValueOrDefault() == c.Name)))

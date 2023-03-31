@@ -34,7 +34,7 @@ SUBCOMMANDS
 		{
 			return new SlashCommandBuilder
 			{
-				Description = "Get the latest XKCD comic, or optionally a specific or random one!",
+				Description = HelpSummary,
 				Options = new[]
 				{
 					new SlashCommandOptionBuilder { Name = "latest", Type = ApplicationCommandOptionType.SubCommand, Description = $"Pulls the latest and greatest comic." },

@@ -26,7 +26,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override SlashCommandProperties BuildCommand()
 		{
-			return new SlashCommandBuilder { Description = "Wow." }.Build();
+			return new SlashCommandBuilder { Description = HelpSummary }.Build();
 		}
 
 		public override Task<string> HandleCommand(SlashCommandWrapper command)

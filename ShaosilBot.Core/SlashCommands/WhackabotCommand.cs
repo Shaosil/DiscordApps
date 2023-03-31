@@ -44,7 +44,7 @@ OPTIONAL ARGS:
 		{
 			return new SlashCommandBuilder
 			{
-				Description = "Starts or continues an epic smackdown!",
+				Description = HelpSummary,
 				Options = new[] { new SlashCommandOptionBuilder { Name = "weapon-change", Type = ApplicationCommandOptionType.String, Description = "Choose your weapon" } }.ToList()
 			}.Build();
 		}

@@ -35,7 +35,7 @@ SUBCOMMANDS:
 		{
 			return new SlashCommandBuilder
 			{
-				Description = "Manage all twitch hooks",
+				Description = HelpSummary,
 				DefaultMemberPermissions = GuildPermission.ManageMessages,
 				Options = new[]
 				{

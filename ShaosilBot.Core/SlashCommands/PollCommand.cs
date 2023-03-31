@@ -12,7 +12,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string CommandName => "poll";
 
-		public override string HelpSummary => "Lets people vote on a question. Can be as simple as a yes/no or have up to 20 choices with custom emojis!";
+		public override string HelpSummary => "Lets people vote on a question. Can be a simple yes/no or up to 20 choices with custom emojis!";
 
 		public override string HelpDetails => @$"/{CommandName} (string question) [string choice1 - choice20]
 
@@ -33,13 +33,13 @@ OPTIONAL ARGS:
 				choices.Add(new SlashCommandOptionBuilder
 				{
 					Name = $"choice{i}",
-					Description = "A single poll option. Put any simple emoji in the front to replace the default reaction.",
+					Description = HelpSummary,
 					Type = ApplicationCommandOptionType.String
 				});
 
 			return new SlashCommandBuilder
 			{
-				Description = "Create a simple poll people may react to accordingly.",
+				Description = HelpSummary,
 				Options = new[]
 				{
 					new SlashCommandOptionBuilder

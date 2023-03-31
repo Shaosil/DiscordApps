@@ -12,16 +12,23 @@ namespace ShaosilBot.Core.Singletons
 		private readonly ILogger<DiscordSocketClientProvider> _logger;
 		private readonly IConfiguration _configuration;
 		private readonly IDiscordGatewayMessageHandler _messageHandler;
+		private readonly ISlashCommandProvider _slashCommandProvider;
+		private readonly IMessageCommandProvider _messageCommandProvider;
+
 		public static DiscordSocketClient Client { get; private set; }
 
 		public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger,
 			IConfiguration configuration,
 			DiscordSocketConfig config,
-			IDiscordGatewayMessageHandler messageHandler)
+			IDiscordGatewayMessageHandler messageHandler,
+			ISlashCommandProvider slashCommandProvider,
+			IMessageCommandProvider messageCommandProvider)
 		{
 			_logger = logger;
 			_configuration = configuration;
 			_messageHandler = messageHandler;
+			_slashCommandProvider = slashCommandProvider;
+			_messageCommandProvider = messageCommandProvider;
 			Client = new DiscordSocketClient(config);
 		}
 
@@ -29,7 +36,13 @@ namespace ShaosilBot.Core.Singletons
 		{
 			// Initialize bot and login
 			Client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
-			Client.Ready += async () => await Client.SetGameAsync("/help for info, !c to chat");
+			Client.Ready += async () =>
+			{
+				await Client.SetGameAsync("/help for info, !c to chat");
+				await _slashCommandProvider.BuildGuildCommands();
+				await _messageCommandProvider.BuildMessageCommands();
+			};
+
 			if (!isDevelopment)
 			{
 				Client.UserJoined += _messageHandler.UserJoined;

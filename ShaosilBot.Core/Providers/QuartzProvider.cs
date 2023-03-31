@@ -1,4 +1,5 @@
-﻿using Discord.WebSocket;
+﻿using Discord.Rest;
+using Discord.WebSocket;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Quartz;
@@ -10,6 +11,7 @@ namespace ShaosilBot.Core.Providers
 	public class QuartzProvider : IQuartzProvider
 	{
 		public const string FillMonthlyChatGPTTokensJobIdentity = "FillMonthlyChatGPTTokens";
+		private static string _connString;
 
 		private bool _isDevelopment = true;
 		private readonly IScheduler _scheduler;
@@ -23,7 +25,8 @@ namespace ShaosilBot.Core.Providers
 
 		public static void EnsureSchemaExists(string connString)
 		{
-			using (var conn = new SqliteConnection(connString))
+			_connString = connString;
+			using (var conn = new SqliteConnection(_connString))
 			{
 				conn.Open();
 				var cmd = conn.CreateCommand();
@@ -43,6 +46,8 @@ namespace ShaosilBot.Core.Providers
 
 		public void SetupPersistantJobs()
 		{
+			_scheduler.Start().Wait();
+
 			// Once a month ChatGPT token reset
 			var chatGPTTokensKey = new JobKey(FillMonthlyChatGPTTokensJobIdentity);
 			if (_configuration.GetValue<bool>("ChatGPTEnabled"))
@@ -63,8 +68,6 @@ namespace ShaosilBot.Core.Providers
 
 		public void SelfDestructMessage(SocketMessage message, int hours)
 		{
-			if (_isDevelopment) return;
-
 			var key = new JobKey($"DeleteMessage-{message.Id}");
 			var dataMap = new JobDataMap(new Dictionary<string, string>
 			{
@@ -73,6 +76,69 @@ namespace ShaosilBot.Core.Providers
 			});
 			var job = JobBuilder.Create<SelfDestructMessageJob>().WithIdentity(key).StoreDurably(false).UsingJobData(dataMap).Build();
 			var trigger = TriggerBuilder.Create().StartAt(DateTime.Now.AddHours(hours)).Build();
+
+			_scheduler.ScheduleJob(job, trigger);
+		}
+
+		public Dictionary<IJobDetail, ITrigger> GetUserReminders(ulong userID)
+		{
+			List<string> jobKeys = new List<string>();
+
+			// Manually query the DB by job name and data to retrieve keys
+			using (var conn = new SqliteConnection(_connString))
+			{
+				conn.Open();
+				var cmd = conn.CreateCommand();
+				cmd.CommandText = $"SELECT JOB_NAME FROM QRTZ_JOB_DETAILS WHERE JOB_NAME LIKE 'Reminder-%' AND JOB_DATA LIKE '%\"{ReminderJob.DataMapKeys.UserID}\":\"{userID}\"%'";
+				var reader = cmd.ExecuteReader();
+				while (reader.Read()) jobKeys.Add(reader.GetString(0));
+			}
+
+			// Retrieve job details by found keys
+			var userJobs = new Dictionary<IJobDetail, ITrigger>();
+			foreach (var jobKey in jobKeys.Select(k => new JobKey(k)))
+			{
+				var job = _scheduler.GetJobDetail(jobKey).Result!;
+				var trigger = _scheduler.GetTriggersOfJob(jobKey).Result.First();
+				userJobs.Add(job, trigger);
+			}
+
+			return userJobs;
+		}
+
+		public bool DeleteUserReminder(JobKey key)
+		{
+			// Do not do this in develop
+			if (_isDevelopment) return true;
+
+			return _scheduler.DeleteJob(key).Result;
+		}
+
+		public void ScheduleUserReminder(ulong userID, ulong messageID, ulong channelID, DateTimeOffset targetDate, bool isPrivate, string msg, RestMessage? referenceMessage = null)
+		{
+			// Do not do this in develop
+			if (_isDevelopment) return;
+
+			var key = new JobKey($"Reminder-{messageID}");
+			var dataMap = new JobDataMap(new Dictionary<string, string>
+			{
+				{ ReminderJob.DataMapKeys.UserID, userID.ToString() },
+				{ ReminderJob.DataMapKeys.Message, msg }
+			});
+			if (!isPrivate)
+			{
+				// Omit channel if this is a private reminder
+				dataMap.Add(ReminderJob.DataMapKeys.ChannelID, channelID.ToString());
+			}
+			if (referenceMessage != null)
+			{
+				// Link to original message if one was included (via a Message Command)
+				dataMap.Add(ReminderJob.DataMapKeys.ReferenceMessageID, referenceMessage.Id.ToString());
+				dataMap.Add(ReminderJob.DataMapKeys.ReferenceMessageContent, referenceMessage.Content);
+			}
+
+			var job = JobBuilder.Create<ReminderJob>().WithIdentity(key).StoreDurably(false).UsingJobData(dataMap).Build();
+			var trigger = TriggerBuilder.Create().StartAt(targetDate).Build();
 
 			_scheduler.ScheduleJob(job, trigger);
 		}

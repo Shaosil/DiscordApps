@@ -32,7 +32,7 @@ OPTIONAL ARGUMENTS:
 
 			return new SlashCommandBuilder
 			{
-				Description = $"Flips a coin, or picks a random item from a list of up to {randomChoices.Count} provided choices.",
+				Description = HelpSummary,
 				Options = new[]
 				{
 					new SlashCommandOptionBuilder { Name = "question", Description = "An optional statement describing your specified choices", Type = ApplicationCommandOptionType.String }

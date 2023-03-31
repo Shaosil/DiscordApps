@@ -18,14 +18,14 @@ namespace ShaosilBot.Core.SlashCommands
 		public override string CommandName => "help";
 
 		// No need for help on this one
-		public override string HelpSummary => throw new NotImplementedException();
+		public override string HelpSummary => "Provides info about this wonderful Discord bot";
 		public override string HelpDetails => throw new NotImplementedException();
 
 		public override SlashCommandProperties BuildCommand()
 		{
 			return new SlashCommandBuilder
 			{
-				Description = "Provides info about this wonderful Discord bot",
+				Description = HelpSummary,
 				Options = new[]
 				{
 					new SlashCommandOptionBuilder

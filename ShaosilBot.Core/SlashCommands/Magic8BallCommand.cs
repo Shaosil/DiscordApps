@@ -48,7 +48,7 @@ REQUIRED ARGUMENTS:
 		{
 			return new SlashCommandBuilder
 			{
-				Description = "Oh magic 8 ball, what is your wisdom?",
+				Description = HelpSummary,
 				Options = new[]
 				{
 					new SlashCommandOptionBuilder { Name = "question", Type = ApplicationCommandOptionType.String, Description = "Ask me a question.", IsRequired = true }

@@ -21,7 +21,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string CommandName => "timeout-roulette";
 
-		public override string HelpSummary => "Has a slight chance of timing out your target for 1-5 minutes. Times YOU out for DOUBLE THAT if it fails.";
+		public override string HelpSummary => "Has a slight chance of timing out your target for X seconds. Times YOU out for DOUBLE if it fails.";
 
 		public override string HelpDetails => @$"/{CommandName} (string user) [int duration=1] [string reason] [bool opt-out]
 
@@ -46,7 +46,7 @@ OPTIONAL ARGS:
 		{
 			return new SlashCommandBuilder
 			{
-				Description = "If you're feeling frisky, try to timeout another user. Has a large chance to time YOU out instead!",
+				Description = HelpSummary,
 				Options = new List<SlashCommandOptionBuilder>
 				{
 					new SlashCommandOptionBuilder { Name = "user", IsRequired = true, Type = ApplicationCommandOptionType.User, Description = "Who are you trying to time out?" },

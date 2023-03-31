@@ -29,6 +29,7 @@ builder.Services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
 builder.Services.AddSingleton<IChatGPTProvider, ChatGPTProvider>();
 builder.Services.AddSingleton<IGuildHelper, GuildHelper>();
 builder.Services.AddSingleton<IQuartzProvider, QuartzProvider>();
+builder.Services.AddSingleton<IMessageCommandProvider, MessageCommandProvider>();
 
 // Add scoped services, including all derivitives of BaseCommand
 builder.Services.AddScoped<IHttpUtilities, HttpUtilities>();
@@ -90,9 +91,7 @@ app.MapControllers();
 // Init the Quartz scheduler jobs if not in development mode
 if (!isDev) app.Services.GetRequiredService<IQuartzProvider>().SetupPersistantJobs();
 
-// Init the websocket and rest clients
+// Init the websocket and rest clients, and launch the app
 app.Services.GetService<IDiscordRestClientProvider>()!.Init();
 app.Services.GetService<IDiscordSocketClientProvider>()!.Init(isDev);
-DiscordSocketClientProvider.Client.Ready += async () => await app.Services.GetService<ISlashCommandProvider>()!.BuildGuildCommands();
-
 app.Run();
