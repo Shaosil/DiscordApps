@@ -37,9 +37,8 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			base.TestInitialize();
 
-
 			SlashCommandProviderMock.Setup(m => m.CommandProperties).Returns(_mappedCommands);
-			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(It.IsNotIn<string>(SlashCommandSUT.CommandName))).Returns<string>(s => _mappedInstances[s]);
+			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(It.IsNotIn(SlashCommandSUT.CommandName))).Returns<string>(s => _mappedInstances[s]);
 		}
 
 		[TestMethod]

@@ -150,9 +150,7 @@ namespace ShaosilBot.Core.Providers
 
 				for (int i = 0; i < existingChoicesCount; i++)
 				{
-					if (orderedExistingChoices[i].Name != orderedNewChoices[i].Name
-						|| (orderedExistingChoices[i].Value is string existingString && existingString != orderedNewChoices[i].Value as string)
-						|| long.Parse(orderedExistingChoices[i].Value.ToString()) != long.Parse(orderedNewChoices[i].Value.ToString()))
+					if (orderedExistingChoices[i].Name != orderedNewChoices[i].Name || orderedExistingChoices[i].Value != orderedNewChoices[i].Value)
 					{
 						return false;
 					}
