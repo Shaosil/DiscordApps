@@ -76,6 +76,14 @@ namespace ShaosilBot.Web.Controllers
 					string messageCommandResult = _messageCommandProvider.HandleMessageCommand(message);
 					return Content(messageCommandResult);
 
+				case RestMessageComponent messageComponent:
+					string messageComponentResult = await _messageCommandProvider.HandleMessageComponent(messageComponent);
+					return Content(messageComponentResult);
+
+				case RestModal modal:
+					string modalResult = await _messageCommandProvider.HandleModel(modal);
+					return Content(modalResult);
+
 				default:
 					return NotFound();
 			}

@@ -138,9 +138,10 @@ namespace ShaosilBot.Core.Providers
 			}
 
 			var job = JobBuilder.Create<ReminderJob>().WithIdentity(key).StoreDurably(false).UsingJobData(dataMap).Build();
-			var trigger = TriggerBuilder.Create().StartAt(targetDate).Build();
+			var trigger = TriggerBuilder.Create().WithIdentity(key.Name).StartAt(targetDate).Build();
 
-			_scheduler.ScheduleJob(job, trigger);
+			// Upsert
+			_scheduler.ScheduleJob(job, new[] { trigger }, true);
 		}
 	}
 }

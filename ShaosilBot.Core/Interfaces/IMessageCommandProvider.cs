@@ -6,5 +6,7 @@ namespace ShaosilBot.Core.Interfaces
 	{
 		Task BuildMessageCommands();
 		string HandleMessageCommand(RestMessageCommand command);
+		Task<string> HandleMessageComponent(RestMessageComponent messageComponent);
+		Task<string> HandleModel(RestModal modal);
 	}
 }
