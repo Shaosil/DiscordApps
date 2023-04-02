@@ -38,7 +38,7 @@ namespace ShaosilBot.Tests
 			// Make sure both the guild and helper return the new users when asked
 			guild.Setup(m => m.GetUsersAsync(It.IsAny<CacheMode>(), It.IsAny<RequestOptions>())).ReturnsAsync(guildUsers);
 			guildHelper.Setup(m => m.LoadUserIDs(fileName)).Returns(simpleDiscordUsers);
-			guildHelper.Setup(m => m.UserCanEditTargetUser(It.IsAny<IGuild>(), It.IsAny<IGuildUser>(), It.IsAny<IGuildUser>())).Returns(true); // TODO: Return calculation
+			guildHelper.Setup(m => m.UserCanEditTargetUser(It.IsAny<IGuild>(), It.IsAny<IGuildUser>(), It.IsAny<IGuildUser>())).Returns(true);
 
 			return simpleDiscordUsers;
 		}

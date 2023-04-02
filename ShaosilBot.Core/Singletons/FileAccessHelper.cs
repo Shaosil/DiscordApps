@@ -17,27 +17,28 @@ namespace ShaosilBot.Core.Singletons
 			_basePath = configuration["FilesBasePath"]!.ToString();
 		}
 
-		public T LoadFileJSON<T>(string filename, bool keepLease = false) where T : new()
+		public T LoadFileJSON<T>(string fileName, bool keepLease = false) where T : new()
 		{
-			_logger.LogInformation($"Entered {nameof(LoadFileJSON)}: filename={filename} keepLease={keepLease}");
-			string contents = GetTextFromFile(filename, keepLease, () => JsonSerializer.Serialize(new T()));
+			_logger.LogInformation($"Entered {nameof(LoadFileJSON)}: filename={fileName} keepLease={keepLease}");
+			string contents = GetTextFromFile(fileName, keepLease, () => JsonSerializer.Serialize(new T()));
 			return JsonSerializer.Deserialize<T>(contents)!;
 		}
 
-		public string LoadFileText(string filename, bool keepLease = false)
+		public string LoadFileText(string fileName, bool keepLease = false)
 		{
-			_logger.LogInformation($"Entered {nameof(LoadFileText)}: filename={filename} keepLease={keepLease}");
-			return GetTextFromFile(filename, keepLease, () => string.Empty);
+			_logger.LogInformation($"Entered {nameof(LoadFileText)}: filename={fileName} keepLease={keepLease}");
+			return GetTextFromFile(fileName, keepLease, () => string.Empty);
 		}
 
-		public void ReleaseFileLease(string fullPath)
+		public void ReleaseFileLease(string fileName)
 		{
-			_logger.LogInformation($"Entered {nameof(ReleaseFileLease)}: filename={fullPath}");
+			_logger.LogInformation($"Entered {nameof(ReleaseFileLease)}: filename={fileName}");
+			string fullPath = Path.Combine(_basePath, fileName);
 
 			lock (_fileLocks)
 			{
-				_logger.LogInformation("Unlocking file");
-				_fileLocks.Remove(fullPath);
+				if (_fileLocks.Remove(fullPath)) _logger.LogInformation("Successfully unlocked file.");
+				else _logger.LogWarning("File lock not found!");
 			}
 		}
 
@@ -55,7 +56,7 @@ namespace ShaosilBot.Core.Singletons
 			// Release lease if any exists by default
 			if (releaseLease)
 			{
-				ReleaseFileLease(fullPath);
+				ReleaseFileLease(filename);
 			}
 		}
 
@@ -75,8 +76,8 @@ namespace ShaosilBot.Core.Singletons
 			{
 				if (keepLease)
 				{
-					if (_fileLocks.Contains(fullPath)) _logger.LogInformation("Locking file.");
-					_fileLocks.Add(fullPath);
+					if (_fileLocks.Add(fullPath)) _logger.LogInformation("Successfully locked file.");
+					else _logger.LogWarning("File already locked!");
 				}
 
 				// If the file doesn't exist, created it from the default while we have the lock

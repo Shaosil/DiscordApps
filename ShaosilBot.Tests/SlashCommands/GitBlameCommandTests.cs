@@ -147,38 +147,58 @@ namespace ShaosilBot.Tests.SlashCommands
 		}
 
 		[TestMethod]
-		public async Task AddAndRemoveBlameables_Works()
+		[DataRow(true)]
+		[DataRow(false)]
+		public async Task AddAndRemoveBlameable_Succeeds(bool isAdd)
 		{
-			// Arrange - Prepare blameables and pass functions option, and capture calls to SaveFile
+			// Arrange - Prepare captured savefile. If this is a remove, generate discord users and target one of them
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
 			var savedFiles = new List<List<ulong>>();
 			FileAccessProviderMock.Setup(m => m.SaveFileJSON(GitBlameCommand.BlameablesFilename, It.IsAny<List<ulong>>(), It.IsAny<bool>()))
 				.Callback<string, List<ulong>, bool>((file, content, lease) => savedFiles.Add(content));
+			IGuildUser targetUser;
+			if (isAdd)
+			{
+				targetUser = UserMock.Object;
+			}
+			else
+			{
+				ulong randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
+				targetUser = await GuildMock.Object.GetUserAsync(randomSimpleUser);
+			}
 
-			// Act 1 - Toggle add for ourselves
-			AddOption("functions", 0);
-			AddOption("target-user", UserMock.Object);
-			var addResponse = await RunInteractions(interaction) as ContentResult;
-
-			// Act 2 - Toggle remove for an existing user as an admin
-			UserMock.Setup(m => m.GuildPermissions).Returns(GuildPermissions.All);
-			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
-			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser).Result;
-			ClearOptions();
+			// Act - Toggle target user as a blameable
 			AddOption("functions", 0);
 			AddOption("target-user", targetUser);
-			var removeResponse = await RunInteractions(interaction) as ContentResult;
+			var response = await RunInteractions(interaction) as ContentResult;
 
-			// Assert - Verify the blob provider was called with the expected arguments, the word "success" exists, and there is no followup message.
-			var addResponseObj = DeserializeResponse(addResponse!.Content);
-			var removeResponseObj = DeserializeResponse(removeResponse!.Content);
-			FileAccessProviderMock.Verify(m => m.SaveFileJSON(GitBlameCommand.BlameablesFilename, It.IsAny<List<ulong>>(), It.IsAny<bool>()), Times.Exactly(2));
-			Assert.AreEqual(2, savedFiles.Count);
-			Assert.IsTrue(savedFiles[0].Contains(UserMock.Object.Id));
-			Assert.IsFalse(savedFiles[1].Contains(targetUser.Id));
-			Assert.IsTrue(addResponseObj.data.content.ToLower().Contains("success"));
-			Assert.IsTrue(removeResponseObj.data.content.ToLower().Contains("success"));
+			// Assert - Ensure the word success exists and we either added or removed the target as a blameable
+			var deserializedResponse = DeserializeResponse(response!.Content);
+			FileAccessProviderMock.Verify(m => m.SaveFileJSON(GitBlameCommand.BlameablesFilename, It.IsAny<List<ulong>>(), It.IsAny<bool>()), Times.Once);
+			Assert.AreEqual(1, savedFiles.Count);
+			bool containsTarget = savedFiles[0].Contains(targetUser.Id);
+			Assert.AreEqual(isAdd, containsTarget);
+			Assert.IsTrue(deserializedResponse.data.content.ToLower().Contains("success"));
+			Assert.IsNull(FollowupResponseCapture);
+		}
+
+		[TestMethod]
+		public async Task AddBlameable_Unauthorized_Fails()
+		{
+			// Arrange - Make sure the guild helper returns unauthorized
+			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			GuildHelperMock.Setup(m => m.UserCanEditTargetUser(It.IsAny<IGuild>(), It.IsAny<IGuildUser>(), It.IsAny<IGuildUser>())).Returns(false);
+
+			// Act - Attempt to toggle ourselves
+			AddOption("functions", 0);
+			AddOption("target-user", UserMock.Object);
+			var response = await RunInteractions(interaction) as ContentResult;
+
+			// Assert - Make sure we did not succeed
+			var deserializedResponse = DeserializeResponse(response!.Content);
+			FileAccessProviderMock.Verify(m => m.SaveFileJSON(GitBlameCommand.BlameablesFilename, It.IsAny<List<ulong>>(), It.IsAny<bool>()), Times.Never);
+			Assert.IsTrue(deserializedResponse.data.content.ToLower().Contains("permissions"));
 			Assert.IsNull(FollowupResponseCapture);
 		}
 	}
