@@ -9,7 +9,7 @@ namespace ShaosilBot.Core.Singletons
 	{
 		private readonly ILogger<FileAccessHelper> _logger;
 		private string _basePath;
-		private HashSet<string> _fileLocks = new HashSet<string>();
+		private Dictionary<string, ManualResetEventSlim> _fileLocks = new Dictionary<string, ManualResetEventSlim>();
 
 		public FileAccessHelper(ILogger<FileAccessHelper> logger, IConfiguration configuration)
 		{
@@ -17,29 +17,17 @@ namespace ShaosilBot.Core.Singletons
 			_basePath = configuration["FilesBasePath"]!.ToString();
 		}
 
-		public T LoadFileJSON<T>(string fileName, bool keepLease = false) where T : new()
+		public T LoadFileJSON<T>(string fileName, bool lockFile = false) where T : new()
 		{
-			_logger.LogInformation($"Entered {nameof(LoadFileJSON)}: filename={fileName} keepLease={keepLease}");
-			string contents = GetTextFromFile(fileName, keepLease, () => JsonSerializer.Serialize(new T()));
+			_logger.LogInformation($"Entered {nameof(LoadFileJSON)}: filename={fileName} lockFile={lockFile}");
+			string contents = GetTextFromFile(fileName, lockFile, () => JsonSerializer.Serialize(new T()));
 			return JsonSerializer.Deserialize<T>(contents)!;
 		}
 
-		public string LoadFileText(string fileName, bool keepLease = false)
+		public string LoadFileText(string fileName, bool lockFile = false)
 		{
-			_logger.LogInformation($"Entered {nameof(LoadFileText)}: filename={fileName} keepLease={keepLease}");
-			return GetTextFromFile(fileName, keepLease, () => string.Empty);
-		}
-
-		public void ReleaseFileLease(string fileName)
-		{
-			_logger.LogInformation($"Entered {nameof(ReleaseFileLease)}: filename={fileName}");
-			string fullPath = Path.Combine(_basePath, fileName);
-
-			lock (_fileLocks)
-			{
-				if (_fileLocks.Remove(fullPath)) _logger.LogInformation("Successfully unlocked file.");
-				else _logger.LogWarning("File lock not found!");
-			}
+			_logger.LogInformation($"Entered {nameof(LoadFileText)}: filename={fileName} keepLease={lockFile}");
+			return GetTextFromFile(fileName, lockFile, () => string.Empty);
 		}
 
 		public void SaveFileJSON<T>(string filename, T content, bool releaseLease = true)
@@ -60,32 +48,51 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		private string GetTextFromFile(string fileName, bool keepLease, Func<string> defaultContentFunc)
+		private string GetTextFromFile(string fileName, bool lockFile, Func<string> defaultContentFunc)
 		{
 			string fullPath = Path.Combine(_basePath, fileName);
 
-			// Wait here if another thread has a lock on the requested file
-			if (_fileLocks.Contains(fullPath)) _logger.LogInformation("File locked... waiting...");
-			while (_fileLocks.Contains(fullPath))
-			{
-				Thread.Sleep(100);
-			}
-
-			// Aquire lease if requested
+			// Add file path to dictionary if it doesn't exist yet and immediately allow this thread to work on it
 			lock (_fileLocks)
 			{
-				if (keepLease)
+				if (!_fileLocks.ContainsKey(fullPath))
 				{
-					if (_fileLocks.Add(fullPath)) _logger.LogInformation("Successfully locked file.");
-					else _logger.LogWarning("File already locked!");
+					_fileLocks[fullPath] = new ManualResetEventSlim(true);
 				}
-
-				// If the file doesn't exist, created it from the default while we have the lock
-				if (!new FileInfo(fullPath).Exists) File.WriteAllText(fullPath, defaultContentFunc());
 			}
+
+			// Wait here if another thread has a lock on the requested file
+			if (!_fileLocks[fullPath].IsSet) _logger.LogInformation("File locked... waiting...");
+			_fileLocks[fullPath].Wait();
+
+			// Immediately lock this file if requested
+			if (lockFile)
+			{
+				_logger.LogInformation("Locking file.");
+				_fileLocks[fullPath].Reset();
+			}
+
+			// If the file doesn't exist, created it from the default while we have the lock
+			if (!new FileInfo(fullPath).Exists) File.WriteAllText(fullPath, defaultContentFunc());
 
 			_logger.LogInformation("Reading file contents.");
 			return File.ReadAllText(fullPath);
+		}
+
+		public void ReleaseFileLease(string fileName)
+		{
+			_logger.LogInformation($"Entered {nameof(ReleaseFileLease)}: filename={fileName}");
+			string fullPath = Path.Combine(_basePath, fileName);
+
+			// Release lock if one exists
+			lock (_fileLocks)
+			{
+				if (_fileLocks.ContainsKey(fullPath))
+				{
+					_logger.LogInformation("Releasing file lock.");
+					_fileLocks[fullPath].Set();
+				}
+			}
 		}
 	}
 }

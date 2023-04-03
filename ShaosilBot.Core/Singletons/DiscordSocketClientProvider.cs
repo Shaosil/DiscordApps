@@ -36,13 +36,15 @@ namespace ShaosilBot.Core.Singletons
 		{
 			// Initialize bot and login
 			Client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
-			Client.Ready += async () =>
+			Client.Ready += () => Task.Factory.StartNew(async () =>
 			{
+				// Start long running commands on a new thread
 				await Client.SetGameAsync("/help for info, !c to chat");
 				await _slashCommandProvider.BuildGuildCommands();
 				await _messageCommandProvider.BuildMessageCommands();
-			};
+			}, TaskCreationOptions.LongRunning);
 
+			// Only handle guild events in production
 			if (!isDevelopment)
 			{
 				Client.UserJoined += _messageHandler.UserJoined;

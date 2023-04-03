@@ -75,11 +75,13 @@ namespace ShaosilBot.Tests
 		public void FileLockPreventsAccess()
 		{
 			// Arrange - Set up a job to open and lock a file, simulate work, and release it
+			var thread2StartSignal = new ManualResetEventSlim();
 			string fileName = $"{Guid.NewGuid()}.json";
 			var initialData = new TestJson(Guid.NewGuid(), "Initial Value", Random.Shared.NextULong());
 			Action intensiveJob = () =>
 			{
 				var data = SUT.LoadFileJSON<TestJson>(fileName, true);                              // Get file and lock
+				thread2StartSignal.Set();                                                           // Signal unit test to continue
 				Thread.Sleep(1000);                                                                 // Simulate work
 				data = new TestJson(Guid.NewGuid(), "Updated Value", Random.Shared.NextULong());    // Update data
 				SUT.SaveFileJSON(fileName, data);                                                   // Save and release lock
@@ -87,7 +89,7 @@ namespace ShaosilBot.Tests
 
 			// Act - Spin up the job while trying to read the file contents shortly after
 			Task.Run(intensiveJob);
-			Thread.Sleep(100);
+			thread2StartSignal.Wait();
 			var updatedData = SUT.LoadFileJSON<TestJson>(fileName);
 
 			// Assert - Job 2 should see the data written by job 1
