@@ -2,7 +2,6 @@
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
-using ShaosilBot.Core.Singletons;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
@@ -12,23 +11,25 @@ namespace ShaosilBot.Core.Providers
 	{
 		private readonly ILogger<SlashCommandProvider> _logger;
 		private readonly IQuartzProvider _quartzProvider;
+		private readonly IDiscordRestClientProvider _restClientProvider;
 
 		public class MessageCommandNames
 		{
 			public const string RemindMe = "Remind Me!";
 		}
 
-		public MessageCommandProvider(ILogger<SlashCommandProvider> logger, IQuartzProvider quartzProvider)
+		public MessageCommandProvider(ILogger<SlashCommandProvider> logger, IQuartzProvider quartzProvider, IDiscordRestClientProvider restClientProvider)
 		{
 			_logger = logger;
 			_quartzProvider = quartzProvider;
+			_restClientProvider = restClientProvider;
 		}
 
 		public async Task BuildMessageCommands()
 		{
 			var allMessageNames = typeof(MessageCommandNames).GetFields(BindingFlags.Static | BindingFlags.Public).Select(f => f.GetValue(null)!.ToString()!).ToList();
 
-			var guilds = DiscordSocketClientProvider.Client.Guilds;
+			var guilds = await _restClientProvider.Client.GetGuildsAsync();
 
 			foreach (var guild in guilds)
 			{

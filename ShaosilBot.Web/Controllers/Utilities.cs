@@ -1,7 +1,6 @@
-using Discord.WebSocket;
+using Discord;
 using Microsoft.AspNetCore.Mvc;
 using ShaosilBot.Core.Interfaces;
-using ShaosilBot.Core.Singletons;
 using ShaosilBot.Web.CustomAuth;
 
 namespace ShaosilBot.Web
@@ -10,14 +9,12 @@ namespace ShaosilBot.Web
 	public class UtilitiesController : Controller
 	{
 		private readonly ILogger<UtilitiesController> _logger;
-		private readonly IDiscordSocketClientProvider _socketClientProvider;
 		private readonly IDiscordRestClientProvider _restClientProvider;
 		private readonly IChatGPTProvider _chatGPTProvider;
 
-		public UtilitiesController(ILogger<UtilitiesController> logger, IDiscordSocketClientProvider socketClientProvider, IDiscordRestClientProvider restClientProvider, IChatGPTProvider chatGPTProvider)
+		public UtilitiesController(ILogger<UtilitiesController> logger, IDiscordRestClientProvider restClientProvider, IChatGPTProvider chatGPTProvider)
 		{
 			_logger = logger;
-			_socketClientProvider = socketClientProvider;
 			_restClientProvider = restClientProvider;
 			_chatGPTProvider = chatGPTProvider;
 		}
@@ -51,7 +48,7 @@ namespace ShaosilBot.Web
 				return NoContent();
 
 			// Send prompt
-			var channel = DiscordSocketClientProvider.Client.GetChannel(channelId) as ISocketMessageChannel;
+			var channel = _restClientProvider.Client.GetChannelAsync(channelId) as IMessageChannel;
 			await _chatGPTProvider.SendChatMessage(channel!, model.prompt);
 			return Ok();
 		}

@@ -12,7 +12,7 @@ namespace ShaosilBot.Core.Singletons
 		private readonly ILogger<DiscordRestClientProvider> _logger;
 		private readonly IConfiguration _configuration;
 
-		public static DiscordRestClient Client { get; private set; }
+		public DiscordRestClient Client { get; private set; }
 
 		public DiscordRestClientProvider(ILogger<DiscordRestClientProvider> logger, IConfiguration configuration)
 		{
@@ -53,6 +53,12 @@ namespace ShaosilBot.Core.Singletons
 					case LogSeverity.Error: _logger.LogError(sb.ToString()); break;
 				}
 			}
+		}
+
+		public async void DMShaosil(string message)
+		{
+			var dmChannel = await (await Client.GetUserAsync(392127164570664962)).CreateDMChannelAsync();
+			await dmChannel.SendMessageAsync(message);
 		}
 	}
 }

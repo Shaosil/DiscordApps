@@ -17,6 +17,7 @@ namespace ShaosilBot.Core.Singletons
 		private const string ChatLogFile = "ChatGPTLog.json";
 
 		private readonly ILogger<ChatGPTProvider> _logger;
+		private readonly IDiscordRestClientProvider _restClientProvider;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IConfiguration _configuration;
 		private readonly IOpenAIService _openAIService;
@@ -25,9 +26,10 @@ namespace ShaosilBot.Core.Singletons
 		private class TypingState { public IDisposable? State; }
 		private Dictionary<ulong, TypingState> _typingInstances = new Dictionary<ulong, TypingState>();
 
-		public ChatGPTProvider(ILogger<ChatGPTProvider> logger, IFileAccessHelper fileAccessHelper, IConfiguration configuration, IOpenAIService openAIService)
+		public ChatGPTProvider(ILogger<ChatGPTProvider> logger, IDiscordRestClientProvider restClientProvider, IFileAccessHelper fileAccessHelper, IConfiguration configuration, IOpenAIService openAIService)
 		{
 			_logger = logger;
+			_restClientProvider = restClientProvider;
 			_fileAccessHelper = fileAccessHelper;
 			_configuration = configuration;
 			_openAIService = openAIService;
@@ -65,7 +67,7 @@ namespace ShaosilBot.Core.Singletons
 				var history = _chatHistory[message.Channel.Id];
 
 				// Send request
-				var botUser = DiscordSocketClientProvider.Client.CurrentUser;
+				var botUser = _restClientProvider.Client.CurrentUser;
 				int messageTokenLimit = _configuration.GetValue<int>("ChatGPTMessageTokenLimit");
 				var response = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
 				{
@@ -83,9 +85,9 @@ namespace ShaosilBot.Core.Singletons
 				_logger.LogInformation(response.ToString());
 				var responseMessage = response.Choices?.FirstOrDefault()?.Message;
 				var reference = new MessageReference(message.Id);
-				string? content = responseMessage!.Content;
+				string? content = responseMessage?.Content ?? string.Empty;
 				if (response.Usage?.CompletionTokens == messageTokenLimit) content += "...\n\n[Message token limit reached]";
-				if ((content?.Length ?? 0) > 1997) content = $"{content!.Substring(0, 1997)}..."; // Discord limits responses to 2000 characters.
+				if (content.Length > 1997) content = $"{content!.Substring(0, 1997)}..."; // Discord limits responses to 2000 characters.
 
 				// Handle error or empty responses and send the response, suprressing embeds
 				var sendMsg = async (string msg) => await message.Channel.SendMessageAsync(msg, messageReference: reference, flags: MessageFlags.SuppressEmbeds);
@@ -131,7 +133,7 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		public async Task SendChatMessage(ISocketMessageChannel channel, string prompt)
+		public async Task SendChatMessage(IMessageChannel channel, string prompt)
 		{
 			SetTypingLock(true, channel);
 
@@ -149,7 +151,7 @@ namespace ShaosilBot.Core.Singletons
 			SetTypingLock(false, channel);
 		}
 
-		private void SetTypingLock(bool typing, ISocketMessageChannel channel)
+		private void SetTypingLock(bool typing, IMessageChannel channel)
 		{
 			// Add the channel key to the Dictionary if needed
 			if (!_typingInstances.ContainsKey(channel.Id)) _typingInstances[channel.Id] = new();
@@ -178,7 +180,7 @@ namespace ShaosilBot.Core.Singletons
 		{
 			// Load all current users and give all non-bots full tokens - This may take a while on large servers
 			ulong guildID = _configuration.GetValue<ulong>("TargetGuild");
-			var guild = DiscordRestClientProvider.Client.GetGuildAsync(guildID).Result;
+			var guild = _restClientProvider.Client.GetGuildAsync(guildID).Result;
 			var guildUsers = (guild.GetUsersAsync().FlattenAsync().Result).Where(u => !u.IsBot).ToList();
 
 			// Calculate how many tokes each user should have (round up)

@@ -14,8 +14,7 @@ namespace ShaosilBot.Core.Singletons
 		private readonly IDiscordGatewayMessageHandler _messageHandler;
 		private readonly ISlashCommandProvider _slashCommandProvider;
 		private readonly IMessageCommandProvider _messageCommandProvider;
-
-		public static DiscordSocketClient Client { get; private set; }
+		private readonly DiscordSocketClient _client;
 
 		public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger,
 			IConfiguration configuration,
@@ -29,17 +28,17 @@ namespace ShaosilBot.Core.Singletons
 			_messageHandler = messageHandler;
 			_slashCommandProvider = slashCommandProvider;
 			_messageCommandProvider = messageCommandProvider;
-			Client = new DiscordSocketClient(config);
+			_client = new DiscordSocketClient(config);
 		}
 
 		public void Init(bool isDevelopment)
 		{
 			// Initialize bot and login
-			Client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
-			Client.Ready += () => Task.Factory.StartNew(async () =>
+			_client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
+			_client.Ready += () => Task.Factory.StartNew(async () =>
 			{
 				// Start long running commands on a new thread
-				await Client.SetGameAsync("/help for info, !c to chat");
+				await _client.SetGameAsync("/help for info, !c to chat");
 				await _slashCommandProvider.BuildGuildCommands();
 				await _messageCommandProvider.BuildMessageCommands();
 			}, TaskCreationOptions.LongRunning);
@@ -47,15 +46,15 @@ namespace ShaosilBot.Core.Singletons
 			// Only handle guild events in production
 			if (!isDevelopment)
 			{
-				Client.UserJoined += _messageHandler.UserJoined;
-				Client.UserLeft += _messageHandler.UserLeft;
-				Client.MessageReceived += _messageHandler.MessageReceived;
-				Client.ReactionAdded += _messageHandler.ReactionAdded;
-				Client.ReactionRemoved += _messageHandler.ReactionRemoved;
+				_client.UserJoined += _messageHandler.UserJoined;
+				_client.UserLeft += _messageHandler.UserLeft;
+				_client.MessageReceived += _messageHandler.MessageReceived;
+				_client.ReactionAdded += _messageHandler.ReactionAdded;
+				_client.ReactionRemoved += _messageHandler.ReactionRemoved;
 			}
 
-			Client.LoginAsync(TokenType.Bot, _configuration["BotToken"]).GetAwaiter().GetResult();
-			Client.StartAsync().GetAwaiter().GetResult();
+			_client.LoginAsync(TokenType.Bot, _configuration["BotToken"]).GetAwaiter().GetResult();
+			_client.StartAsync().GetAwaiter().GetResult();
 		}
 
 		private void LogSocketMessage(LogMessage message)

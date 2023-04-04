@@ -62,7 +62,14 @@ builder.Services.AddQuartz(c =>
 		s.UseJsonSerializer();
 	});
 
-}).AddQuartzServer(c => { c.WaitForJobsToComplete = true; });
+})
+.AddQuartzServer(c => { c.WaitForJobsToComplete = true; })
+.Configure<QuartzOptions>(q =>
+{
+	q.Add("quartz.jobStore.acquireTriggersWithinLock", "true");
+	q.Add("quartz.jobStore.txIsolationLevelSerializable", "true");
+	q.Add("quartz.jobStore.lockHandler.type", typeof(Quartz.Impl.AdoJobStore.UpdateLockRowSemaphore).AssemblyQualifiedName);
+});
 
 builder.Services.AddHttpLogging(logging =>
 {

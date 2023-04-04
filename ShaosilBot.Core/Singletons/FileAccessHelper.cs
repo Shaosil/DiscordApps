@@ -8,12 +8,15 @@ namespace ShaosilBot.Core.Singletons
 	public class FileAccessHelper : IFileAccessHelper
 	{
 		private readonly ILogger<FileAccessHelper> _logger;
+		private readonly IDiscordRestClientProvider _restClientProvider;
 		private string _basePath;
 		private Dictionary<string, ManualResetEventSlim> _fileLocks = new Dictionary<string, ManualResetEventSlim>();
+		private int _lockWaitMaxMs = 10000;
 
-		public FileAccessHelper(ILogger<FileAccessHelper> logger, IConfiguration configuration)
+		public FileAccessHelper(ILogger<FileAccessHelper> logger, IConfiguration configuration, IDiscordRestClientProvider restClientProvider)
 		{
 			_logger = logger;
+			_restClientProvider = restClientProvider;
 			_basePath = configuration["FilesBasePath"]!.ToString();
 		}
 
@@ -63,7 +66,13 @@ namespace ShaosilBot.Core.Singletons
 
 			// Wait here if another thread has a lock on the requested file
 			if (!_fileLocks[fullPath].IsSet) _logger.LogInformation("File locked... waiting...");
-			_fileLocks[fullPath].Wait();
+			if (!_fileLocks[fullPath].Wait(_lockWaitMaxMs))
+			{
+				// If the file is still locked after the wait timeout, just proceed, log and notify Shaosil
+				string message = $"{nameof(FileAccessHelper)} encountered an apparent deadlock after {_lockWaitMaxMs / 1000} seconds and continued. Locked file: {fullPath}";
+				_logger.LogWarning(message);
+				_restClientProvider.DMShaosil(message);
+			}
 
 			// Immediately lock this file if requested
 			if (lockFile)

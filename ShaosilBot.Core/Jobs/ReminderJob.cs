@@ -1,12 +1,14 @@
 ﻿using Discord;
 using Discord.Rest;
 using Quartz;
-using ShaosilBot.Core.Singletons;
+using ShaosilBot.Core.Interfaces;
 
 namespace ShaosilBot.Core.Jobs
 {
 	public class ReminderJob : IJob
 	{
+		private readonly IDiscordRestClientProvider _discordRestClientProvider;
+
 		public class DataMapKeys
 		{
 			public const string UserID = "UserID";
@@ -14,6 +16,11 @@ namespace ShaosilBot.Core.Jobs
 			public const string Message = "Message";
 			public const string ReferenceMessageID = "ReferenceMessageID";
 			public const string ReferenceMessageContent = "ReferenceMessageContent";
+		}
+
+		public ReminderJob(IDiscordRestClientProvider discordRestClientProvider)
+		{
+			_discordRestClientProvider = discordRestClientProvider;
 		}
 
 		public async Task Execute(IJobExecutionContext context)
@@ -24,8 +31,8 @@ namespace ShaosilBot.Core.Jobs
 			string? msg = context.MergedJobDataMap.GetString(DataMapKeys.Message);
 
 			// If it was private, send a DM to the user. Otherwise, try to send it to the channel
-			var user = await DiscordRestClientProvider.Client.GetUserAsync(userID);
-			var channel = channelID.HasValue ? await DiscordRestClientProvider.Client.GetChannelAsync(channelID.Value) as RestTextChannel : null;
+			var user = await _discordRestClientProvider.Client.GetUserAsync(userID);
+			var channel = channelID.HasValue ? await _discordRestClientProvider.Client.GetChannelAsync(channelID.Value) as RestTextChannel : null;
 			if (channel != null)
 			{
 				// If we have a reference message, this was from a message command. Otherwise, it was from a slash

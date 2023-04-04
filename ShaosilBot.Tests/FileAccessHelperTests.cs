@@ -1,4 +1,6 @@
-﻿using ShaosilBot.Core.Singletons;
+﻿using ShaosilBot.Core.Interfaces;
+using ShaosilBot.Core.Singletons;
+using System.Reflection;
 
 namespace ShaosilBot.Tests
 {
@@ -7,6 +9,7 @@ namespace ShaosilBot.Tests
 	{
 		private FileAccessHelper SUT;
 		private Mock<IConfiguration> _mockConfig;
+		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
 		private string _testDir;
 
 		private record TestJson(Guid guid, string str, ulong num) { public TestJson() : this(Guid.Empty, string.Empty, default) { } };
@@ -22,9 +25,10 @@ namespace ShaosilBot.Tests
 
 			_mockConfig = new Mock<IConfiguration>();
 			_mockConfig.Setup(c => c["FilesBasePath"]).Returns(_testDir);
+			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();
 
 			var loggerMock = new Mock<ILogger<FileAccessHelper>>();
-			SUT = new FileAccessHelper(Logger, _mockConfig.Object);
+			SUT = new FileAccessHelper(Logger, _mockConfig.Object, _restClientProviderMock.Object);
 		}
 
 		[TestMethod]
@@ -97,6 +101,24 @@ namespace ShaosilBot.Tests
 			Assert.AreNotEqual(initialData.guid, updatedData.guid);
 			Assert.AreNotEqual(initialData.str, updatedData.str);
 			Assert.AreNotEqual(initialData.str, updatedData.str);
+		}
+
+		[TestMethod]
+		public void DeadlockDoesNotBlock()
+		{
+			// Arrange - Get and keep a lock on a file, and prepare to capture log message
+			string dmMessage = string.Empty;
+			string fileName = $"{Guid.NewGuid()}.txt";
+			SUT.LoadFileText(fileName, true);
+			_restClientProviderMock.Setup(m => m.DMShaosil(It.IsAny<string>())).Callback<string>(s => dmMessage = s);
+
+			// Act - Attempt to access the same file (override the waiting period to be 1 second)
+			SUT.GetType().GetField("_lockWaitMaxMs", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(SUT, 1000);
+			SUT.LoadFileText(fileName);
+
+			// Assert - If we get here at all that is half the test, so now just verify a DM message was sent (check test log as well if desired)
+			_restClientProviderMock.Verify(m => m.DMShaosil(It.IsAny<string>()), Times.Once);
+			Assert.IsTrue(dmMessage.Contains("deadlock"));
 		}
 	}
 }

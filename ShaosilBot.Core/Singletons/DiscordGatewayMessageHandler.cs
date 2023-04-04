@@ -17,18 +17,21 @@ namespace ShaosilBot.Core.Singletons
 
 		private readonly ILogger<IDiscordGatewayMessageHandler> _logger;
 		private readonly IConfiguration _configuration;
+		private readonly IDiscordRestClientProvider _restClientProvider;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IChatGPTProvider _chatGPTProvider;
 		private readonly IQuartzProvider _quartzProvider;
 
 		public DiscordGatewayMessageHandler(ILogger<IDiscordGatewayMessageHandler> logger,
 			IConfiguration configuration,
+			IDiscordRestClientProvider restClientProvider,
 			IFileAccessHelper fileAccessHelper,
 			IChatGPTProvider chatGPTProvider,
 			IQuartzProvider quartzProvider)
 		{
 			_logger = logger;
 			_configuration = configuration;
+			_restClientProvider = restClientProvider;
 			_fileAccessHelper = fileAccessHelper;
 			_chatGPTProvider = chatGPTProvider;
 			_quartzProvider = quartzProvider;
@@ -48,7 +51,7 @@ namespace ShaosilBot.Core.Singletons
 
 		public async Task MessageReceived(SocketMessage message)
 		{
-			ulong ourself = DiscordSocketClientProvider.Client.CurrentUser.Id;
+			ulong ourself = _restClientProvider.Client.CurrentUser.Id;
 			var mentionedSelf = message.MentionedUsers.FirstOrDefault(m => m.Id == ourself);
 
 			// Respond to chat request

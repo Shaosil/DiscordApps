@@ -2,7 +2,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
-using ShaosilBot.Core.Singletons;
 using ShaosilBot.Core.SlashCommands;
 using System.Reflection;
 
@@ -12,6 +11,7 @@ namespace ShaosilBot.Core.Providers
 	{
 		private readonly ILogger<SlashCommandProvider> _logger;
 		private readonly IServiceProvider _serviceProvider;
+		private readonly IDiscordRestClientProvider _restClientProvider;
 		private Dictionary<string, SlashCommandProperties> _commandProperties = new Dictionary<string, SlashCommandProperties>();
 		private readonly Dictionary<string, Type> _commandToTypeMappings = new Dictionary<string, Type>();
 
@@ -19,15 +19,16 @@ namespace ShaosilBot.Core.Providers
 
 		public IReadOnlyDictionary<string, SlashCommandProperties> CommandProperties => _commandProperties;
 
-		public SlashCommandProvider(ILogger<SlashCommandProvider> logger, IServiceProvider serviceProvider)
+		public SlashCommandProvider(ILogger<SlashCommandProvider> logger, IServiceProvider serviceProvider, IDiscordRestClientProvider restClientProvider)
 		{
 			_logger = logger;
 			_serviceProvider = serviceProvider;
+			_restClientProvider = restClientProvider;
 		}
 
 		public async Task BuildGuildCommands()
 		{
-			var guilds = DiscordSocketClientProvider.Client.Guilds;
+			var guilds = await _restClientProvider.Client.GetGuildsAsync();
 
 			// Store each type's command properties by calling BuildCommand on each type. Build HelpCommand last so it has access to everything else
 			var derivedTypes = Assembly.GetExecutingAssembly().DefinedTypes.Where(t => t.BaseType == typeof(BaseCommand)).ToList();
