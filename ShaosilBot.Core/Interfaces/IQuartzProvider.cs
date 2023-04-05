@@ -6,6 +6,8 @@ namespace ShaosilBot.Core.Interfaces
 {
 	public interface IQuartzProvider
 	{
+		string ConnectionString { get; }
+
 		void SetupPersistantJobs();
 		void SelfDestructMessage(SocketMessage message, int hours);
 		Dictionary<IJobDetail, ITrigger> GetUserReminders(ulong userID);

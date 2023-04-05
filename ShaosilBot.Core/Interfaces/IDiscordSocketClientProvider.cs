@@ -2,6 +2,6 @@
 {
 	public interface IDiscordSocketClientProvider
 	{
-		void Init(bool isDevelopment);
+		Task Init(bool isDevelopment);
 	}
 }

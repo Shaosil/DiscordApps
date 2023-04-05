@@ -1,14 +1,16 @@
-﻿using Discord.Rest;
+﻿using Discord;
+using Discord.Rest;
 
 namespace ShaosilBot.Core.Interfaces
 {
 	public interface IDiscordRestClientProvider
 	{
 		DiscordRestClient Client { get; }
+		IReadOnlyCollection<IGuild> Guilds { get; }
 
-		void Init();
+		Task Init();
 		Task<RestTextChannel> GetChannelAsync(ulong channelId);
 		Task<RestInteraction> ParseHttpInteractionAsync(string publicKey, string signature, string timestamp, string body);
-		void DMShaosil(string message);
+		Task DMShaosil(string message);
 	}
 }

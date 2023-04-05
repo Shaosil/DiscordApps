@@ -11,7 +11,7 @@ namespace ShaosilBot.Core.Providers
 	public class QuartzProvider : IQuartzProvider
 	{
 		public const string FillMonthlyChatGPTTokensJobIdentity = "FillMonthlyChatGPTTokens";
-		private static string _connString;
+		public string ConnectionString { get; private set; }
 
 		private bool _isDevelopment = true;
 		private readonly IScheduler _scheduler;
@@ -21,12 +21,15 @@ namespace ShaosilBot.Core.Providers
 		{
 			_scheduler = schedulerFactory.GetScheduler().Result;
 			_configuration = configuration;
+			ConnectionString = $"Data Source={Path.Combine(configuration.GetValue<string>("FilesBasePath")!, "quartz.db")}";
+
+			// Call once on first instantiation (we should be a singleton)
+			EnsureSchemaExists();
 		}
 
-		public static void EnsureSchemaExists(string connString)
+		private void EnsureSchemaExists()
 		{
-			_connString = connString;
-			using (var conn = new SqliteConnection(_connString))
+			using (var conn = new SqliteConnection(ConnectionString))
 			{
 				conn.Open();
 				var cmd = conn.CreateCommand();
@@ -85,7 +88,7 @@ namespace ShaosilBot.Core.Providers
 			List<string> jobKeys = new List<string>();
 
 			// Manually query the DB by job name and data to retrieve keys
-			using (var conn = new SqliteConnection(_connString))
+			using (var conn = new SqliteConnection(ConnectionString))
 			{
 				conn.Open();
 				var cmd = conn.CreateCommand();

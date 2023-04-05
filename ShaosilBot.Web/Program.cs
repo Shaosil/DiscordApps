@@ -54,11 +54,8 @@ builder.Services.AddQuartz(c =>
 
 	c.UsePersistentStore(s =>
 	{
-		string connString = $"Data Source={Path.Combine(builder.Configuration.GetValue<string>("FilesBasePath")!, "quartz.db")}";
-		QuartzProvider.EnsureSchemaExists(connString); // Will create DB file and tables if needed
-
 		s.UseProperties = true;
-		s.UseMicrosoftSQLite(connString);
+		s.UseMicrosoftSQLite($"Data Source={Path.Combine(builder.Configuration.GetValue<string>("FilesBasePath")!, "quartz.db")}");
 		s.UseJsonSerializer();
 	});
 
@@ -98,7 +95,7 @@ app.MapControllers();
 // Init the Quartz scheduler jobs if not in development mode
 if (!isDev) app.Services.GetRequiredService<IQuartzProvider>().SetupPersistantJobs();
 
-// Init the websocket and rest clients, and launch the app
-app.Services.GetService<IDiscordRestClientProvider>()!.Init();
-app.Services.GetService<IDiscordSocketClientProvider>()!.Init(isDev);
+// Init the necessary components and launch the app
+await app.Services.GetService<IDiscordRestClientProvider>()!.Init();
+await app.Services.GetService<IDiscordSocketClientProvider>()!.Init(isDev);
 app.Run();

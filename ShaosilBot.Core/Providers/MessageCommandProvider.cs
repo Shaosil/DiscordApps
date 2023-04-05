@@ -29,7 +29,7 @@ namespace ShaosilBot.Core.Providers
 		{
 			var allMessageNames = typeof(MessageCommandNames).GetFields(BindingFlags.Static | BindingFlags.Public).Select(f => f.GetValue(null)!.ToString()!).ToList();
 
-			var guilds = await _restClientProvider.Client.GetGuildsAsync();
+			var guilds = _restClientProvider.Guilds;
 
 			foreach (var guild in guilds)
 			{

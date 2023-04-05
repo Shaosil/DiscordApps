@@ -10,19 +10,23 @@ namespace ShaosilBot.Tests
 		private FileAccessHelper SUT;
 		private Mock<IConfiguration> _mockConfig;
 		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
-		private string _testDir;
+		private static string _testDir;
 
 		private record TestJson(Guid guid, string str, ulong num) { public TestJson() : this(Guid.Empty, string.Empty, default) { } };
 
-		[TestInitialize]
-		public void TestInit()
+		[ClassInitialize]
+		public static void ClassInit(TestContext context)
 		{
 			// Create test file path if needed and delete all existing files
 			_testDir = Path.Combine(Environment.CurrentDirectory, "TestFiles");
 			var testDir = new DirectoryInfo(_testDir);
 			if (!testDir.Exists) testDir.Create();
 			foreach (var file in testDir.GetFiles()) file.Delete();
+		}
 
+		[TestInitialize]
+		public void TestInit()
+		{
 			_mockConfig = new Mock<IConfiguration>();
 			_mockConfig.Setup(c => c["FilesBasePath"]).Returns(_testDir);
 			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();

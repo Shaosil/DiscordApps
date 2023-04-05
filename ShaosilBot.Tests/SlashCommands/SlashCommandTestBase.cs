@@ -12,27 +12,21 @@ namespace ShaosilBot.Tests.SlashCommands
 		private List<IApplicationCommandInteractionDataOption> _optionsMocks;
 
 		protected T SlashCommandSUT { get; private set; }
+		protected Mock<IGuildHelper> GuildHelperMock { get; private set; }
+		protected Mock<IHttpUtilities> HttpUtilitiesMock { get; private set; }
 		protected Mock<IGuildUser> UserMock { get; private set; }
 		protected Mock<IGuild> GuildMock { get; private set; }
 		protected Mock<IRestMessageChannel> ChannelMock { get; private set; }
 		protected Mock<IFileAccessHelper> FileAccessProviderMock { get; private set; }
 		protected string FollowupResponseCapture { get; private set; }
 
-		protected static Mock<IGuildHelper> GuildHelperMock { get; private set; }
-		protected static Mock<IHttpUtilities> HttpUtilitiesMock { get; private set; }
-
-		[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
-		public static new void ClassInitialize(TestContext context)
-		{
-			GuildHelperMock = new Mock<IGuildHelper>();
-			HttpUtilitiesMock = new Mock<IHttpUtilities>();
-		}
-
 		[TestInitialize]
 		public override void TestInitialize()
 		{
 			base.TestInitialize();
 
+			GuildHelperMock = new Mock<IGuildHelper>();
+			HttpUtilitiesMock = new Mock<IHttpUtilities>();
 			FileAccessProviderMock = new Mock<IFileAccessHelper>();
 			SlashCommandSUT = GetInstance();
 			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(SlashCommandSUT.CommandName)).Returns(SlashCommandSUT);

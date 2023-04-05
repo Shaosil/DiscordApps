@@ -31,7 +31,7 @@ namespace ShaosilBot.Core.Singletons
 			_client = new DiscordSocketClient(config);
 		}
 
-		public void Init(bool isDevelopment)
+		public async Task Init(bool isDevelopment)
 		{
 			// Initialize bot and login
 			_client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
@@ -53,8 +53,8 @@ namespace ShaosilBot.Core.Singletons
 				_client.ReactionRemoved += _messageHandler.ReactionRemoved;
 			}
 
-			_client.LoginAsync(TokenType.Bot, _configuration["BotToken"]).GetAwaiter().GetResult();
-			_client.StartAsync().GetAwaiter().GetResult();
+			await _client.LoginAsync(TokenType.Bot, _configuration["BotToken"]);
+			await _client.StartAsync();
 		}
 
 		private void LogSocketMessage(LogMessage message)

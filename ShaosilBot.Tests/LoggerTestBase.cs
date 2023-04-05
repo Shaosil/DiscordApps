@@ -3,10 +3,10 @@
 	[TestClass]
 	public abstract class LoggerTestBase<T>
 	{
-		protected static ILogger<T> Logger { get; private set; }
+		protected ILogger<T> Logger { get; private set; }
 
-		[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
-		public static void ClassInit(TestContext context)
+		[TestInitialize]
+		public void LoggerBaseTestInit()
 		{
 			Logger = new LoggerWrapper<T>();
 		}

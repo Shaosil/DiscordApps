@@ -28,7 +28,7 @@ namespace ShaosilBot.Core.Providers
 
 		public async Task BuildGuildCommands()
 		{
-			var guilds = await _restClientProvider.Client.GetGuildsAsync();
+			var guilds = _restClientProvider.Guilds;
 
 			// Store each type's command properties by calling BuildCommand on each type. Build HelpCommand last so it has access to everything else
 			var derivedTypes = Assembly.GetExecutingAssembly().DefinedTypes.Where(t => t.BaseType == typeof(BaseCommand)).ToList();

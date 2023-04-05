@@ -15,28 +15,24 @@ namespace ShaosilBot.Tests.Endpoints
 	public abstract class InteractionsTestsBase : LoggerTestBase<BaseCommand>
 	{
 		private InteractionsController _interactionsSUT;
+		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
+
+		protected IConfiguration Configuration;
 		protected Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
 		protected Mock<IMessageCommandProvider> MessageCommandProviderMock { get; private set; }
 		protected Mock<SlashCommandWrapper> SlashCommandWrapperMock { get; private set; }
 
-		protected static IConfiguration Configuration;
-		private static Mock<IDiscordRestClientProvider> _restClientProviderMock;
-
-		[ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
-		public static void ClassInitialize(TestContext context)
-		{
-			Configuration = new ConfigurationBuilder().AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json")).Build();
-			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();
-
-			// Bypass our rest interaction client wrapper by calling Discord.Net's client parse
-			var client = new DiscordRestClient(new DiscordRestConfig { UseInteractionSnowflakeDate = false });
-			_restClientProviderMock.Setup(m => m.ParseHttpInteractionAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-				.Returns((string s1, string s2, string s3, string s4) => client.ParseHttpInteractionAsync(s1, s2, s3, s4));
-		}
-
 		[TestInitialize]
 		public virtual void TestInitialize()
 		{
+			Configuration = new ConfigurationBuilder().AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json")).Build();
+
+			// Bypass our rest interaction client wrapper by calling Discord.Net's client parse
+			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();
+			var client = new DiscordRestClient(new DiscordRestConfig { UseInteractionSnowflakeDate = false });
+			_restClientProviderMock.Setup(m => m.ParseHttpInteractionAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+				.Returns((string s1, string s2, string s3, string s4) => client.ParseHttpInteractionAsync(s1, s2, s3, s4));
+
 			var logWrapper = new LoggerTestBase<InteractionsController>.LoggerWrapper<InteractionsController>();
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
 			MessageCommandProviderMock = new Mock<IMessageCommandProvider>();

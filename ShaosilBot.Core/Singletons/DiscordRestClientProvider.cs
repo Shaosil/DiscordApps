@@ -14,6 +14,9 @@ namespace ShaosilBot.Core.Singletons
 
 		public DiscordRestClient Client { get; private set; }
 
+		// Helper properties
+		public IReadOnlyCollection<IGuild> Guilds { get; private set; }
+
 		public DiscordRestClientProvider(ILogger<DiscordRestClientProvider> logger, IConfiguration configuration)
 		{
 			_logger = logger;
@@ -21,10 +24,11 @@ namespace ShaosilBot.Core.Singletons
 			Client = new DiscordRestClient();
 		}
 
-		public void Init()
+		public async Task Init()
 		{
 			Client.Log += (msg) => Task.Run(() => LogRestMessage(msg));
-			Client.LoginAsync(TokenType.Bot, _configuration["BotToken"]).GetAwaiter().GetResult();
+			await Client.LoginAsync(TokenType.Bot, _configuration["BotToken"]);
+			Guilds = await Client.GetGuildsAsync();
 		}
 
 		public async Task<RestTextChannel> GetChannelAsync(ulong channelId)
@@ -55,7 +59,7 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		public async void DMShaosil(string message)
+		public async Task DMShaosil(string message)
 		{
 			var dmChannel = await (await Client.GetUserAsync(392127164570664962)).CreateDMChannelAsync();
 			await dmChannel.SendMessageAsync(message);
