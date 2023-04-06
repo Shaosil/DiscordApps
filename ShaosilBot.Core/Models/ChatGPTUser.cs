@@ -11,6 +11,8 @@ namespace ShaosilBot.Core.Models
 		[JsonIgnore]
 		public int BorrowableTokens => AvailableTokens - BorrowedTokens; // Helper calculation
 
+		public string? CustomSystemPrompt { get; set; }
+
 		public Dictionary<DateTime, int> TokensUsed { get; set; } = new Dictionary<DateTime, int>();
 	}
 }
