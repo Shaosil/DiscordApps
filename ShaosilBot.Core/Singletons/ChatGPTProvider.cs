@@ -13,7 +13,7 @@ namespace ShaosilBot.Core.Singletons
 {
 	public class ChatGPTProvider : IChatGPTProvider
 	{
-		private const string ChatGPTUsersFile = "ChatGPTUsers.json";
+		public const string ChatGPTUsersFile = "ChatGPTUsers.json";
 		private const string ChatLogFile = "ChatGPTLog.json";
 
 		private readonly ILogger<ChatGPTProvider> _logger;
@@ -266,18 +266,19 @@ namespace ShaosilBot.Core.Singletons
 					var borroweeGroup = allUsers
 						.Where(u => u.Key != id && u.Value.BorrowableTokens > 0)
 						.GroupBy(u => Math.Floor(u.Value.AvailableTokens / 1000f))
-						.Order()
-						.First().ToList();
+						.Order().First().ToList();
 
-					// Borrow the floor of the divided amount from each user, then just loop through adding 1 until the remainder is finished
-					float dividedAmt = (float)tokens / borroweeGroup.Count;
-					borroweeGroup.ForEach(b => b.Value!.BorrowedTokens += (int)Math.Floor(dividedAmt));
-					int remainder = tokens - ((int)Math.Floor(dividedAmt) * borroweeGroup.Count);
-					int curIdx = 0;
-					while (remainder > 0)
+					// Borrow the floor of the divided amount from each user, then distribute the remainder 1 by 1 at random
+					int dividedAmtFloor = (int)Math.Floor((float)tokens / borroweeGroup.Count);
+					borroweeGroup.ForEach(b =>
 					{
-						borroweeGroup[curIdx++].Value!.BorrowedTokens += remainder--;
-						if (curIdx >= borroweeGroup.Count) curIdx = 0;
+						if (!b.Value.LentTokens.ContainsKey(id)) b.Value.LentTokens[id] = 0;
+						b.Value.LentTokens[id] += dividedAmtFloor;
+					});
+					borroweeGroup.Sort((_, _) => Random.Shared.Next(2) == 0 ? -1 : 1);
+					for (int remainder = tokens - (dividedAmtFloor * borroweeGroup.Count); remainder > 0; remainder--)
+					{
+						borroweeGroup[remainder].Value.LentTokens[id] += 1;
 					}
 				}
 

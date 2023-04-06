@@ -96,10 +96,14 @@ namespace ShaosilBot.Core.Singletons
 			// Release lock if one exists
 			lock (_fileLocks)
 			{
-				if (_fileLocks.ContainsKey(fullPath))
+				if (_fileLocks.ContainsKey(fullPath) && !_fileLocks[fullPath].IsSet)
 				{
 					_logger.LogInformation("Releasing file lock.");
 					_fileLocks[fullPath].Set();
+				}
+				else
+				{
+					_logger.LogInformation("Nothing to release");
 				}
 			}
 		}
