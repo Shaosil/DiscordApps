@@ -21,7 +21,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string HelpSummary => "Manage the way you chat with the bot.";
 
-		public override string HelpDetails => @$"/{CommandName} stats | custom-prompt (show | set [string prompt])
+		public override string HelpDetails => @$"/{CommandName} stats | custom-prompt (show | set [string prompt]) | clear-history
 
 SUBCOMMANDS:
 * stats
@@ -32,7 +32,10 @@ SUBCOMMANDS:
 		Displays your custom instructions to the bot that will be included in each message
 
 	- set (prompt)
-		Sets or clears your custom instructions";
+		Sets or clears your custom instructions
+
+* clear-history (ADMIN ONLY)
+	Erases all chat history from bot's memory for current channel. Only message administrators may use this command.";
 
 		public override SlashCommandProperties BuildCommand()
 		{
@@ -61,14 +64,16 @@ SUBCOMMANDS:
 								}
 							}
 						}
-					}
+					},
+					new SlashCommandOptionBuilder { Name = "clear-history", Description = "Clears the current channel's history", Type = ApplicationCommandOptionType.SubCommand }
 				}
 			}.Build();
 		}
 
 		public override Task<string> HandleCommand(SlashCommandWrapper command)
 		{
-			string returnMessage = "Work in progress. Poke Shaosil for faster results.";
+			string returnMessage;
+			bool ephermal = true;
 
 			// Load this user's info - keep lease in case we need to update it
 			var allUsers = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTProvider.ChatGPTUsersFile, true);
@@ -90,7 +95,7 @@ SUBCOMMANDS:
 				statsBuilder.AppendLine($"* Custom prompt:    {ourInfo.CustomSystemPrompt ?? "(none)"}```");
 				returnMessage = statsBuilder.ToString();
 			}
-			else
+			else if (subCmd.Name == "custom-prompt")
 			{
 				// Subcommand show or set
 				subCmd = subCmd.Options.First();
@@ -108,9 +113,35 @@ SUBCOMMANDS:
 					returnMessage = $"Custom prompt successfully {(string.IsNullOrWhiteSpace(prompt) ? "cleared" : "updated")}.";
 				}
 			}
+			else
+			{
+				// Verify user has manage message permissions
+				if ((command.User as IGuildUser)!.GetPermissions(command.Channel as IGuildChannel).ManageMessages)
+				{
+					var allHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, List<ChatGPTChannelMessage>>>(ChatGPTProvider.ChatLogFile, true);
+					var ourHistory = allHistory.GetValueOrDefault(command.Channel.Id);
+
+					if ((ourHistory?.Count ?? 0) == 0)
+					{
+						returnMessage = "No current history stored in this channel.";
+					}
+					else
+					{
+						ourHistory!.Clear();
+						_fileAccessHelper.SaveFileJSON(ChatGPTProvider.ChatLogFile, allHistory);
+						returnMessage = "Channel history successfully wiped from bot's memory.";
+						ephermal = false;
+					}
+					_fileAccessHelper.ReleaseFileLease(ChatGPTProvider.ChatLogFile);
+				}
+				else
+				{
+					returnMessage = "Sorry, only admins may clear a bot's history knowledge.";
+				}
+			}
 			_fileAccessHelper.ReleaseFileLease(ChatGPTProvider.ChatGPTUsersFile);
 
-			return Task.FromResult(command.Respond(returnMessage, ephemeral: true));
+			return Task.FromResult(command.Respond(returnMessage, ephemeral: ephermal));
 		}
 	}
 }

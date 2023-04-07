@@ -14,7 +14,7 @@ namespace ShaosilBot.Core.Singletons
 	public class ChatGPTProvider : IChatGPTProvider
 	{
 		public const string ChatGPTUsersFile = "ChatGPTUsers.json";
-		private const string ChatLogFile = "ChatGPTLog.json";
+		public const string ChatLogFile = "ChatGPTLog.json";
 
 		private readonly ILogger<ChatGPTProvider> _logger;
 		private readonly IDiscordRestClientProvider _restClientProvider;
@@ -24,7 +24,7 @@ namespace ShaosilBot.Core.Singletons
 		private readonly object _userFileLock = new();
 		private class TypingState { public IDisposable? State; public ManualResetEventSlim GoSignal = new ManualResetEventSlim(true); }
 		private Dictionary<ulong, TypingState> _typingInstances = new Dictionary<ulong, TypingState>();
-		private int _maxWaitTimeMs = 30000;
+		private int _maxWaitTimeMs = 100000; // At least as long as the HTTP timeout
 
 		public ChatGPTProvider(ILogger<ChatGPTProvider> logger, IDiscordRestClientProvider restClientProvider, IFileAccessHelper fileAccessHelper, IConfiguration configuration, IOpenAIService openAIService)
 		{
@@ -72,7 +72,7 @@ namespace ShaosilBot.Core.Singletons
 				}
 				sanitizedMessage = $"[{DateTime.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"))} - {message.Author.Username}]: {sanitizedMessage}";
 				string customPrompt = (allUsers[message.Author.Id].CustomSystemPrompt ?? string.Empty).Trim();
-				if (!string.IsNullOrWhiteSpace(customPrompt)) customPrompt = $"({customPrompt}) "; // Format if not empty
+				if (!string.IsNullOrWhiteSpace(customPrompt)) customPrompt = $"(INSTRUCTIONS): {customPrompt}"; // Format if not empty
 
 				// Load history for this channel
 				var chatHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatLogFile);
@@ -173,20 +173,20 @@ namespace ShaosilBot.Core.Singletons
 			// Either enter the typing state or leave it, making sure to dispose first
 			lock (_typingInstances[channel.Id])
 			{
-				_logger.LogInformation("Entered channel typing lock");
 				if (typing)
 				{
+					_logger.LogInformation("Entered channel typing lock");
 					_typingInstances[channel.Id].State = channel.EnterTypingState();
 					_typingInstances[channel.Id].GoSignal.Reset();
 				}
 				else
 				{
+					_logger.LogInformation("Exiting channel typing lock");
 					_typingInstances[channel.Id].State!.Dispose();
 					_typingInstances[channel.Id].State = null;
 					_typingInstances[channel.Id].GoSignal.Set();
 				}
 			}
-			_logger.LogInformation("Exited channel typing lock");
 		}
 
 		public async void ResetAndFillAllUserBuckets()
