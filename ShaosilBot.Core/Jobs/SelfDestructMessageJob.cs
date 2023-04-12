@@ -1,5 +1,4 @@
-﻿using Discord.Rest;
-using Quartz;
+﻿using Quartz;
 using ShaosilBot.Core.Interfaces;
 
 namespace ShaosilBot.Core.Jobs
@@ -24,7 +23,7 @@ namespace ShaosilBot.Core.Jobs
 			ulong channelId = ulong.Parse(context.MergedJobDataMap.GetString(DataMapKeys.ChannelID)!);
 			ulong messageId = ulong.Parse(context.MergedJobDataMap.GetString(DataMapKeys.MessageID)!);
 
-			var channel = await _discordRestClientProvider.Client.GetChannelAsync(channelId) as IRestMessageChannel;
+			var channel = await _discordRestClientProvider.GetChannelAsync(channelId);
 			if (channel != null)
 			{
 				var message = await channel.GetMessageAsync(messageId);

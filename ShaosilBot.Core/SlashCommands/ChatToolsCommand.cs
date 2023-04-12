@@ -21,11 +21,15 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string HelpSummary => "Manage the way you chat with the bot.";
 
-		public override string HelpDetails => @$"/{CommandName} stats | custom-prompt (show | set [string prompt]) | clear-history
+		public override string HelpDetails => @$"/{CommandName} stats (self | all) | custom-prompt (show | set [string prompt]) | clear-history
 
 SUBCOMMANDS:
 * stats
-    Displays your usage for the current month, including tokens.
+	- self
+		Displays your detailed usage for the current month, including tokens.
+
+	- all
+		Displays the top 10 users' usages for the current month.
 
 * custom-prompt
 	- show
@@ -44,7 +48,17 @@ SUBCOMMANDS:
 				Description = HelpSummary,
 				Options = new List<SlashCommandOptionBuilder>
 				{
-					new SlashCommandOptionBuilder { Name = "stats", Description = "Show your current chat usage statistics", Type = ApplicationCommandOptionType.SubCommand },
+					new SlashCommandOptionBuilder
+					{
+						Name = "stats",
+						Description = "Show your current chat usage statistics",
+						Type = ApplicationCommandOptionType.SubCommandGroup,
+						Options = new List<SlashCommandOptionBuilder>
+						{
+							new SlashCommandOptionBuilder { Name = "self", Description = "Show your own detailed stats.", Type =  ApplicationCommandOptionType.SubCommand },
+							new SlashCommandOptionBuilder { Name = "all", Description = "Show others' current stats.", Type =  ApplicationCommandOptionType.SubCommand }
+						}
+					},
 					new SlashCommandOptionBuilder
 					{
 						Name = "custom-prompt",
@@ -82,17 +96,44 @@ SUBCOMMANDS:
 			var subCmd = command.Data.Options.First();
 			if (subCmd.Name == "stats")
 			{
-				// Show stats
+				// Subcommand self or all
+				subCmd = subCmd.Options.First();
+
 				var statsBuilder = new StringBuilder();
-				statsBuilder.AppendLine($"Chat usage since {DateTime.Now:M/1/yyyy}:");
-				statsBuilder.AppendLine();
-				statsBuilder.AppendLine($"```* Chats sent:       {ourInfo.TokensUsed.Count():N0}");
-				statsBuilder.AppendLine($"* Used tokens:      {ourInfo.TokensUsed.Sum(t => t.Value):N0}");
-				statsBuilder.AppendLine($"* Remaining tokens: {ourInfo.AvailableTokens:N0}");
-				statsBuilder.AppendLine($"* Borrowed tokens:  {allUsers.SelectMany(u => u.Value.LentTokens.Where(t => t.Key == command.User.Id)).Sum(t => t.Value):N0}");
-				statsBuilder.AppendLine($"* Lent tokens:      {ourInfo.LentTokens.Sum(t => t.Value):N0}");
-				statsBuilder.AppendLine();
-				statsBuilder.AppendLine($"* Custom prompt:    {ourInfo.CustomSystemPrompt ?? "(none)"}```");
+
+				if (subCmd.Name == "self")
+				{
+					// Show stats
+					statsBuilder.AppendLine($"Chat usage since {DateTime.Now:M/1/yyyy}:");
+					statsBuilder.AppendLine();
+					statsBuilder.AppendLine($"```* Chats sent:       {ourInfo.TokensUsed.Count():N0}");
+					statsBuilder.AppendLine($"* Used tokens:      {ourInfo.TokensUsed.Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Remaining tokens: {ourInfo.AvailableTokens:N0}");
+					statsBuilder.AppendLine($"* Borrowed tokens:  {allUsers.SelectMany(u => u.Value.LentTokens.Where(t => t.Key == command.User.Id)).Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Lent tokens:      {ourInfo.LentTokens.Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine();
+					statsBuilder.AppendLine($"* Custom prompt:    {ourInfo.CustomSystemPrompt ?? "(none)"}```");
+				}
+				else
+				{
+					statsBuilder.AppendLine($"Top user token usage since {DateTime.Now:M/1/yyyy}:");
+					statsBuilder.AppendLine();
+
+					var topUsers = allUsers.Where(u => u.Value.TokensUsed.Any()).OrderBy(u => u.Value.AvailableTokens).Take(10).ToList();
+					if (!topUsers.Any())
+					{
+						statsBuilder.AppendLine("No current usage for this month. Let's get chatting folks!");
+					}
+					else
+					{
+						for (int i = 0; i < topUsers.Count; i++)
+						{
+							statsBuilder.AppendLine($"{i + 1,2}) <@{topUsers[i].Key}>: {topUsers[i].Value.TokensUsed.Sum(t => t.Value):N0} ({topUsers[i].Value.TokensUsed.Count:N0} chats)");
+						}
+					}
+					ephermal = false;
+				}
+
 				returnMessage = statsBuilder.ToString();
 			}
 			else if (subCmd.Name == "custom-prompt")

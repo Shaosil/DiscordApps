@@ -5,10 +5,9 @@ using System.Reflection;
 namespace ShaosilBot.Tests
 {
 	[TestClass]
-	public class FileAccessHelperTests : LoggerTestBase<FileAccessHelper>
+	public class FileAccessHelperTests : TestBase<FileAccessHelper>
 	{
 		private FileAccessHelper SUT;
-		private Mock<IConfiguration> _mockConfig;
 		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
 		private static string _testDir;
 
@@ -27,12 +26,11 @@ namespace ShaosilBot.Tests
 		[TestInitialize]
 		public void TestInit()
 		{
-			_mockConfig = new Mock<IConfiguration>();
-			_mockConfig.Setup(c => c["FilesBasePath"]).Returns(_testDir);
+			Configuration["FilesBasePath"] = _testDir;
 			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();
 
 			var loggerMock = new Mock<ILogger<FileAccessHelper>>();
-			SUT = new FileAccessHelper(Logger, _mockConfig.Object, _restClientProviderMock.Object);
+			SUT = new FileAccessHelper(Logger, Configuration, _restClientProviderMock.Object);
 		}
 
 		[TestMethod]

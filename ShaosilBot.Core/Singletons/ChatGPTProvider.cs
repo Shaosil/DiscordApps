@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -39,7 +38,7 @@ namespace ShaosilBot.Core.Singletons
 			if (!allUsers.Any()) ResetAndFillAllUserBuckets();
 		}
 
-		public async Task HandleChatRequest(SocketMessage message)
+		public async Task HandleChatRequest(IMessage message)
 		{
 			/*
 				Each user will have a full bucket of tokens at the start of each month. based on amount of users I currently have. If users join
@@ -66,7 +65,7 @@ namespace ShaosilBot.Core.Singletons
 
 				// Replace any mentions with the root usernames, and use a custom prompt if one exists
 				string sanitizedMessage = message.Content.Trim().Substring(3);
-				foreach (var mention in message.MentionedUsers)
+				foreach (var mention in (message as SocketMessage)?.MentionedUsers ?? new List<SocketUser>())
 				{
 					sanitizedMessage = sanitizedMessage.Replace($"<@{mention.Id}>", mention.Username);
 				}
@@ -75,21 +74,21 @@ namespace ShaosilBot.Core.Singletons
 				if (!string.IsNullOrWhiteSpace(customPrompt)) customPrompt = $"(INSTRUCTIONS): {customPrompt}"; // Format if not empty
 
 				// Load history for this channel
-				var chatHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatLogFile);
-				if (!chatHistory.ContainsKey(message.Channel.Id)) chatHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
-				var history = chatHistory[message.Channel.Id];
+				int maxHistoryPairs = _configuration.GetValue<int>("ChatGPTMessagePairsToKeep");
+				var allHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatLogFile);
+				if (!allHistory.ContainsKey(message.Channel.Id)) allHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
+				var channelHistory = new Queue<ChatGPTChannelMessage>(allHistory[message.Channel.Id].TakeLast(maxHistoryPairs));
 
 				// Build system prompt and send request
-				var botUser = _restClientProvider.Client.CurrentUser;
+				string systemMessage = _configuration.GetValue<string>("ChatGPTSystemMessage");
 				int messageTokenLimit = _configuration.GetValue<int>("ChatGPTMessageTokenLimit");
-
 				var response = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
 				{
 					Messages = new List<ChatMessage>
-						{ ChatMessage.FromSystem($"{_configuration.GetValue<string>("ChatGPTSystemMessage")}\n\nCurrent Channel: #{message.Channel.Name}") }                        // System message
-						.Concat(history.Select(h => h.UserID != botUser.Id ? ChatMessage.FromUser(h.Message) : ChatMessage.FromAssistant(h.Message)))                               // Historical messages
-						.Concat(new[] { ChatMessage.FromUser(customPrompt), ChatMessage.FromUser(sanitizedMessage) }.Where(m => !string.IsNullOrWhiteSpace(m.Content))).ToList(),   // Current customized message
-					MaxTokens = messageTokenLimit
+						(string.IsNullOrWhiteSpace(systemMessage) ? new ChatMessage[0] : new[] { ChatMessage.FromSystem($"{systemMessage}\n\nCurrent Channel: #{message.Channel.Name}") })  // System message
+						.Concat(channelHistory.Select(h => h.UserID != _restClientProvider.BotUser.Id ? ChatMessage.FromUser(h.Message) : ChatMessage.FromAssistant(h.Message)))            // Historical messages
+						.Concat(new[] { ChatMessage.FromUser(customPrompt), ChatMessage.FromUser(sanitizedMessage) }.Where(m => !string.IsNullOrWhiteSpace(m.Content))).ToList(),           // Current customized message
+					MaxTokens = messageTokenLimit > 0 ? messageTokenLimit : null
 				});
 
 				// Deduct user tokens if any were used
@@ -111,17 +110,17 @@ namespace ShaosilBot.Core.Singletons
 				else
 				{
 					// Trim and add to history queue as dictated by the config limit
-					int maxHistoryPairs = _configuration.GetValue<int>("ChatGPTMessagePairsToKeep");
 					if (maxHistoryPairs > 0)
 					{
-						while (history.Count / 2 >= maxHistoryPairs) for (int i = 0; i < 2; i++) history.Dequeue();
-						if (history.Count / 2 < maxHistoryPairs)
+						while (channelHistory.Count / 2 >= maxHistoryPairs) for (int i = 0; i < 2; i++) channelHistory.Dequeue();
+						if (channelHistory.Count / 2 < maxHistoryPairs)
 						{
-							history.Enqueue(new ChatGPTChannelMessage { UserID = message.Author.Id, Username = message.Author.Username, Message = sanitizedMessage });
-							history.Enqueue(new ChatGPTChannelMessage { UserID = botUser.Id, Username = botUser.Username, Message = content });
+							channelHistory.Enqueue(new ChatGPTChannelMessage { UserID = message.Author.Id, Username = message.Author.Username, Message = sanitizedMessage });
+							channelHistory.Enqueue(new ChatGPTChannelMessage { UserID = _restClientProvider.BotUser.Id, Username = _restClientProvider.BotUser.Username, Message = content });
 						}
+						allHistory[message.Channel.Id] = channelHistory;
 
-						_fileAccessHelper.SaveFileJSON(ChatLogFile, chatHistory);
+						_fileAccessHelper.SaveFileJSON(ChatLogFile, allHistory);
 					}
 
 					// Send cleaned message
@@ -189,13 +188,12 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		public async void ResetAndFillAllUserBuckets()
+		public async Task ResetAndFillAllUserBuckets()
 		{
 			// Load all current users and give all non-bots full tokens - This may take a while on large servers
 			var existingUsers = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTUsersFile);
-			ulong guildID = _configuration.GetValue<ulong>("TargetGuild");
-			var guild = _restClientProvider.Client.GetGuildAsync(guildID).Result;
-			var guildUsers = (guild.GetUsersAsync().FlattenAsync().Result).Where(u => !u.IsBot).ToList();
+			var guild = _restClientProvider.Guilds.First(); // TODO: Support multiple guilds?
+			var guildUsers = (await guild.GetUsersAsync()).Where(u => !u.IsBot).ToList();
 
 			// Calculate how many tokes each user should have (round up)
 			int totalMonthlyTokensPerUser = (int)Math.Ceiling(_configuration.GetValue<float>("ChatGPTMonthlyTokenLimit") / guildUsers.Count);
@@ -207,8 +205,8 @@ namespace ShaosilBot.Core.Singletons
 			_fileAccessHelper.SaveFileJSON(ChatGPTUsersFile, serialized, false);
 
 			// Let everyone know it's a new month
-			var generalChannel = await guild.GetChannelAsync(_configuration.GetValue<ulong>("MainChannel")) as RestTextChannel;
-			await generalChannel!.SendMessageAsync("It's a brand new month, and as a result, my chatting usage has been reset and everyone has a fresh new bucket of tokens! Happy `!c`hatting everyone. :blush:");
+			var generalChannel = await guild.GetChannelAsync(_configuration.GetValue<ulong>("MainChannel")) as ITextChannel;
+			await generalChannel!.SendMessageAsync($"It's a brand new month, and as a result, my chatting usage has been reset and everyone has a fresh new bucket of {totalMonthlyTokensPerUser:N0} tokens! Happy `!c`hatting everyone. :blush:");
 		}
 
 		public void UpdateAllUserBuckets(ulong changedUserID, bool userAdded)
@@ -266,7 +264,7 @@ namespace ShaosilBot.Core.Singletons
 					var borroweeGroup = allUsers
 						.Where(u => u.Key != id && u.Value.BorrowableTokens > 0)
 						.GroupBy(u => Math.Floor(u.Value.AvailableTokens / 1000f))
-						.Order().First().ToList();
+						.OrderByDescending(g => g.Key).First().ToList();
 
 					// Borrow the floor of the divided amount from each user, then distribute the remainder 1 by 1 at random
 					int dividedAmtFloor = (int)Math.Floor((float)tokens / borroweeGroup.Count);

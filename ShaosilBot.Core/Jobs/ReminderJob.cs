@@ -31,8 +31,8 @@ namespace ShaosilBot.Core.Jobs
 			string? msg = context.MergedJobDataMap.GetString(DataMapKeys.Message);
 
 			// If it was private, send a DM to the user. Otherwise, try to send it to the channel
-			var user = await _discordRestClientProvider.Client.GetUserAsync(userID);
-			var channel = channelID.HasValue ? await _discordRestClientProvider.Client.GetChannelAsync(channelID.Value) as RestTextChannel : null;
+			var user = await _discordRestClientProvider.GetUserAsync(userID);
+			var channel = channelID.HasValue ? await _discordRestClientProvider.GetChannelAsync(channelID.Value) as RestTextChannel : null;
 			if (channel != null)
 			{
 				// If we have a reference message, this was from a message command. Otherwise, it was from a slash

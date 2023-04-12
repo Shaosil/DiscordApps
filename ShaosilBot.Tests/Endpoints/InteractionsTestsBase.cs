@@ -12,7 +12,7 @@ using System.Text;
 namespace ShaosilBot.Tests.Endpoints
 {
 	[TestClass]
-	public abstract class InteractionsTestsBase : LoggerTestBase<BaseCommand>
+	public abstract class InteractionsTestsBase : TestBase<BaseCommand>
 	{
 		private InteractionsController _interactionsSUT;
 		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
@@ -33,7 +33,7 @@ namespace ShaosilBot.Tests.Endpoints
 			_restClientProviderMock.Setup(m => m.ParseHttpInteractionAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
 				.Returns((string s1, string s2, string s3, string s4) => client.ParseHttpInteractionAsync(s1, s2, s3, s4));
 
-			var logWrapper = new LoggerTestBase<InteractionsController>.LoggerWrapper<InteractionsController>();
+			var logWrapper = new TestBase<InteractionsController>.LoggerWrapper<InteractionsController>();
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
 			MessageCommandProviderMock = new Mock<IMessageCommandProvider>();
 			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>(new Mock<ILogger<SlashCommandWrapper>>().Object);

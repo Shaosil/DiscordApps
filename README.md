@@ -33,7 +33,6 @@ First of all, I assume you plan on using this code for your own bot, because run
     },
     "AllowedHosts": "*",
 	
-    "TargetGuild": "<Your guild ID. Certain services can only target a single guild at the moment>",
     "MainChannel": "<The main/general channel. Currently only used with ChatGPT announcements>",
     "FilesBasePath": "<The path where the bot will read/write certain files. More on this below. Make sure your IIS user has permissions to the folder>",
     "UtilitiesAuthToken": "<Used to authenticate external pings to the Utilities controller. You can generate your own token for this.>",

@@ -51,7 +51,7 @@ namespace ShaosilBot.Core.Singletons
 
 		public async Task MessageReceived(SocketMessage message)
 		{
-			ulong ourself = _restClientProvider.Client.CurrentUser.Id;
+			ulong ourself = _restClientProvider.BotUser.Id;
 			var mentionedSelf = message.MentionedUsers.FirstOrDefault(m => m.Id == ourself);
 
 			// Respond to chat request

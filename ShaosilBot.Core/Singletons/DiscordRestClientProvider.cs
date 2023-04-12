@@ -11,34 +11,39 @@ namespace ShaosilBot.Core.Singletons
 	{
 		private readonly ILogger<DiscordRestClientProvider> _logger;
 		private readonly IConfiguration _configuration;
-
-		public DiscordRestClient Client { get; private set; }
+		private readonly DiscordRestClient _client;
 
 		// Helper properties
 		public IReadOnlyCollection<IGuild> Guilds { get; private set; }
+		public IUser BotUser => _client.CurrentUser;
 
 		public DiscordRestClientProvider(ILogger<DiscordRestClientProvider> logger, IConfiguration configuration)
 		{
 			_logger = logger;
 			_configuration = configuration;
-			Client = new DiscordRestClient();
+			_client = new DiscordRestClient();
 		}
 
 		public async Task Init()
 		{
-			Client.Log += (msg) => Task.Run(() => LogRestMessage(msg));
-			await Client.LoginAsync(TokenType.Bot, _configuration["BotToken"]);
-			Guilds = await Client.GetGuildsAsync();
+			_client.Log += (msg) => Task.Run(() => LogRestMessage(msg));
+			await _client.LoginAsync(TokenType.Bot, _configuration["BotToken"]);
+			Guilds = await _client.GetGuildsAsync();
 		}
 
-		public async Task<RestTextChannel> GetChannelAsync(ulong channelId)
+		public async Task<IUser> GetUserAsync(ulong userID)
 		{
-			return (RestTextChannel)await Client.GetChannelAsync(channelId);
+			return await _client.GetUserAsync(userID);
+		}
+
+		public async Task<ITextChannel> GetChannelAsync(ulong channelId)
+		{
+			return (ITextChannel)await _client.GetChannelAsync(channelId);
 		}
 
 		public async Task<RestInteraction> ParseHttpInteractionAsync(string publicKey, string signature, string timestamp, string body)
 		{
-			return await Client.ParseHttpInteractionAsync(publicKey, signature, timestamp, body);
+			return await _client.ParseHttpInteractionAsync(publicKey, signature, timestamp, body);
 		}
 
 		private void LogRestMessage(LogMessage message)
@@ -61,7 +66,7 @@ namespace ShaosilBot.Core.Singletons
 
 		public async Task DMShaosil(string message)
 		{
-			var dmChannel = await (await Client.GetUserAsync(392127164570664962)).CreateDMChannelAsync();
+			var dmChannel = await (await _client.GetUserAsync(392127164570664962)).CreateDMChannelAsync();
 			await dmChannel.SendMessageAsync(message);
 		}
 	}
