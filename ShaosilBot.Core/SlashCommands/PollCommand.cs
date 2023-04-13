@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Providers;
 using System.Globalization;
@@ -113,9 +114,17 @@ OPTIONAL ARGS:
 			// Spin up a new thread to wait for the below response so we can react to the new message
 			_ = Task.Run(async () =>
 			{
-				var message = await command.GetOriginalResponseAsync();
-				if (message != null)
-					await message.AddReactionsAsync(reactionEmojis.Select(e => Emoji.Parse(e) as IEmote));
+				// Try a few times in case the message takes a while to go through
+				RestInteractionMessage? original = null;
+				int tries = 0;
+				while (original == null && tries++ < 3)
+				{
+					await Task.Delay(250);
+					original = await command.GetOriginalResponseAsync();
+				}
+
+				// This will log an error if it is still null
+				await original.AddReactionsAsync(reactionEmojis.Select(e => Emoji.Parse(e) as IEmote));
 			});
 
 			var embed = new EmbedBuilder() { Title = $"📊 **{questionText.Trim()}**", Description = string.Join('\n', choiceTexts), Color = new Color(0x7c0089) };
