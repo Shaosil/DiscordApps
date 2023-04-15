@@ -56,17 +56,17 @@ REQUIRED ARGUMENTS:
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			if (command.Data.Options.Count != 1 || string.IsNullOrWhiteSpace(command.Data.Options.First().Value as string))
-				return Task.FromResult(command.Respond("Invalid question specified. Try again, but better.", ephemeral: true));
+			if (cmdWrapper.Command.Data.Options.Count != 1 || string.IsNullOrWhiteSpace(cmdWrapper.Command.Data.Options.First().Value as string))
+				return Task.FromResult(cmdWrapper.Respond("Invalid question specified. Try again, but better.", ephemeral: true));
 
 			var sb = new StringBuilder();
-			sb.AppendLine($"{command.User.Mention} shakes a magic 8 ball and asks the question: '{command.Data.Options.First().Value}'.");
+			sb.AppendLine($"{cmdWrapper.Command.User.Mention} shakes a magic 8 ball and asks the question: '{cmdWrapper.Command.Data.Options.First().Value}'.");
 			sb.AppendLine();
 			sb.AppendLine("The 8 ball's response:");
 			sb.Append($"*{_choices[Random.Shared.Next(_choices.Length)]}*");
-			return Task.FromResult(command.Respond(sb.ToString()));
+			return Task.FromResult(cmdWrapper.Respond(sb.ToString()));
 		}
 	}
 }

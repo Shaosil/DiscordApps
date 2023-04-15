@@ -85,20 +85,20 @@ SUBCOMMANDS:
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
 			Logger.LogInformation($"Twitch command executed at {DateTime.Now}");
 
-			string commandGroup = command.Data.Options.FirstOrDefault()?.Name;
-			var subCommand = commandGroup != null ? command.Data.Options.First().Options.FirstOrDefault() : null;
+			string? commandGroup = cmdWrapper.Command.Data.Options.FirstOrDefault()?.Name;
+			var subCommand = commandGroup != null ? cmdWrapper.Command.Data.Options.First().Options.FirstOrDefault() : null;
 
 			// Validation
-			if (subCommand == null) return Task.FromResult(command.Respond("Missing subcommand! Poke Shaosil and tell him to code better.", ephemeral: true));
+			if (subCommand == null) return Task.FromResult(cmdWrapper.Respond("Missing subcommand! Poke Shaosil and tell him to code better.", ephemeral: true));
 			string userArg = subCommand.Options.FirstOrDefault()?.Value as string ?? string.Empty;
 			if (new[] { "add, remove" }.Contains(subCommand.Name) && string.IsNullOrWhiteSpace(userArg))
-				return Task.FromResult(command.Respond("Missing user argument. Please try again and actually enter something this time smh.", ephemeral: true));
+				return Task.FromResult(cmdWrapper.Respond("Missing user argument. Please try again and actually enter something this time smh.", ephemeral: true));
 
-			return command.DeferWithCode(async () =>
+			return cmdWrapper.DeferWithCode(async () =>
 			{
 				switch (commandGroup ?? string.Empty)
 				{
@@ -113,7 +113,7 @@ SUBCOMMANDS:
 							case "list":
 								if (subs.data.Count < 1)
 								{
-									await command.FollowupAsync($"There are no current twitch subscriptions. Use `/{CommandName} subs add [username]` to create one.");
+									await cmdWrapper.Command.FollowupAsync($"There are no current twitch subscriptions. Use `/{CommandName} subs add [username]` to create one.");
 									return;
 								}
 
@@ -127,14 +127,14 @@ SUBCOMMANDS:
 									sb.AppendLine($"* {matchingUser}");
 								}
 
-								await command.FollowupAsync(sb.ToString());
+								await cmdWrapper.Command.FollowupAsync(sb.ToString());
 								return;
 
 							case "add":
 								// Make sure the requested user doesn't already exist
 								if (users?.data.Any(u => u.login.ToLower() == userArg.Trim().ToLower()) ?? false)
 								{
-									await command.FollowupAsync($"User {userArg} is already in the subscriptions list. Use `/{CommandName} subs list` to view all subscriptions.");
+									await cmdWrapper.Command.FollowupAsync($"User {userArg} is already in the subscriptions list. Use `/{CommandName} subs list` to view all subscriptions.");
 									return;
 								}
 
@@ -142,18 +142,18 @@ SUBCOMMANDS:
 								var newUser = await _twitchProvider.GetUsers(false, userArg);
 								if (!newUser.data.Any())
 								{
-									await command.FollowupAsync($"No user found with the login '{userArg}'. Check the spelling and try again.");
+									await cmdWrapper.Command.FollowupAsync($"No user found with the login '{userArg}'. Check the spelling and try again.");
 									return;
 								}
 
 								// Attempt to subscribe
 								if (!await _twitchProvider.PostSubscription(newUser.data.FirstOrDefault().id))
 								{
-									await command.FollowupAsync($"Received unauthorized status code while attempting to subscribe to user '{userArg}'. Poke Shaosil and tell him to code better.");
+									await cmdWrapper.Command.FollowupAsync($"Received unauthorized status code while attempting to subscribe to user '{userArg}'. Poke Shaosil and tell him to code better.");
 									return;
 								}
 
-								await command.FollowupAsync($"Successfully subscribed to Twitch user '{userArg}'.");
+								await cmdWrapper.Command.FollowupAsync($"Successfully subscribed to Twitch user '{userArg}'.");
 								return;
 
 							case "remove":
@@ -161,7 +161,7 @@ SUBCOMMANDS:
 								var userToUnsubscribe = users?.data.FirstOrDefault(u => u.login.ToLower() == userArg.Trim().ToLower());
 								if (userToUnsubscribe == null)
 								{
-									await command.FollowupAsync($"User {userArg} is not currently in the subscriptions list. User `/{CommandName} subs list` to view all subscriptions.");
+									await cmdWrapper.Command.FollowupAsync($"User {userArg} is not currently in the subscriptions list. User `/{CommandName} subs list` to view all subscriptions.");
 									return;
 								}
 
@@ -169,20 +169,20 @@ SUBCOMMANDS:
 								var deleteUsers = subs.data.Where(d => d.condition.broadcaster_user_id == userToUnsubscribe.id).ToList();
 								if (!await _twitchProvider.DeleteSubscriptions(deleteUsers))
 								{
-									await command.FollowupAsync($"Received unauthorized status code while attempting to unsubscribe from user '{userArg}'. Poke Shaosil and tell him to code better.");
+									await cmdWrapper.Command.FollowupAsync($"Received unauthorized status code while attempting to unsubscribe from user '{userArg}'. Poke Shaosil and tell him to code better.");
 									return;
 								}
 
-								await command.FollowupAsync($"Successfully unsubscribed from Twitch user '{userArg}'.");
+								await cmdWrapper.Command.FollowupAsync($"Successfully unsubscribed from Twitch user '{userArg}'.");
 								return;
 
 							default:
-								await command.FollowupAsync($"Unknown subcommmand type: '{subCommand.Name}'. Poke Shaosil and tell him to code better.");
+								await cmdWrapper.Command.FollowupAsync($"Unknown subcommmand type: '{subCommand.Name}'. Poke Shaosil and tell him to code better.");
 								return;
 						}
 
 					default:
-						await command.FollowupAsync($"Unknown commmand group: '{commandGroup}'. Poke Shaosil and tell him to code better.");
+						await cmdWrapper.Command.FollowupAsync($"Unknown commmand group: '{commandGroup}'. Poke Shaosil and tell him to code better.");
 						return;
 				}
 			});

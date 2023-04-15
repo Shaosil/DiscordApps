@@ -29,9 +29,9 @@ builder.Services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
 builder.Services.AddSingleton<IChatGPTProvider, ChatGPTProvider>();
 builder.Services.AddSingleton<IGuildHelper, GuildHelper>();
 builder.Services.AddSingleton<IQuartzProvider, QuartzProvider>();
-builder.Services.AddSingleton<IMessageCommandProvider, MessageCommandProvider>();
 
 // Add scoped services, including all derivitives of BaseCommand
+builder.Services.AddScoped<IMessageCommandProvider, MessageCommandProvider>();
 builder.Services.AddScoped<IHttpUtilities, HttpUtilities>();
 builder.Services.AddScoped<SlashCommandWrapper>();
 builder.Services.AddScoped<ITwitchProvider, TwitchProvider>();

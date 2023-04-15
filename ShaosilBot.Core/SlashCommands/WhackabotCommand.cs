@@ -16,12 +16,14 @@ namespace ShaosilBot.Core.SlashCommands
 		private const string GameFilename = "WhackabotInfo.json";
 
 		private readonly IFileAccessHelper _fileAccessHelper;
+		private readonly IDiscordRestClientProvider _restClientProvider;
 		private EquipmentList _equipmentList;
 		private GameInfo _gameInfo;
 
-		public WhackabotCommand(ILogger<BaseCommand> logger, IFileAccessHelper fileAccessHelper) : base(logger)
+		public WhackabotCommand(ILogger<BaseCommand> logger, IFileAccessHelper fileAccessHelper, IDiscordRestClientProvider restClientProvider) : base(logger)
 		{
 			_fileAccessHelper = fileAccessHelper;
+			_restClientProvider = restClientProvider;
 		}
 
 		public override string CommandName => "whackabot";
@@ -49,7 +51,7 @@ OPTIONAL ARGS:
 			}.Build();
 		}
 
-		public override async Task<string> HandleCommand(SlashCommandWrapper command)
+		public override async Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
 			Logger.LogInformation($"Whackabot Command executed at {DateTime.Now}");
 
@@ -57,11 +59,11 @@ OPTIONAL ARGS:
 			_gameInfo = _fileAccessHelper.LoadFileJSON<GameInfo>(GameFilename, true);
 
 			var sb = new StringBuilder();
-			var playerWeapon = _gameInfo.PlayerWeapons.FirstOrDefault(p => p.PlayerID == command.User.Id);
-			if (playerWeapon == null) _gameInfo.PlayerWeapons.Add(playerWeapon = new GameInfo.PlayerWeapon { PlayerID = command.User.Id });
+			var playerWeapon = _gameInfo.PlayerWeapons.FirstOrDefault(p => p.PlayerID == cmdWrapper.Command.User.Id);
+			if (playerWeapon == null) _gameInfo.PlayerWeapons.Add(playerWeapon = new GameInfo.PlayerWeapon { PlayerID = cmdWrapper.Command.User.Id });
 
 			// Change weapon if requested, then return
-			var weaponChangeRequest = command.Data.Options.FirstOrDefault(o => o.Name == "weapon-change");
+			var weaponChangeRequest = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "weapon-change");
 			if (weaponChangeRequest != null)
 			{
 				string weaponName = weaponChangeRequest.Value.ToString().ToLower().Trim();
@@ -70,8 +72,8 @@ OPTIONAL ARGS:
 
 				if (matchingWeapons.Count != 1)
 				{
-					string response = matchingWeapons.Count < 1 ? command.Respond($"Invalid weapon! Available choices:\n\n{weaponList}", ephemeral: true)
-						: command.Respond($"Multiple weapon matches found! Be a bit more specific:\n\n{weaponList}", ephemeral: true);
+					string response = matchingWeapons.Count < 1 ? cmdWrapper.Respond($"Invalid weapon! Available choices:\n\n{weaponList}", ephemeral: true)
+						: cmdWrapper.Respond($"Multiple weapon matches found! Be a bit more specific:\n\n{weaponList}", ephemeral: true);
 					_fileAccessHelper.ReleaseFileLease(GameFilename);
 					return response;
 				}
@@ -80,7 +82,7 @@ OPTIONAL ARGS:
 				playerWeapon.Weapon = matchingWeapons.First();
 				string newInfo = JsonSerializer.Serialize(_gameInfo, new JsonSerializerOptions { WriteIndented = true });
 				_fileAccessHelper.SaveFileJSON(GameFilename, newInfo);
-				return command.Respond($"{command.User.Mention} is now wielding *<{playerWeapon.Weapon.Name}>*!");
+				return cmdWrapper.Respond($"{cmdWrapper.Command.User.Mention} is now wielding *<{playerWeapon.Weapon.Name}>*!");
 			}
 
 			// If this is the first hit of the game, pick armor and reset stats
@@ -90,18 +92,18 @@ OPTIONAL ARGS:
 				if ((DateTimeOffset.Now - _gameInfo.Attacks.OrderByDescending(a => a.TimeStamp).First().TimeStamp).TotalSeconds < 60)
 				{
 					_fileAccessHelper.ReleaseFileLease(GameFilename);
-					return command.Respond("*I was recently knocked out and am recovering. Please give me a minute before starting a new challenge.*", ephemeral: true);
+					return cmdWrapper.Respond("*I was recently knocked out and am recovering. Please give me a minute before starting a new challenge.*", ephemeral: true);
 				}
 
 				_gameInfo.Health = 100;
 				_gameInfo.Attacks = new List<GameInfo.Attack>();
 				_gameInfo.BotArmor = _equipmentList.Armors[Random.Shared.Next(_equipmentList.Armors.Count)];
 				_gameInfo.GameActive = true;
-				sb.Append($"{command.User.Mention} approaches as a new challenger! ShaosilBot accepts, donning {_gameInfo.BotArmor.Name}. {command.User.Mention}");
-				Logger.LogInformation($"New whackabot game started by {command.User.Username}. Bot chose {_gameInfo.BotArmor.Name}.");
+				sb.Append($"{cmdWrapper.Command.User.Mention} approaches as a new challenger! ShaosilBot accepts, donning {_gameInfo.BotArmor.Name}. {cmdWrapper.Command.User.Mention}");
+				Logger.LogInformation($"New whackabot game started by {cmdWrapper.Command.User.Username}. Bot chose {_gameInfo.BotArmor.Name}.");
 			}
 			else
-				sb.Append(command.User.Mention);
+				sb.Append(cmdWrapper.Command.User.Mention);
 
 			// Record damage and give a generic reaction based on remaining HP
 			var reactions = new List<string>();
@@ -161,13 +163,14 @@ OPTIONAL ARGS:
 			// Stats
 			if (!_gameInfo.GameActive)
 			{
-				sb.Append($"\n\n{command.User.Mention} has struck the final blow!");
+				sb.Append($"\n\n{cmdWrapper.Command.User.Mention} has struck the final blow!");
 
 				// Stats
 				var groupedAttacks = _gameInfo.Attacks.GroupBy(a => a.PlayerID).ToDictionary(k => k.Key, v => v.ToList());
 				var loadedUsers = new List<RestGuildUser>();
+				var curGuild = _restClientProvider.Guilds.First(g => g.Id == cmdWrapper.Command.GuildId);
 				foreach (var group in groupedAttacks)
-					loadedUsers.Add(await command.Guild.GetUserAsync(group.Key) as RestGuildUser);
+					loadedUsers.Add(await curGuild.GetUserAsync(group.Key) as RestGuildUser);
 
 				sb.AppendLine("\n\n**PLAYER STATS ( ATs / EVs / CRTs / GRZs / DMG / ACC )**");
 				foreach (var user in loadedUsers)
@@ -187,7 +190,7 @@ OPTIONAL ARGS:
 			_fileAccessHelper.SaveFileJSON(GameFilename, serializedGameInfo);
 
 			// Prefix with skull if ded
-			return command.Respond($"{(_gameInfo.Health <= 0 ? ":skull_crossbones: " : string.Empty)}{sb}");
+			return cmdWrapper.Respond($"{(_gameInfo.Health <= 0 ? ":skull_crossbones: " : string.Empty)}{sb}");
 		}
 
 		private int GetDamage(StringBuilder sb, GameInfo.PlayerWeapon playerWeapon)

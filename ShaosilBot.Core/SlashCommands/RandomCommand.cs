@@ -40,23 +40,23 @@ OPTIONAL ARGUMENTS:
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			string questionVal = command.Data.Options.FirstOrDefault(o => o.Name == "question")?.Value as string;
-			var choicesGiven = command.Data.Options.Where(o => o.Name.StartsWith("choice")).ToList();
+			string? questionVal = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "question")?.Value as string;
+			var choicesGiven = cmdWrapper.Command.Data.Options.Where(o => o.Name.StartsWith("choice")).ToList();
 
 			// If the number of options provided is exactly one, return an ephemeral wrist slap
 			if (choicesGiven.Count == 1)
-				return Task.FromResult(command.Respond("You can't just give me a single option. Either give me none for a coin flip, or multiple to let me pick from a list.", ephemeral: true));
+				return Task.FromResult(cmdWrapper.Respond("You can't just give me a single option. Either give me none for a coin flip, or multiple to let me pick from a list.", ephemeral: true));
 
 			// Coin flip
 			if (choicesGiven.Count == 0)
 			{
 				bool isHeads = Random.Shared.Next(0, 2) == 0;
 				if (string.IsNullOrWhiteSpace(questionVal))
-					return Task.FromResult(command.Respond($"I've flipped a coin and it came up **{(isHeads ? "heads" : "tails")}**!"));
+					return Task.FromResult(cmdWrapper.Respond($"I've flipped a coin and it came up **{(isHeads ? "heads" : "tails")}**!"));
 				else
-					return Task.FromResult(command.Respond($"{questionVal}\n\nCoin flip result: **{(isHeads ? "heads" : "tails")}**!"));
+					return Task.FromResult(cmdWrapper.Respond($"{questionVal}\n\nCoin flip result: **{(isHeads ? "heads" : "tails")}**!"));
 			}
 
 			// List picker
@@ -74,7 +74,7 @@ OPTIONAL ARGUMENTS:
 				if (i == selectionIndex) sb.Append("**");
 				if (i < choicesGiven.Count - 1) sb.AppendLine();
 			}
-			return Task.FromResult(command.Respond(sb.ToString()));
+			return Task.FromResult(cmdWrapper.Respond(sb.ToString()));
 		}
 	}
 }

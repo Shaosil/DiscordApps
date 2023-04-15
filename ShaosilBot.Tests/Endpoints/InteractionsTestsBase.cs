@@ -15,9 +15,8 @@ namespace ShaosilBot.Tests.Endpoints
 	public abstract class InteractionsTestsBase : TestBase<BaseCommand>
 	{
 		private InteractionsController _interactionsSUT;
-		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
 
-		protected IConfiguration Configuration;
+		protected Mock<IDiscordRestClientProvider> RestClientProviderMock;
 		protected Mock<ISlashCommandProvider> SlashCommandProviderMock { get; private set; }
 		protected Mock<IMessageCommandProvider> MessageCommandProviderMock { get; private set; }
 		protected Mock<SlashCommandWrapper> SlashCommandWrapperMock { get; private set; }
@@ -25,19 +24,17 @@ namespace ShaosilBot.Tests.Endpoints
 		[TestInitialize]
 		public virtual void TestInitialize()
 		{
-			Configuration = new ConfigurationBuilder().AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json")).Build();
-
 			// Bypass our rest interaction client wrapper by calling Discord.Net's client parse
-			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();
+			RestClientProviderMock = new Mock<IDiscordRestClientProvider>();
 			var client = new DiscordRestClient(new DiscordRestConfig { UseInteractionSnowflakeDate = false });
-			_restClientProviderMock.Setup(m => m.ParseHttpInteractionAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+			RestClientProviderMock.Setup(m => m.ParseHttpInteractionAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
 				.Returns((string s1, string s2, string s3, string s4) => client.ParseHttpInteractionAsync(s1, s2, s3, s4));
 
 			var logWrapper = new TestBase<InteractionsController>.LoggerWrapper<InteractionsController>();
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
 			MessageCommandProviderMock = new Mock<IMessageCommandProvider>();
-			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>(new Mock<ILogger<SlashCommandWrapper>>().Object);
-			_interactionsSUT = new InteractionsController(logWrapper, Configuration, SlashCommandProviderMock.Object, MessageCommandProviderMock.Object, SlashCommandWrapperMock.Object, _restClientProviderMock.Object);
+			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>();
+			_interactionsSUT = new InteractionsController(logWrapper, Configuration, SlashCommandProviderMock.Object, MessageCommandProviderMock.Object, SlashCommandWrapperMock.Object, RestClientProviderMock.Object);
 		}
 
 		protected DiscordInteractionResponse DeserializeResponse(string? content)

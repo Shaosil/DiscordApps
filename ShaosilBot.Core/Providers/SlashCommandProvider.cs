@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.SlashCommands;
 using System.Reflection;
+using static ShaosilBot.Core.Providers.MessageCommandProvider;
 
 namespace ShaosilBot.Core.Providers
 {
@@ -78,6 +79,31 @@ namespace ShaosilBot.Core.Providers
 			_allCommandsBuilt = true;
 		}
 
+		public async Task BuildMessageCommands()
+		{
+			var allMessageNames = typeof(CommandNames).GetFields(BindingFlags.Static | BindingFlags.Public).Select(f => f.GetValue(null)!.ToString()!).ToList();
+
+			var guilds = _restClientProvider.Guilds;
+
+			foreach (var guild in guilds)
+			{
+				// Create message commands
+				var messageCommands = (await guild.GetApplicationCommandsAsync()).Where(c => c.Type == ApplicationCommandType.Message).ToList();
+
+				// Remove ones that no longer exist
+				foreach (var msgCommand in messageCommands.Where(c => !allMessageNames.Contains(c.Name)))
+				{
+					await msgCommand.DeleteAsync();
+				}
+
+				// Create ones that are new
+				foreach (string newMsgCommandName in allMessageNames.Where(n => !messageCommands.Any(c => c.Name == n)))
+				{
+					await guild.CreateApplicationCommandAsync(new MessageCommandBuilder { Name = newMsgCommandName }.Build());
+				}
+			}
+		}
+
 		private bool CommandsEqual(IApplicationCommand existingCommand, SlashCommandProperties newCommand)
 		{
 			// Compare base options
@@ -87,7 +113,7 @@ namespace ShaosilBot.Core.Providers
 				return false;
 			}
 
-			if (!CommandOptionListsEqual(existingCommand.Options, newCommand.Options.GetValueOrDefault()))
+			if (!CommandOptionListsEqual(existingCommand.Options?.ToList() ?? new(), newCommand.Options.GetValueOrDefault() ?? new()))
 			{
 				return false;
 			}
@@ -95,23 +121,18 @@ namespace ShaosilBot.Core.Providers
 			return true;
 		}
 
-		private bool CommandOptionListsEqual(IReadOnlyCollection<IApplicationCommandOption> existingOptions, List<ApplicationCommandOptionProperties> newOptions)
+		private bool CommandOptionListsEqual(List<IApplicationCommandOption> existingOptions, List<ApplicationCommandOptionProperties> newOptions)
 		{
 			// Check length of options and compare
-			int existingOptionsCount = existingOptions?.Count ?? 0;
-			int newOptionsCount = newOptions?.Count ?? 0;
-			if (existingOptionsCount != newOptionsCount)
+			if (existingOptions.Count != newOptions.Count)
 			{
 				return false;
 			}
-			else if (existingOptionsCount > 0)
+			else if (existingOptions.Count > 0)
 			{
-				var orderedExistingOptions = existingOptions.OrderBy(c => c.Name).ToList();
-				var orderedNewOptions = newOptions.OrderBy(c => c.Name).ToList();
-
-				for (int i = 0; i < orderedExistingOptions.Count; i++)
+				for (int i = 0; i < existingOptions.Count; i++)
 				{
-					if (!CommandOptionsEqual(orderedExistingOptions[i], orderedNewOptions[i]))
+					if (!CommandOptionsEqual(existingOptions[i], newOptions[i]))
 					{
 						return false;
 					}
@@ -146,12 +167,12 @@ namespace ShaosilBot.Core.Providers
 			}
 			if (existingChoicesCount > 0)
 			{
-				var orderedExistingChoices = existingOption.Choices.OrderBy(x => x.Name).ToList();
-				var orderedNewChoices = newOption.Choices.OrderBy(x => x.Name).ToList();
+				var existingChoices = existingOption.Choices!.ToList();
+				var newChoices = newOption.Choices!.ToList();
 
 				for (int i = 0; i < existingChoicesCount; i++)
 				{
-					if (orderedExistingChoices[i].Name != orderedNewChoices[i].Name || orderedExistingChoices[i].Value != orderedNewChoices[i].Value)
+					if (existingChoices[i].Name != newChoices[i].Name || existingChoices[i].Value?.ToString() != newChoices[i].Value?.ToString())
 					{
 						return false;
 					}
@@ -159,7 +180,7 @@ namespace ShaosilBot.Core.Providers
 			}
 
 			// Recursively compare suboptions
-			if (!CommandOptionListsEqual(existingOption.Options, newOption.Options))
+			if (!CommandOptionListsEqual(existingOption.Options?.ToList() ?? new(), newOption.Options ?? new()))
 			{
 				return false;
 			}

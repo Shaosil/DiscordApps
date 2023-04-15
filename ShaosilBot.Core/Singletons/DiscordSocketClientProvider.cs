@@ -13,21 +13,18 @@ namespace ShaosilBot.Core.Singletons
 		private readonly IConfiguration _configuration;
 		private readonly IDiscordGatewayMessageHandler _messageHandler;
 		private readonly ISlashCommandProvider _slashCommandProvider;
-		private readonly IMessageCommandProvider _messageCommandProvider;
 		private readonly DiscordSocketClient _client;
 
 		public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger,
 			IConfiguration configuration,
 			DiscordSocketConfig config,
 			IDiscordGatewayMessageHandler messageHandler,
-			ISlashCommandProvider slashCommandProvider,
-			IMessageCommandProvider messageCommandProvider)
+			ISlashCommandProvider slashCommandProvider)
 		{
 			_logger = logger;
 			_configuration = configuration;
 			_messageHandler = messageHandler;
 			_slashCommandProvider = slashCommandProvider;
-			_messageCommandProvider = messageCommandProvider;
 			_client = new DiscordSocketClient(config);
 		}
 
@@ -40,7 +37,7 @@ namespace ShaosilBot.Core.Singletons
 				// Start long running commands on a new thread
 				await _client.SetGameAsync("/help for info, !c to chat");
 				await _slashCommandProvider.BuildGuildCommands();
-				await _messageCommandProvider.BuildMessageCommands();
+				await _slashCommandProvider.BuildMessageCommands();
 			}, TaskCreationOptions.LongRunning);
 
 			// Only handle guild events in production
@@ -55,6 +52,12 @@ namespace ShaosilBot.Core.Singletons
 
 			await _client.LoginAsync(TokenType.Bot, _configuration["BotToken"]);
 			await _client.StartAsync();
+		}
+
+		public async Task<bool> UserIsInVC(ulong userId)
+		{
+			// TODO: This doesn't load as SocketGuildUsers, so it always returns false
+			return ((await _client.GetUserAsync(userId)) as SocketGuildUser)?.VoiceChannel != null;
 		}
 
 		private void LogSocketMessage(LogMessage message)

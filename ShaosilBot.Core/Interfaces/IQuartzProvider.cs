@@ -12,6 +12,7 @@ namespace ShaosilBot.Core.Interfaces
 		void SelfDestructMessage(SocketMessage message, int hours);
 		Dictionary<IJobDetail, ITrigger> GetUserReminders(ulong userID);
 		bool DeleteUserReminder(JobKey key);
-		void ScheduleUserReminder(ulong userID, ulong messageID, ulong channelID, DateTimeOffset targetDate, bool isPrivate, string msg, RestMessage? referenceMessage = null);
+		void ScheduleUserReminder(ulong userID, ulong commandID, ulong channelID, DateTimeOffset targetDate, bool isPrivate, string msg, RestMessage? referenceMessage = null);
+		void SchedulePollEnd(ulong channelID, ulong responseMessageID, DateTimeOffset targetTime);
 	}
 }

@@ -41,23 +41,28 @@ namespace ShaosilBot.Tests.SlashCommands
 
 			GuildMock = new Mock<IGuild>();
 			ChannelMock = new Mock<IRestMessageChannel>();
+			RestClientProviderMock.SetupGet(m => m.Guilds).Returns(new List<IGuild> { GuildMock.Object });
+
 
 			var dataMock = new Mock<IApplicationCommandInteractionData>();
 			_optionsMocks = new List<IApplicationCommandInteractionDataOption>();
 			dataMock.SetupGet(m => m.Options).Returns(_optionsMocks);
+			var commandMock = new Mock<ISlashCommandInteraction>();
+			commandMock.Setup(m => m.Data).Returns(dataMock.Object);
+			commandMock.Setup(m => m.User).Returns(UserMock.Object);
+			commandMock.Setup(m => m.ChannelId).Returns(0);
+			commandMock.Setup(m => m.GuildId).Returns(0);
+			SlashCommandWrapperMock.Setup(m => m.Command).Returns(commandMock.Object);
 
-			SlashCommandWrapperMock.Setup(m => m.Data).Returns(dataMock.Object);
-			SlashCommandWrapperMock.Setup(m => m.User).Returns(UserMock.Object);
-			SlashCommandWrapperMock.Setup(m => m.Guild).Returns(GuildMock.Object);
-			SlashCommandWrapperMock.Setup(m => m.Channel).Returns(ChannelMock.Object);
 			SlashCommandWrapperMock.Setup(m => m.DeferWithCode(It.IsAny<Func<Task>>())).Returns<Func<Task>>(f => { f(); return Task.FromResult(""); }); // Don't call defer when running unit tests
-			SlashCommandWrapperMock.Setup(m => m.FollowupAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<MessageComponent>(), It.IsAny<Embed>()))
-				.Callback<string, bool, MessageComponent, Embed>((s, b, c, e) =>
+			SlashCommandWrapperMock.Setup(m => m.Command.FollowupAsync(It.IsAny<string>(), It.IsAny<Embed[]>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<AllowedMentions>(), It.IsAny<MessageComponent>(), It.IsAny<Embed>(), null))
+				.Callback<string, Embed[], bool, bool, AllowedMentions, MessageComponent, Embed, RequestOptions>((s, _, _, _, _, _, _, _) =>
 				{
 					FollowupResponseCapture = SlashCommandWrapperMock.Object.Respond(s);
 				});
-			SlashCommandWrapperMock.Setup(m => m.FollowupWithFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>()))
-				.Callback<Stream, string, string>((stream, fileName, text) =>
+			SlashCommandWrapperMock.Setup(m => m.Command.FollowupWithFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Embed[]>(),
+				It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<AllowedMentions>(), It.IsAny<MessageComponent>(), It.IsAny<Embed>(), null))
+				.Callback<Stream, string, string, Embed[], bool, bool, AllowedMentions, MessageComponent, Embed, RequestOptions>((_, _, text, _, _, _, _, _, _, _) =>
 				{
 					FollowupResponseCapture = SlashCommandWrapperMock.Object.Respond(text);
 				});

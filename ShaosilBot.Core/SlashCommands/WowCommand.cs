@@ -29,10 +29,10 @@ namespace ShaosilBot.Core.SlashCommands
 			return new SlashCommandBuilder { Description = HelpSummary }.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
 			// Immediately acknowledge, and let the async task above decide how to followup
-			return command.DeferWithCode(async () =>
+			return cmdWrapper.DeferWithCode(async () =>
 			{
 				string url = _configuration["RandomWowURL"];
 				var response = await _client.GetAsync(url);
@@ -42,17 +42,17 @@ namespace ShaosilBot.Core.SlashCommands
 
 					try
 					{
-						var responseObj = JsonSerializer.Deserialize<WowResponse[]>(content).FirstOrDefault();
+						var responseObj = JsonSerializer.Deserialize<WowResponse[]>(content)!.First();
 						string description = $"*{responseObj.movie} **wow** {responseObj.current_wow_in_movie} of {responseObj.total_wows_in_movie}*";
-						await command.FollowupWithFileAsync(await _client.GetStreamAsync(responseObj.video._360p), Path.GetFileName(responseObj.video._360p), description);
+						await cmdWrapper.Command.FollowupWithFileAsync(await _client.GetStreamAsync(responseObj.video._360p), Path.GetFileName(responseObj.video._360p), description);
 					}
 					catch
 					{
-						await command.FollowupAsync("Error parsing JSON from wow API (not ShaosilBot's fault).");
+						await cmdWrapper.Command.FollowupAsync("Error parsing JSON from wow API (not ShaosilBot's fault).");
 					}
 				}
 				else
-					await command.FollowupAsync("Error retrieving response from wow API (not ShaosilBot's fault).");
+					await cmdWrapper.Command.FollowupAsync("Error retrieving response from wow API (not ShaosilBot's fault).");
 			});
 		}
 

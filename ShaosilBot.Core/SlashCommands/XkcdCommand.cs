@@ -57,10 +57,10 @@ SUBCOMMANDS
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
 			// Get current comic asynchronously and defer the response for later
-			return command.DeferWithCode(async () =>
+			return cmdWrapper.DeferWithCode(async () =>
 			{
 				HttpResponseMessage response;
 				Xkcd data;
@@ -70,21 +70,21 @@ SUBCOMMANDS
 				{
 					response = await _client.GetAsync("https://xkcd.com/info.0.json");
 					if (response.IsSuccessStatusCode)
-						data = JsonSerializer.Deserialize<Xkcd>(await response.Content.ReadAsStringAsync());
+						data = JsonSerializer.Deserialize<Xkcd>(await response.Content.ReadAsStringAsync())!;
 					else
 						throw new Exception();
 				}
 				catch
 				{
-					await command.FollowupAsync("Unable to download initial xkcd data. Please try again later.");
+					await cmdWrapper.Command.FollowupAsync("Unable to download initial xkcd data. Please try again later.");
 					return;
 				}
 
 				try
 				{
-					var latest = command.Data.Options.FirstOrDefault(o => o.Name == "latest");
-					var random = command.Data.Options.FirstOrDefault(o => o.Name == "random");
-					var comicNum = command.Data.Options.FirstOrDefault(o => o.Name == "comic")?.Options.FirstOrDefault(o => o.Name == "num");
+					var latest = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "latest");
+					var random = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "random");
+					var comicNum = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "comic")?.Options.FirstOrDefault(o => o.Name == "num");
 					int requestedNum = latest != null ? 0 : random != null ? Random.Shared.Next(1, data.num + 1) : int.Parse(comicNum.Value.ToString()); // Null = get random
 					string description;
 
@@ -93,19 +93,19 @@ SUBCOMMANDS
 						// Update data with specified comic if one was requested
 						response = await _client.GetAsync($"https://xkcd.com/{requestedNum}/info.0.json");
 						if (!response.IsSuccessStatusCode) throw new Exception();
-						data = JsonSerializer.Deserialize<Xkcd>(await response.Content.ReadAsStringAsync());
+						data = JsonSerializer.Deserialize<Xkcd>(await response.Content.ReadAsStringAsync())!;
 					}
 
-					description = $"{command.User.Mention} used {(latest != null ? "latest" : random != null ? "random" : $"#{requestedNum}")}! It's super effective!";
+					description = $"{cmdWrapper.Command.User.Mention} used {(latest != null ? "latest" : random != null ? "random" : $"#{requestedNum}")}! It's super effective!";
 
 					// Now call the image link and return the stream as a followup file
 					response = await _client.GetAsync(data.img);
 					if (!response.IsSuccessStatusCode) throw new Exception();
-					await command.FollowupAsync(embed: new EmbedBuilder { ImageUrl = data.img, Title = $"{data.title} (#{data.num})", Description = description }.Build());
+					await cmdWrapper.Command.FollowupAsync(embed: new EmbedBuilder { ImageUrl = data.img, Title = $"{data.title} (#{data.num})", Description = description }.Build());
 				}
 				catch
 				{
-					await command.FollowupAsync("Unable to download specified xkcd data. Please verify your request.");
+					await cmdWrapper.Command.FollowupAsync("Unable to download specified xkcd data. Please verify your request.");
 				}
 			});
 		}

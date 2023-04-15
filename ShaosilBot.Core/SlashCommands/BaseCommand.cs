@@ -21,6 +21,6 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public abstract SlashCommandProperties BuildCommand();
 
-		public abstract Task<string> HandleCommand(SlashCommandWrapper command);
+		public abstract Task<string> HandleCommand(SlashCommandWrapper cmdWrapper);
 	}
 }

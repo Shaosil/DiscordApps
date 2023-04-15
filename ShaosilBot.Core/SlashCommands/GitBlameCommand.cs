@@ -13,12 +13,18 @@ namespace ShaosilBot.Core.SlashCommands
 		private readonly IGuildHelper _guildHelper;
 		private readonly IHttpUtilities _httpUtilities;
 		private readonly IFileAccessHelper _fileAccessHelper;
+		private readonly IDiscordRestClientProvider _restClientProvider;
 
-		public GitBlameCommand(ILogger<BaseCommand> logger, IGuildHelper guildHelper, IHttpUtilities httpUtilities, IFileAccessHelper fileAccessHelper) : base(logger)
+		public GitBlameCommand(ILogger<BaseCommand> logger,
+			IGuildHelper guildHelper,
+			IHttpUtilities httpUtilities,
+			IFileAccessHelper fileAccessHelper,
+			IDiscordRestClientProvider restClientProvider) : base(logger)
 		{
 			_guildHelper = guildHelper;
 			_httpUtilities = httpUtilities;
 			_fileAccessHelper = fileAccessHelper;
+			_restClientProvider = restClientProvider;
 		}
 
 		public override string CommandName => "git-blame";
@@ -63,17 +69,18 @@ OPTIONAL ARGS:
 			}.Build();
 		}
 
-		public override async Task<string> HandleCommand(SlashCommandWrapper command)
+		public override async Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			var targetUser = (command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as IGuildUser)!;
-			bool parsedFunctions = int.TryParse(command.Data.Options.FirstOrDefault(o => o.Name == "functions")?.Value.ToString(), out var functions);
+			var targetUser = (cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "target-user")?.Value as IGuildUser)!;
+			bool parsedFunctions = int.TryParse(cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "functions")?.Value.ToString(), out var functions);
 			bool keepLock = parsedFunctions && functions == 0;
 			var subscribers = _guildHelper.LoadUserIDs(BlameablesFilename);
+			var curGuild = _restClientProvider.Guilds.First(g => g.Id == cmdWrapper.Command.GuildId);
 
 			// Functions are handled by themselves
 			if (parsedFunctions)
 			{
-				var requestor = (command.User as IGuildUser)!;
+				var requestor = cmdWrapper.Command.User as IGuildUser;
 				if (targetUser == null)
 					targetUser = requestor;
 
@@ -81,7 +88,7 @@ OPTIONAL ARGS:
 				{
 					case 0: // Toggle subscription
 							// Only allow subscription edits to a target user if the requestor is administrator or their highest role is greater than the target's highest role
-						if (_guildHelper.UserCanEditTargetUser(command.Guild, requestor, targetUser))
+						if (_guildHelper.UserCanEditTargetUser(curGuild, requestor, targetUser))
 						{
 							int oldCount = subscribers.Count;
 
@@ -92,21 +99,21 @@ OPTIONAL ARGS:
 								subscribers.Add(targetUser.Id);
 
 							_fileAccessHelper.SaveFileJSON(BlameablesFilename, subscribers);
-							return command.Respond($"{targetUser.Username} successfully {(oldCount < subscribers.Count ? "added" : "removed")} as a blameable");
+							return cmdWrapper.Respond($"{targetUser.Username} successfully {(oldCount < subscribers.Count ? "added" : "removed")} as a blameable");
 						}
 						else
 						{
-							return command.Respond($"You do not have sufficient permissions to edit {targetUser.Username}'s subscription. Ask someone more important than you to do it.", ephemeral: true);
+							return cmdWrapper.Respond($"You do not have sufficient permissions to edit {targetUser.Username}'s subscription. Ask someone more important than you to do it.", ephemeral: true);
 						}
 
 					case 1: // List blameables
 					default:
-						return command.Respond($"Current blameables:\n\n{string.Join("\n", subscribers.Select(s => $"* <@{s}>"))}");
+						return cmdWrapper.Respond($"Current blameables:\n\n{string.Join("\n", subscribers.Select(s => $"* <@{s}>"))}");
 				}
 			}
 
 			// Run blame functionality asynchronously
-			return await command.DeferWithCode(async () =>
+			return await cmdWrapper.DeferWithCode(async () =>
 			{
 				// Get a list of all images in my gitblame album and pick a random one
 				string selectedImage;
@@ -117,7 +124,7 @@ OPTIONAL ARGS:
 				catch (Exception ex)
 				{
 					Logger.LogError(ex, "Error fetching images from Imgur");
-					await command.FollowupAsync("Error fetching images from Imgur");
+					await cmdWrapper.Command.FollowupAsync("Error fetching images from Imgur");
 					return;
 				}
 
@@ -125,7 +132,7 @@ OPTIONAL ARGS:
 				var responses = _fileAccessHelper.LoadFileText(ResponsesFilename).Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
 				string response = responses[Random.Shared.Next(responses.Length)];
 
-				var channel = await command.Guild.GetChannelAsync(command.Channel.Id);
+				var channel = (await _restClientProvider.GetChannelAsync(cmdWrapper.Command.ChannelId!.Value)) as IGuildChannel;
 				if (targetUser == null)
 				{
 					var existingUsers = new List<ulong>(subscribers);
@@ -133,10 +140,14 @@ OPTIONAL ARGS:
 					{
 						// Pick a random subscriber
 						ulong randomId = subscribers[Random.Shared.Next(subscribers.Count)];
-						targetUser = await command.Guild.GetUserAsync(randomId);
+						targetUser = await curGuild.GetUserAsync(randomId);
 
-						// Check the user exists in the guild and remove them from the existingUsers list if not
-						if (targetUser == null) existingUsers.Remove(randomId);
+						// Check the user exists in the guild and remove them from both lists if not
+						if (targetUser == null)
+						{
+							existingUsers.Remove(randomId);
+							subscribers.Remove(randomId);
+						}
 						// If they simply don't have permission, update the subscribers list and null out targetUser so we can try again
 						else if (!targetUser.GetPermissions(channel).ViewChannel)
 						{
@@ -151,7 +162,7 @@ OPTIONAL ARGS:
 					// Notify if there are no subscribers
 					if (targetUser == null)
 					{
-						await command.FollowupAsync("There are no blameable users who have access to this channel!");
+						await cmdWrapper.Command.FollowupAsync("There are no blameable users who have access to this channel!");
 						return;
 					}
 				}
@@ -160,12 +171,12 @@ OPTIONAL ARGS:
 					// Custom responses based on our findings on targetUser
 					if (!targetUser.GetPermissions(channel).ViewChannel)
 					{
-						await command.FollowupAsync($"{command.User.Mention} tried to blame {targetUser.Mention}, but that user was not found in this channel, so {command.User.Mention} is to blame!");
+						await cmdWrapper.Command.FollowupAsync($"{cmdWrapper.Command.User.Mention} tried to blame {targetUser.Mention}, but that user was not found in this channel, so {cmdWrapper.Command.User.Mention} is to blame!");
 						return;
 					}
-					else if (targetUser.Id == command.User.Id)
+					else if (targetUser.Id == cmdWrapper.Command.User.Id)
 					{
-						await command.FollowupAsync($"{command.User.Mention} has rightfully and humbly blamed themselves for the latest wrongdoing. Good on them.");
+						await cmdWrapper.Command.FollowupAsync($"{cmdWrapper.Command.User.Mention} has rightfully and humbly blamed themselves for the latest wrongdoing. Good on them.");
 						return;
 					}
 
@@ -173,7 +184,7 @@ OPTIONAL ARGS:
 					response += "\n\n* *Targeted*";
 				}
 
-				await command.FollowupAsync($"{response.Replace("{USER}", targetUser.Mention)}\n\n{selectedImage}");
+				await cmdWrapper.Command.FollowupAsync($"{response.Replace("{USER}", targetUser.Mention)}\n\n{selectedImage}");
 			});
 		}
 	}

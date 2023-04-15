@@ -40,9 +40,9 @@ namespace ShaosilBot.Core.SlashCommands
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			var userPermissions = (command.User as IGuildUser).GuildPermissions;
+			var userPermissions = (cmdWrapper.Command.User as IGuildUser)!.GuildPermissions;
 			var allowedCommands = _slashCommandProvider.CommandProperties
 				.Where(c => c.Value.Name.Value != CommandName && (!c.Value.DefaultMemberPermissions.IsSpecified || userPermissions.Has(c.Value.DefaultMemberPermissions.Value)))
 				.Select(c => c.Key)
@@ -50,7 +50,7 @@ namespace ShaosilBot.Core.SlashCommands
 			var sb = new StringBuilder();
 
 			// If no specific command was specified, display all info summarized
-			if (command.Data.Options.Count == 0)
+			if (cmdWrapper.Command.Data.Options.Count == 0)
 			{
 				int maxCmdLength = allowedCommands.Max(k => k.Length);
 
@@ -69,7 +69,7 @@ namespace ShaosilBot.Core.SlashCommands
 			// Otherwise get that command's specific help details
 			else
 			{
-				string cmd = (command.Data.Options.First().Value as string).ToLower().Trim();
+				string cmd = (cmdWrapper.Command.Data.Options.First().Value as string)!.ToLower().Trim();
 				var matchingCommands = allowedCommands.Where(c => c.Contains(cmd)).ToList();
 				if (matchingCommands.Count == 1)
 				{
@@ -97,7 +97,7 @@ namespace ShaosilBot.Core.SlashCommands
 				}
 			}
 
-			return Task.FromResult(command.Respond(sb.ToString(), ephemeral: true));
+			return Task.FromResult(cmdWrapper.Respond(sb.ToString(), ephemeral: true));
 		}
 	}
 }

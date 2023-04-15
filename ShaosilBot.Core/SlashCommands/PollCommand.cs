@@ -1,23 +1,31 @@
 ﻿using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
-using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace ShaosilBot.Core.SlashCommands
 {
 	public class PollCommand : BaseCommand
 	{
-		public PollCommand(ILogger<BaseCommand> logger) : base(logger) { }
+		public const string SelectMenuID = "PollCommandSelectMenu";
+		public readonly ManualResetEvent SelectMenuReadySignal = new(true);
+
+		private readonly IQuartzProvider _quartzProvider;
+
+		public PollCommand(ILogger<BaseCommand> logger, IQuartzProvider quartzProvider) : base(logger)
+		{
+			_quartzProvider = quartzProvider;
+		}
 
 		public override string CommandName => "poll";
 
-		public override string HelpSummary => "Lets people vote on a question. Can be a simple yes/no or up to 20 choices with custom emojis!";
+		public override string HelpSummary => "Lets people vote on a question. Can be a simple yes/no or up to 20 choices!";
 
-		public override string HelpDetails => @$"/{CommandName} (string question) [string choice1 - choice20]
+		public override string HelpDetails => @$"/{CommandName} (string question) [string choice1 - choice20, string minute-limit]
 
-Passing only a question will provide ':thumbsup:' and ':thumbsdown:' reactions by default. Otherwise, provide 2+ choices for a custom list.
+Passing only a question will provide 'Aye' and 'Nay' choices by default. Otherwise, provide 2+ choices for a custom list.
 
 REQUIRED ARGS:
 * question:
@@ -25,7 +33,10 @@ REQUIRED ARGS:
 
 OPTIONAL ARGS:
 * choice1 - choice20:
-    If one is provided, at least two must be. Place any basic emoji at the front in order to replace its matching 'a, b, c' reaction.";
+    If one is provided, at least two must be.
+
+* minute-limit:
+	If provided, will end the poll after the specified minutes. Must be between 1 and 180.";
 
 		public override SlashCommandProperties BuildCommand()
 		{
@@ -50,85 +61,159 @@ OPTIONAL ARGS:
 						Description = "What do you want people to vote on?",
 						IsRequired = true
 					}
-				}.Concat(choices).ToList()
+				}
+				.Concat(choices)
+				.Concat(new[]
+				{
+					new SlashCommandOptionBuilder
+					{
+						Name = "minute-limit",
+						Type = ApplicationCommandOptionType.Integer,
+						Description = "Optional time limit (in minutes)",
+						MinValue = 1, MaxValue = 180 // 3 hours max
+					},
+					new SlashCommandOptionBuilder
+					{
+						Name = "multiselect",
+						Type = ApplicationCommandOptionType.Boolean,
+						Description = "Whether or not to allow multiple votes"
+					}
+				}).ToList()
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
+			// TODO: REWRITE!
+			return Task.FromResult(cmdWrapper.Respond("Work in progress! Minor rewrite coming that will improve how polling works. Poke Shaosil for details", ephemeral: true));
+
 			// Validation
-			string? questionText = command.Data.Options.FirstOrDefault(o => o.Name == "question")?.Value as string;
+			string? questionText = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "question")?.Value as string;
 			if (string.IsNullOrWhiteSpace(questionText))
-				return Task.FromResult(command.Respond("You must provide a question!", ephemeral: true));
+				return Task.FromResult(cmdWrapper.Respond("You must provide a question!", ephemeral: true));
 
-			var choiceArgs = command.Data.Options.Where(o => o.Name.StartsWith("choice")).Select(c => c.Value?.ToString()?.Trim()).ToList();
-			if (choiceArgs.Count == 1)
-				return Task.FromResult(command.Respond("You may either provide no choices for a default yes/no poll, or 2+ choices for a custom list.", ephemeral: true));
+			// Take all distinct trimmed choice values
+			var choices = cmdWrapper.Command.Data.Options.Where(o => o.Name.StartsWith("choice")).Select(c => c.Value?.ToString()?.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+			if (choices.Count == 1)
+				return Task.FromResult(cmdWrapper.Respond("You may either provide no choices for a default yes/no poll, or 2+ choices for a custom list.", ephemeral: true));
+			else if (choices.Count == 0)
+				choices.AddRange(new[] { "Aye!", "Nay!" });
 
-			// Build choice texts and reactions
-			char[] defaultEmoji = "🇦".ToArray();
-			var reactionEmojis = new List<string>();
-			var choiceTexts = new List<string>();
-			for (int i = 0; i < choiceArgs.Count; i++)
+			// Build the initial list of options, suffixing each with (0) votes
+			int curIndex = 1;
+			var choiceTexts = choices.Select(c => $"{$"{curIndex++}".PadLeft(choices.Count.ToString().Length)}: {c} (0)").ToList();
+
+			// Get the time limit, if any
+			_ = int.TryParse(cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "minute-limit")?.Value.ToString() ?? "0", out var minuteLimit);
+			if (minuteLimit > 0)
 			{
-				// Use supplied emoji for this choice if one exists
-				var captures = Regex.Match(choiceArgs[i]!, "^(\\p{Cs}*)(\\P{Cs}*.*)");
-				string emoji = captures.Groups[1].Value;
-				if (string.IsNullOrWhiteSpace(emoji))
-					emoji = new string(defaultEmoji);
+				var targetTime = DateTimeOffset.Now.AddMinutes(minuteLimit);
+				choiceTexts.Add($"\nPoll will end <t:{targetTime.AddSeconds(1).ToUnixTimeSeconds()}:R>!");
 
-				// Make sure we only take a single emoji in case multiple in a row were defined
-				var emojiInfo = new StringInfo(emoji);
-				string emojiRemainder = string.Empty;
-				if (emojiInfo.LengthInTextElements > 1)
+				// Set a task to run AFTER the response is sent so we can grab it and store the message ID
+				_ = Task.Run(async () =>
 				{
-					emojiRemainder = emojiInfo.SubstringByTextElements(1);
-					emoji = emojiInfo.SubstringByTextElements(0, 1);
-				}
-				reactionEmojis.Add(emoji);
+					int tries = 0;
+					IUserMessage? response = null;
+					while (tries++ < 3 && response == null) response = await cmdWrapper.Command.GetOriginalResponseAsync();
+					if (response == null) return;
 
-				// Use only the choice text, if any (prefixing with any leftover emojis - very rarely occurs)
-				string? choiceText = captures.Groups[2].Value?.Trim();
-				if (!string.IsNullOrWhiteSpace(choiceText))
-					choiceTexts.Add($"{emoji}: {emojiRemainder}{choiceText}");
-
-				// Incrementing the second unicode position of the regional 'A' will correctly return the following letters
-				defaultEmoji[1] = (char)(defaultEmoji[1] + 1);
+					_quartzProvider.SchedulePollEnd(cmdWrapper.Command.ChannelId!.Value, response.Id, targetTime);
+				});
 			}
 
-			// Thumbs up/thumbs down for no supplied choices
-			if (choiceArgs.Count == 0)
-				reactionEmojis.AddRange(new[] { "👍", "👎" });
+			bool.TryParse(cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "multiselect")?.Value.ToString(), out var multiselect);
 
-			// Make sure the reactions are distinct
-			reactionEmojis = reactionEmojis.Distinct().ToList();
-
-			// Validate choice count again in case they only supplied emojis in SOME of the choices
-			if (choiceTexts.Count > 0 && choiceTexts.Count < choiceArgs.Count)
-				return Task.FromResult(command.Respond("Your choices contain a mix of emojis and text. Please stick with one or the other", ephemeral: true));
-
-			// Validate the number of unique reactions == the number of choices
-			if (reactionEmojis.Count < choiceTexts.Count || reactionEmojis.Count < 2)
-				return Task.FromResult(command.Respond("Duplicate custom emojis detected - please try again with unique options.", ephemeral: true));
-
-			// Spin up a new thread to wait for the below response so we can react to the new message
-			_ = Task.Run(async () =>
-			{
-				// Try a few times in case the message takes a while to go through
-				RestInteractionMessage? original = null;
-				int tries = 0;
-				while (original == null && tries++ < 3)
-				{
-					await Task.Delay(250);
-					original = await command.GetOriginalResponseAsync();
-				}
-
-				// This will log an error if it is still null
-				await original.AddReactionsAsync(reactionEmojis.Select(e => Emoji.Parse(e) as IEmote));
-			});
+			// Build the select menu
+			var selectMenu = new ComponentBuilder().WithSelectMenu(SelectMenuID,
+				choices.Select(c => new SelectMenuOptionBuilder(c, c)).ToList(),
+				"Cast your vote!",
+				minValues: 0,
+				maxValues: multiselect ? choices.Count : 1);
 
 			var embed = new EmbedBuilder() { Title = $"📊 **{questionText.Trim()}**", Description = string.Join('\n', choiceTexts), Color = new Color(0x7c0089) };
-			return Task.FromResult(command.Respond(embed: embed.Build()));
+			return Task.FromResult(cmdWrapper.Respond(embed: embed.Build(), components: selectMenu.Build()));
+		}
+
+		public string HandleVote(RestMessageComponent messageComponent)
+		{
+			// Run all of the following code on a new thread so we can immediately defer a response
+			_ = Task.Run(async () =>
+			{
+				try
+				{
+					// Wait here and lock so we only handle one at a time
+					SelectMenuReadySignal.WaitOne(10000);
+					SelectMenuReadySignal.Reset();
+
+					var originalEmbed = messageComponent.Message.Embeds.First();
+
+					// To avoid a race condition, always re-load the message and make sure it currently has selections
+					var loadedMessage = await messageComponent.Channel.GetMessageAsync(messageComponent.Message.Id);
+					if (!loadedMessage.Components.Any()) return;
+
+					// If there is any extra description after the choices, capture it here
+					string endingDesc = Regex.Match(originalEmbed.Description, ".+(^Poll .+)", RegexOptions.Multiline).Groups[1].Value;
+
+					// Get current votes and add 1 to all supplied values
+					var currentVotes = ParseVotes(originalEmbed.Description, false);
+					foreach (string vote in messageComponent.Data.Values)
+					{
+						currentVotes.First(v => v.description == vote).Votes++;
+					}
+
+					// Update description and message
+					string newDesc = $"{GetDescriptionFromParsedVotes(currentVotes)}{endingDesc}";
+					var modifiedEmbed = new EmbedBuilder()
+					{
+						Title = originalEmbed.Title,
+						Color = originalEmbed.Color,
+						Description = newDesc
+					};
+					await messageComponent.ModifyOriginalResponseAsync(m =>
+					{
+						m.Content = messageComponent.Message.Content;
+						m.Embed = modifiedEmbed.Build();
+						m.Components = ComponentBuilder.FromComponents(messageComponent.Message.Components).Build();
+					});
+
+					// Ready for the next thread
+					SelectMenuReadySignal.Set();
+				}
+				catch (Exception ex)
+				{
+					var i = 0;
+				}
+			});
+
+			return messageComponent.Defer(true);
+		}
+
+		public string GetDescriptionFromParsedVotes(List<VoteOption> votes)
+		{
+			return string.Join("\n", votes.Select(v => $"{$"{v.order}".PadLeft(votes.Count)}: {v.description} ({v.Votes})"));
+		}
+
+		public record VoteOption(int order, string description)
+		{
+			public int Votes { get; set; }
+			public VoteOption(int ord, string desc, int votes) : this(ord, desc)
+			{
+				Votes = votes;
+			}
+		}
+
+		public List<VoteOption> ParseVotes(string description, bool highlightWinners)
+		{
+			var parsedVotes = new List<VoteOption>();
+			var matches = Regex.Matches(description, @"^\s*(\d+): (.+) \((\d+)\)$", RegexOptions.Multiline);
+			for (int i = 0; i < matches.Count; i++)
+			{
+				var match = matches[i];
+				parsedVotes.Add(new VoteOption(int.Parse(match.Groups[1].Value), match.Groups[2].Value, int.Parse(match.Groups[3].Value)));
+			}
+
+			return parsedVotes;
 		}
 	}
 }

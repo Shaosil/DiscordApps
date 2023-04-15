@@ -1,9 +1,12 @@
 ﻿using Discord;
+using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using Quartz;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Jobs;
 using ShaosilBot.Core.Providers;
+using System.Text.RegularExpressions;
+using static ShaosilBot.Core.Providers.MessageCommandProvider;
 
 namespace ShaosilBot.Core.SlashCommands
 {
@@ -94,11 +97,11 @@ SUBCOMMANDS:
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
 			// Handle lists and deletes in their own function for better organization
-			var subCmd = command.Data.Options.First();
-			if (subCmd.Name == "list" || subCmd.Name == "delete") return Task.FromResult(command.Respond(ListOrDelete(command.User.Id, subCmd), ephemeral: true));
+			var subCmd = cmdWrapper.Command.Data.Options.First();
+			if (subCmd.Name == "list" || subCmd.Name == "delete") return Task.FromResult(cmdWrapper.Respond(ListOrDelete(cmdWrapper.Command.User.Id, subCmd), ephemeral: true));
 
 			// In X time-units
 			bool isPrivate = (bool)(subCmd.Options.FirstOrDefault(o => o.Name == "private")?.Value ?? true);
@@ -114,10 +117,10 @@ SUBCOMMANDS:
 				: timeUnit == eTimeUnits.Weeks ? DateTimeOffset.Now.AddDays(amount * 7)
 				: DateTimeOffset.Now.AddMonths(amount);
 
-			if ((targetDate - DateTimeOffset.Now).Days > 366) return Task.FromResult(command.Respond("Target date is too far in the future! Please keep it within a year.", ephemeral: true));
+			if ((targetDate - DateTimeOffset.Now).Days > 366) return Task.FromResult(cmdWrapper.Respond("Target date is too far in the future! Please keep it within a year.", ephemeral: true));
 
-			_quartzProvider.ScheduleUserReminder(command.User.Id, command.Data.Id, command.Channel.Id, targetDate, isPrivate, msg);
-			return Task.FromResult(command.Respond($"Successfully scheduled {(isPrivate ? "DM" : "public")} reminder for <t:{targetDate.ToUnixTimeSeconds()}>. See you then!", ephemeral: isPrivate));
+			_quartzProvider.ScheduleUserReminder(cmdWrapper.Command.User.Id, cmdWrapper.Command.Data.Id, cmdWrapper.Command.ChannelId!.Value, targetDate, isPrivate, msg);
+			return Task.FromResult(cmdWrapper.Respond($"Successfully scheduled {(isPrivate ? "DM" : "public")} reminder for <t:{targetDate.ToUnixTimeSeconds()}>. See you then!", ephemeral: isPrivate));
 		}
 
 		private string ListOrDelete(ulong userID, IApplicationCommandInteractionDataOption cmd)
@@ -157,6 +160,67 @@ SUBCOMMANDS:
 					else return $"Could not delete job with ID of '{id}'. Are you sure the ID is correct? Use `/{CommandName} list` to see your IDs.";
 				}
 			}
+		}
+
+		public string HandleRemindMeMessageCommand(RestMessageCommand command)
+		{
+			// Pass message ID along via component ID so we have a reference later
+			var components = new ComponentBuilder()
+				.WithButton("15 Minutes", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-{15}")
+				.WithButton("1 Day", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-{60 * 24}")
+				.WithButton("1 Week", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-{60 * 24 * 7}")
+				.WithButton("Custom Hours", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-CustomHours", ButtonStyle.Secondary)
+				.WithButton("Custom Days", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-CustomDays", ButtonStyle.Secondary).Build();
+			return command.Respond("Remind you when?", components: components, ephemeral: true);
+		}
+
+		public async Task<string> HandleReminderTimeButton(RestMessageComponent messageComponent)
+		{
+			// Parse referenced message ID to pass it along via component ids again if necessary
+			string buttonId = messageComponent.Data.CustomId;
+			ulong originalMessageId = ulong.Parse(Regex.Match(buttonId, ".+-(\\d+)-").Groups.Values.Last().Value);
+
+			if (buttonId.Contains("-Custom"))
+			{
+				// Respond with a modal asking for X hours or days
+				string desc = buttonId.EndsWith("Hours") ? "hours" : "days";
+				var textInput = new TextInputBuilder("Amount", $"amount-{originalMessageId}-{desc}", value: $"{(desc == "hours" ? 1 : 3)}", minLength: 1, maxLength: 3, required: true);
+				return messageComponent.RespondWithModal(new ModalBuilder($"How many {desc} do you want to schedule it?", CommandNames.Modals.CustomReminder).AddTextInput(textInput).Build());
+			}
+			else
+			{
+				// Schedule and respond
+				int minutes = int.Parse(buttonId.Substring(buttonId.LastIndexOf('-') + 1));
+				var targetDate = DateTimeOffset.Now.AddMinutes(minutes);
+				return await ScheduleReminder(originalMessageId, messageComponent, targetDate);
+			}
+		}
+
+		public async Task<string> HandleReminderTimeModal(RestModal modal)
+		{
+			string inputId = modal.Data.Components.First().CustomId;
+			bool isHours = inputId.Contains("hours");
+			string sanitizedInput = Regex.Replace(modal.Data.Components.First().Value, "[^\\d]", string.Empty);
+
+			// Validation
+			if (!int.TryParse(sanitizedInput, out var input)) return modal.Respond("Invalid input. Please use numeric values.", ephemeral: true);
+			if (!isHours && input > 365) return modal.Respond("Invalid input. Please keep schedules within a year.", ephemeral: true);
+
+			// Schedule and respond
+			ulong originalMessageId = ulong.Parse(Regex.Match(inputId, ".+-(\\d+)-").Groups.Values.Last().Value);
+			var targetDate = DateTimeOffset.Now.AddHours(isHours ? input : (input * 24));
+			return await ScheduleReminder(originalMessageId, modal, targetDate);
+		}
+
+		private async Task<string> ScheduleReminder(ulong originalMessageId, RestInteraction interaction, DateTimeOffset targetDate)
+		{
+			var originalMessage = await interaction.Channel.GetMessageAsync(originalMessageId);
+			string message = $"Reminder: {interaction.User.Mention} wanted to remember this message.";
+			bool alreadyScheduled = _quartzProvider.GetUserReminders(interaction.User.Id).Any(r => r.Key.Key.Name.Contains($"{originalMessageId}"));
+
+			// Schedule and respond
+			_quartzProvider.ScheduleUserReminder(interaction.User.Id, originalMessageId, interaction.ChannelId!.Value, targetDate, false, message, originalMessage);
+			return interaction.Respond($"Reminder {(alreadyScheduled ? "updated" : "scheduled")} successfully for <t:{targetDate.ToUnixTimeSeconds()}>", ephemeral: true);
 		}
 	}
 }

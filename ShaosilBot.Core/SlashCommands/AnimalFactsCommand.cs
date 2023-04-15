@@ -46,10 +46,10 @@ namespace ShaosilBot.Core.SlashCommands
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
 			// If no type was specified, choose randomly between all filenames
-			string? fileName = command.Data.Options.FirstOrDefault()?.Value.ToString();
+			string? fileName = cmdWrapper.Command.Data.Options.FirstOrDefault()?.Value.ToString();
 			if (string.IsNullOrWhiteSpace(fileName))
 			{
 				var allProps = GetType().GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly).Where(f => f.Name.EndsWith("FileName")).ToList();
@@ -59,7 +59,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 			var facts = (_fileAccessHelper.LoadFileText(fileName)).Split(Environment.NewLine);
 			string emoji = fileName == DogFactsFileName ? ":dog:" : ":cat:";
-			return Task.FromResult(command.Respond($"{emoji} {facts[Random.Shared.Next(facts.Length)]}"));
+			return Task.FromResult(cmdWrapper.Respond($"{emoji} {facts[Random.Shared.Next(facts.Length)]}"));
 		}
 	}
 }

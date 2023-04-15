@@ -77,7 +77,7 @@ namespace ShaosilBot.Core.Providers
 				{ SelfDestructMessageJob.DataMapKeys.ChannelID, message.Channel.Id.ToString() },
 				{ SelfDestructMessageJob.DataMapKeys.MessageID, message.Id.ToString() }
 			});
-			var job = JobBuilder.Create<SelfDestructMessageJob>().WithIdentity(key).StoreDurably(false).UsingJobData(dataMap).Build();
+			var job = JobBuilder.Create<SelfDestructMessageJob>().WithIdentity(key).UsingJobData(dataMap).Build();
 			var trigger = TriggerBuilder.Create().StartAt(DateTime.Now.AddHours(hours)).Build();
 
 			_scheduler.ScheduleJob(job, trigger);
@@ -117,12 +117,12 @@ namespace ShaosilBot.Core.Providers
 			return _scheduler.DeleteJob(key).Result;
 		}
 
-		public void ScheduleUserReminder(ulong userID, ulong messageID, ulong channelID, DateTimeOffset targetDate, bool isPrivate, string msg, RestMessage? referenceMessage = null)
+		public void ScheduleUserReminder(ulong userID, ulong commandID, ulong channelID, DateTimeOffset targetDate, bool isPrivate, string msg, RestMessage? referenceMessage = null)
 		{
 			// Do not do this in develop
 			if (_isDevelopment) return;
 
-			var key = new JobKey($"Reminder-{messageID}");
+			var key = new JobKey($"Reminder-{commandID}");
 			var dataMap = new JobDataMap(new Dictionary<string, string>
 			{
 				{ ReminderJob.DataMapKeys.UserID, userID.ToString() },
@@ -140,11 +140,29 @@ namespace ShaosilBot.Core.Providers
 				dataMap.Add(ReminderJob.DataMapKeys.ReferenceMessageContent, referenceMessage.Content);
 			}
 
-			var job = JobBuilder.Create<ReminderJob>().WithIdentity(key).StoreDurably(false).UsingJobData(dataMap).Build();
+			var job = JobBuilder.Create<ReminderJob>().WithIdentity(key).UsingJobData(dataMap).Build();
 			var trigger = TriggerBuilder.Create().WithIdentity(key.Name).StartAt(targetDate).Build();
 
 			// Upsert
 			_scheduler.ScheduleJob(job, new[] { trigger }, true);
+		}
+
+		public void SchedulePollEnd(ulong channelID, ulong responseMessageID, DateTimeOffset targetTime)
+		{
+			// Do not do this in develop
+			if (_isDevelopment) return;
+
+			var key = new JobKey($"PollEnd-{responseMessageID}");
+			var dataMap = new JobDataMap(new Dictionary<string, string>
+			{
+				{ PollEndJob.DataMapKeys.ChannelID, $"{channelID}" },
+				{ PollEndJob.DataMapKeys.MessageID, $"{responseMessageID}" }
+			});
+
+			var job = JobBuilder.Create<PollEndJob>().WithIdentity(key).UsingJobData(dataMap).Build();
+			var trigger = TriggerBuilder.Create().WithIdentity(key.Name).StartAt(targetTime).Build();
+
+			_scheduler.ScheduleJob(job, trigger);
 		}
 	}
 }

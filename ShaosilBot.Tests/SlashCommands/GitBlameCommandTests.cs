@@ -10,7 +10,7 @@ namespace ShaosilBot.Tests.SlashCommands
 	{
 		private List<string> _preppedResponses = new List<string>();
 
-		protected override GitBlameCommand GetInstance() => new GitBlameCommand(Logger, GuildHelperMock.Object, HttpUtilitiesMock.Object, FileAccessProviderMock.Object);
+		protected override GitBlameCommand GetInstance() => new GitBlameCommand(Logger, GuildHelperMock.Object, HttpUtilitiesMock.Object, FileAccessProviderMock.Object, RestClientProviderMock.Object);
 
 		[TestInitialize]
 		public override void TestInitialize()

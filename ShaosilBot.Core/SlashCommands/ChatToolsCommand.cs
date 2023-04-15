@@ -11,10 +11,12 @@ namespace ShaosilBot.Core.SlashCommands
 	public class ChatToolsCommand : BaseCommand
 	{
 		private readonly IFileAccessHelper _fileAccessHelper;
+		private readonly IDiscordRestClientProvider _restClientProvider;
 
-		public ChatToolsCommand(ILogger<BaseCommand> logger, IFileAccessHelper fileAccessHelper) : base(logger)
+		public ChatToolsCommand(ILogger<BaseCommand> logger, IFileAccessHelper fileAccessHelper, IDiscordRestClientProvider restClientProvider) : base(logger)
 		{
 			_fileAccessHelper = fileAccessHelper;
+			_restClientProvider = restClientProvider;
 		}
 
 		public override string CommandName => "chat-tools";
@@ -84,16 +86,16 @@ SUBCOMMANDS:
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override async Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
 			string returnMessage;
 			bool ephermal = true;
 
 			// Load this user's info - keep lease in case we need to update it
 			var allUsers = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTProvider.ChatGPTUsersFile, true);
-			var ourInfo = allUsers[command.User.Id];
+			var ourInfo = allUsers[cmdWrapper.Command.User.Id];
 
-			var subCmd = command.Data.Options.First();
+			var subCmd = cmdWrapper.Command.Data.Options.First();
 			if (subCmd.Name == "stats")
 			{
 				// Subcommand self or all
@@ -109,7 +111,7 @@ SUBCOMMANDS:
 					statsBuilder.AppendLine($"```* Chats sent:       {ourInfo.TokensUsed.Count():N0}");
 					statsBuilder.AppendLine($"* Used tokens:      {ourInfo.TokensUsed.Sum(t => t.Value):N0}");
 					statsBuilder.AppendLine($"* Remaining tokens: {ourInfo.AvailableTokens:N0}");
-					statsBuilder.AppendLine($"* Borrowed tokens:  {allUsers.SelectMany(u => u.Value.LentTokens.Where(t => t.Key == command.User.Id)).Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Borrowed tokens:  {allUsers.SelectMany(u => u.Value.LentTokens.Where(t => t.Key == cmdWrapper.Command.User.Id)).Sum(t => t.Value):N0}");
 					statsBuilder.AppendLine($"* Lent tokens:      {ourInfo.LentTokens.Sum(t => t.Value):N0}");
 					statsBuilder.AppendLine();
 					statsBuilder.AppendLine($"* Custom prompt:    {ourInfo.CustomSystemPrompt ?? "(none)"}```");
@@ -157,10 +159,11 @@ SUBCOMMANDS:
 			else
 			{
 				// Verify user has manage message permissions
-				if ((command.User as IGuildUser)!.GetPermissions(command.Channel as IGuildChannel).ManageMessages)
+				var channel = (await _restClientProvider.GetChannelAsync(cmdWrapper.Command.ChannelId!.Value)) as IGuildChannel;
+				if ((cmdWrapper.Command.User as IGuildUser)!.GetPermissions(channel).ManageMessages)
 				{
 					var allHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, List<ChatGPTChannelMessage>>>(ChatGPTProvider.ChatLogFile, true);
-					var ourHistory = allHistory.GetValueOrDefault(command.Channel.Id);
+					var ourHistory = allHistory.GetValueOrDefault(channel.Id);
 
 					if ((ourHistory?.Count ?? 0) == 0)
 					{
@@ -182,7 +185,7 @@ SUBCOMMANDS:
 			}
 			_fileAccessHelper.ReleaseFileLease(ChatGPTProvider.ChatGPTUsersFile);
 
-			return Task.FromResult(command.Respond(returnMessage, ephemeral: ephermal));
+			return cmdWrapper.Respond(returnMessage, ephemeral: ephermal);
 		}
 	}
 }

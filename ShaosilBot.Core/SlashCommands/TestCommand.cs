@@ -23,10 +23,10 @@ namespace ShaosilBot.Core.SlashCommands
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper command)
+		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
 			Logger.LogInformation($"Test Command executed at {DateTime.Now}");
-			return Task.FromResult(command.Respond("Test command successful", ephemeral: true));
+			return Task.FromResult(cmdWrapper.Respond("Test command successful", ephemeral: true));
 		}
 	}
 }
