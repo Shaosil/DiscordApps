@@ -70,7 +70,7 @@ namespace ShaosilBot.Core.Providers
 			}
 		}
 
-		private List<T> GetSimpleData<T>(string query)
+		private List<T> GetSimpleData<T>(string selectClause, Dictionary<string, object>? parameters = null)
 		{
 			List<T> data = new();
 
@@ -78,7 +78,11 @@ namespace ShaosilBot.Core.Providers
 			{
 				conn.Open();
 				var cmd = conn.CreateCommand();
-				cmd.CommandText = query;
+				cmd.CommandText = selectClause;
+				foreach (var param in parameters ?? new Dictionary<string, object>())
+				{
+					cmd.Parameters.AddWithValue(param.Key, param.Value);
+				}
 				using (var reader = cmd.ExecuteReader())
 				{
 					while (reader.Read()) data.Add(reader.GetFieldValue<T>(0));
@@ -144,7 +148,7 @@ namespace ShaosilBot.Core.Providers
 			var propColumns = GetColumnProperties(tableClass);
 			foreach (var prop in propColumns)
 			{
-				// Will throw an error when not found - As designed for now
+				// Load type from defined list
 				List<string> constraints = new();
 				var nullableType = Nullable.GetUnderlyingType(prop.PropertyType);
 				string cType = NetToSQLiteTypes.First(t => t.Value.Contains(nullableType ?? prop.PropertyType)).Key;
@@ -174,12 +178,14 @@ namespace ShaosilBot.Core.Providers
 			List<ColumnDefinition> definitions = new();
 
 			// Autoincrement info
-			bool hasAutoIncrement = GetSimpleData<string>($"SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = '{table}'").First().ToUpper().Contains("AUTOINCREMENT");
+			bool hasAutoIncrement = GetSimpleData<string>($"SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = @table", new() { { "@table", table } })
+				.First().ToUpper().Contains("AUTOINCREMENT");
 			using (var conn = new SqliteConnection(ConnectionString))
 			{
 				conn.Open();
 				var cmd = conn.CreateCommand();
-				cmd.CommandText = $"SELECT name, type, [notnull], pk FROM pragma_table_info('{table}')";
+				cmd.CommandText = $"SELECT name, type, [notnull], pk FROM pragma_table_info(@table)";
+				cmd.Parameters.AddWithValue("@table", table);
 				using (var reader = cmd.ExecuteReader())
 				{
 					while (reader.Read())
@@ -197,7 +203,8 @@ namespace ShaosilBot.Core.Providers
 						if (hasAutoIncrement && reader.GetFieldValue<bool>(3)) constraints.Add("PRIMARY KEY AUTOINCREMENT");
 
 						// FK constraint
-						string? fk = GetSimpleData<string>($"SELECT 'REFERENCES ' || [table] || ' (' || [to] || ')' FROM pragma_foreign_key_list('{table}') WHERE [from] = '{name}'").FirstOrDefault();
+						var parameters = new Dictionary<string, object> { { "@table", table }, { "@name", name } };
+						string? fk = GetSimpleData<string>($"SELECT 'REFERENCES ' || [table] || ' (' || [to] || ')' FROM pragma_foreign_key_list(@table) WHERE [from] = @name", parameters).FirstOrDefault();
 						if (!string.IsNullOrWhiteSpace(fk)) constraints.Add(fk);
 
 						definitions.Add(new ColumnDefinition(name, cType, constraints));
@@ -222,13 +229,13 @@ namespace ShaosilBot.Core.Providers
 
 		#endregion
 
-		public T? GetDataRecord<T, TID>(TID id) where T : ITable, new() where TID : struct
+		public T? GetDataRecord<T, TID>(TID primaryKeyValue) where T : ITable, new() where TID : struct
 		{
 			// If we already have it cached, return it
 			if (_tableCache.ContainsKey(typeof(T)))
 			{
 				var typeCache = _tableCache[typeof(T)];
-				if (typeCache.ContainsKey(id)) return (T)typeCache[id];
+				if (typeCache.ContainsKey(primaryKeyValue)) return (T)typeCache[primaryKeyValue];
 			}
 			else
 			{
@@ -242,7 +249,8 @@ namespace ShaosilBot.Core.Providers
 			using (var conn = new SqliteConnection(ConnectionString))
 			{
 				var cmd = conn.CreateCommand();
-				cmd.CommandText = $"SELECT * FROM {typeof(T).Name}s WHERE {pkCol.Name} = '{id}'";
+				cmd.CommandText = $"SELECT * FROM {typeof(T).Name}s WHERE {pkCol.Name} = @pkVal";
+				cmd.Parameters.AddWithValue("@pkVal", primaryKeyValue);
 				conn.Open();
 
 				using (var reader = cmd.ExecuteReader())
@@ -275,7 +283,7 @@ namespace ShaosilBot.Core.Providers
 			if (!_tableCache.ContainsKey(typeof(T))) _tableCache[typeof(T)] = new();
 			_tableCache[typeof(T)][pkCol.GetValue(result)!] = result;
 
-			// Recursively load connected entity info via reflection if we aren't at our max depth
+			// Recursively load connected entity info via reflection. Infinite circular references should be prevented by the cache.
 			if (result != null)
 			{
 				var allProps = typeof(T).GetProperties();
@@ -309,7 +317,7 @@ namespace ShaosilBot.Core.Providers
 					var pkIDProp = listTypeProps.First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null);
 
 					// Get target PK all records where the FK property is equal to this ID
-					var stringIDs = GetSimpleData<string>($"SELECT [{pkIDProp.Name}] FROM {listType.Name}s WHERE [{fkIDProp.Name}] = '{id}'");
+					var stringIDs = GetSimpleData<string>($"SELECT [{pkIDProp.Name}] FROM {listType.Name}s WHERE [{fkIDProp.Name}] = @pkVal", new() { { "@pkVal", primaryKeyValue } });
 
 					// Recursively load for each ID of that type
 					var curMethod = genericGetRecord.MakeGenericMethod(listType, fkIDProp.PropertyType);
