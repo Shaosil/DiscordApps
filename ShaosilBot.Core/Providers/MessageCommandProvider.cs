@@ -2,15 +2,22 @@
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
+using ShaosilBot.Core.Models;
 using ShaosilBot.Core.SlashCommands;
 
 namespace ShaosilBot.Core.Providers
 {
 	public class MessageCommandProvider : IMessageCommandProvider
 	{
+		private const string ChannelVisibilitiesFile = "ChannelVisibilityMappings.json";
+
+		// Hardcoded channel visibility ID
+		private const ulong CHANNEL_VISIBILITIES_ID = 1052640054100639784;
+
 		private readonly ILogger<SlashCommandProvider> _logger;
 		private readonly RemindMeCommand _remindMeCommand;
 		private readonly PollCommand _pollCommand;
+		private readonly IFileAccessHelper _fileAccessHelper;
 
 		public class CommandNames
 		{
@@ -24,11 +31,13 @@ namespace ShaosilBot.Core.Providers
 
 		public MessageCommandProvider(ILogger<SlashCommandProvider> logger,
 			RemindMeCommand remindMeCommand,
-			PollCommand pollCommand)
+			PollCommand pollCommand,
+			IFileAccessHelper fileAccessHelper)
 		{
 			_logger = logger;
 			_remindMeCommand = remindMeCommand;
 			_pollCommand = pollCommand;
+			_fileAccessHelper = fileAccessHelper;
 		}
 
 		public string HandleMessageCommand(RestMessageCommand command)
@@ -64,6 +73,11 @@ namespace ShaosilBot.Core.Providers
 					{
 						return _pollCommand.HandleVote(messageComponent);
 					}
+					else if (customButtonId == ChannelVisibility.SelectMenuID)
+					{
+						await UpdateChannelVisibilities(messageComponent);
+						return messageComponent.Defer(true);
+					}
 					else
 					{
 						return messageComponent.Respond("Unknown select menu ID! Poke Shaosil for details.", ephemeral: true);
@@ -83,6 +97,44 @@ namespace ShaosilBot.Core.Providers
 
 				default:
 					return modal.Respond("Unknown modal type! Poke Shaosil for details.", ephemeral: true);
+			}
+		}
+
+		private async Task UpdateChannelVisibilities(RestMessageComponent messageComponent)
+		{
+			var _channelVisibilities = _fileAccessHelper.LoadFileJSON<List<ChannelVisibility>>(ChannelVisibilitiesFile);
+
+			var visibility = _channelVisibilities.FirstOrDefault(v => v.MessageID == messageComponent.Message.Id);
+			if (visibility != null)
+			{
+				// Always load user, message and specific channel mapping info
+				var guildChannel = (IGuildChannel)messageComponent.Channel;
+				var allChannels = await guildChannel.Guild.GetTextChannelsAsync();
+				var visibilityChannels = allChannels.Where(c => visibility.Mappings.Any(m => m.Channels.Contains(c.Id))).ToList();
+				var user = (IGuildUser)messageComponent.User;
+
+				// First, clear out all related roles and permissions for this user
+				await user.RemoveRoleAsync(visibility.Role);
+				visibilityChannels.ForEach(async c => await c.RemovePermissionOverwriteAsync(user));
+
+				// Then check if they provided an "ALL" value and give them the overall role
+				if (messageComponent.Data.Values.Any(v => v == "ALL"))
+				{
+					await user.AddRoleAsync(visibility.Role);
+				}
+				else
+				{
+					// Otherwise, loop through the supplied values and assign channel permissions
+					var targetChannelIDs = visibility.Mappings.Where(m => messageComponent.Data.Values.Contains(m.Value)).SelectMany(m => m.Channels).Distinct().ToList();
+					targetChannelIDs.ForEach(async c =>
+					{
+						var targetChannel = visibilityChannels.FirstOrDefault(v => v.Id == c);
+						if (targetChannel != null)
+						{
+							await targetChannel.AddPermissionOverwriteAsync(user, new OverwritePermissions(viewChannel: PermValue.Allow));
+						}
+					});
+				}
 			}
 		}
 	}
