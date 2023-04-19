@@ -33,7 +33,7 @@ namespace ShaosilBot.Tests.Endpoints
 			var logWrapper = new TestBase<InteractionsController>.LoggerWrapper<InteractionsController>();
 			SlashCommandProviderMock = new Mock<ISlashCommandProvider>();
 			MessageCommandProviderMock = new Mock<IMessageCommandProvider>();
-			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>();
+			SlashCommandWrapperMock = new Mock<SlashCommandWrapper>(new Mock<ILogger<SlashCommandWrapper>>().Object);
 			_interactionsSUT = new InteractionsController(logWrapper, Configuration, SlashCommandProviderMock.Object, MessageCommandProviderMock.Object, SlashCommandWrapperMock.Object, RestClientProviderMock.Object);
 		}
 

@@ -53,6 +53,7 @@ namespace ShaosilBot.Core.Providers
 				// Delete any commands that are no longer defined
 				foreach (var existingCommand in existingCommands.Where(c => !_commandProperties.Values.Any(b => b.Name.GetValueOrDefault() == c.Name)))
 				{
+					_logger.LogInformation($"/{existingCommand.Name} not found in project - deleting from guild.");
 					await existingCommand.DeleteAsync();
 				}
 
@@ -64,6 +65,7 @@ namespace ShaosilBot.Core.Providers
 					if (existingMatch != null && !CommandsEqual(existingMatch, newOrExistingCommand))
 					{
 						// Easier to delete and re-add instead of calling modify and manually setting properties
+						_logger.LogInformation($"Differences detected in /{existingMatch.Name} - deleting from guild.");
 						await existingMatch.DeleteAsync();
 						existingMatch = null;
 					}
@@ -71,6 +73,7 @@ namespace ShaosilBot.Core.Providers
 					if (existingMatch == null)
 					{
 						// Create
+						_logger.LogInformation($"Creating /{newOrExistingCommand.Name} in guild.");
 						await guild.CreateApplicationCommandAsync(newOrExistingCommand);
 					}
 				}

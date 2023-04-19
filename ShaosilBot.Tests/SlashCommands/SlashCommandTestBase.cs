@@ -54,7 +54,8 @@ namespace ShaosilBot.Tests.SlashCommands
 			commandMock.Setup(m => m.GuildId).Returns(0);
 			SlashCommandWrapperMock.Setup(m => m.Command).Returns(commandMock.Object);
 
-			SlashCommandWrapperMock.Setup(m => m.DeferWithCode(It.IsAny<Func<Task>>())).Returns<Func<Task>>(f => { f(); return Task.FromResult(""); }); // Don't call defer when running unit tests
+			SlashCommandWrapperMock.Setup(m => m.DeferWithCode(It.IsAny<Func<Task>>(), It.IsAny<bool>()))
+					.Returns<Func<Task>, bool>((f, b) => { f(); return Task.FromResult(""); }); // Don't call defer when running unit tests
 			SlashCommandWrapperMock.Setup(m => m.Command.FollowupAsync(It.IsAny<string>(), It.IsAny<Embed[]>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<AllowedMentions>(), It.IsAny<MessageComponent>(), It.IsAny<Embed>(), null))
 				.Callback<string, Embed[], bool, bool, AllowedMentions, MessageComponent, Embed, RequestOptions>((s, _, _, _, _, _, _, _) =>
 				{

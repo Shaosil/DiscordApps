@@ -6,6 +6,7 @@ using OpenAI.GPT3.ObjectModels.ResponseModels;
 using OpenAI.GPT3.ObjectModels.SharedModels;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
+using ShaosilBot.Core.Models.SQLite;
 using ShaosilBot.Core.Singletons;
 
 namespace ShaosilBot.Tests

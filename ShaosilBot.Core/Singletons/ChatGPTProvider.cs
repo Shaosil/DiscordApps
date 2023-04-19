@@ -6,6 +6,7 @@ using OpenAI.GPT3.Interfaces;
 using OpenAI.GPT3.ObjectModels.RequestModels;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
+using ShaosilBot.Core.Models.SQLite;
 using System.Globalization;
 
 namespace ShaosilBot.Core.Singletons

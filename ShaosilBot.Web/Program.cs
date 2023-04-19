@@ -31,6 +31,7 @@ builder.Services.AddSingleton<IGuildHelper, GuildHelper>();
 builder.Services.AddSingleton<IQuartzProvider, QuartzProvider>();
 
 // Add scoped services, including all derivitives of BaseCommand
+builder.Services.AddScoped<ISQLiteProvider, SQLiteProvider>();
 builder.Services.AddScoped<IMessageCommandProvider, MessageCommandProvider>();
 builder.Services.AddScoped<IHttpUtilities, HttpUtilities>();
 builder.Services.AddScoped<SlashCommandWrapper>();
@@ -55,7 +56,8 @@ builder.Services.AddQuartz(c =>
 	c.UsePersistentStore(s =>
 	{
 		s.UseProperties = true;
-		s.UseMicrosoftSQLite($"Data Source={Path.Combine(builder.Configuration.GetValue<string>("FilesBasePath")!, "quartz.db")}");
+		s.PerformSchemaValidation = false;
+		s.UseMicrosoftSQLite($"Data Source={Path.Combine(builder.Configuration.GetValue<string>("FilesBasePath")!, "data.db")}");
 		s.UseJsonSerializer();
 	});
 
@@ -92,10 +94,16 @@ bool isDev = app.Environment.IsDevelopment();
 if (!isDev) app.UseHsts().UseHttpsRedirection();
 app.MapControllers();
 
+// Ensure all SQLite tables are up to date
+using (var scope = app.Services.CreateScope())
+{
+	scope.ServiceProvider.GetRequiredService<ISQLiteProvider>().UpdateSchema();
+}
+
 // Init the Quartz scheduler jobs if not in development mode
 if (!isDev) app.Services.GetRequiredService<IQuartzProvider>().SetupPersistantJobs();
 
 // Init the necessary components and launch the app
-await app.Services.GetService<IDiscordRestClientProvider>()!.Init();
-await app.Services.GetService<IDiscordSocketClientProvider>()!.Init(isDev);
+await app.Services.GetRequiredService<IDiscordRestClientProvider>().Init();
+await app.Services.GetRequiredService<IDiscordSocketClientProvider>().Init(isDev);
 app.Run();

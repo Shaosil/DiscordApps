@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
+using ShaosilBot.Core.Models.SQLite;
 using ShaosilBot.Core.Providers;
 using ShaosilBot.Core.Singletons;
 using System.Text;
