@@ -6,7 +6,6 @@ using OpenAI.GPT3.ObjectModels.ResponseModels;
 using OpenAI.GPT3.ObjectModels.SharedModels;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
-using ShaosilBot.Core.Models.SQLite;
 using ShaosilBot.Core.Singletons;
 
 namespace ShaosilBot.Tests
@@ -95,7 +94,7 @@ namespace ShaosilBot.Tests
 			_sutUser.AvailableTokens = 0;
 
 			// Act - Call chat
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - Verify NO calls to openAI occurred but a message was still sent to the channel
 			_openAIChatCompletionServiceMock.VerifyNoOtherCalls();
@@ -108,7 +107,7 @@ namespace ShaosilBot.Tests
 			// Arrange - N/A
 
 			// Act - Call chat
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - Make sure our channel received a call to EnterTypingState and Dispose
 			_sutMessage.Verify(m => m.Channel.EnterTypingState(null), Times.Once);
@@ -122,7 +121,7 @@ namespace ShaosilBot.Tests
 			// Arrange - N/A
 
 			// Act - Call chat
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Arrange - Make sure we send the request with the specified content
 			_openAIChatCompletionServiceMock.VerifyAll();
@@ -137,10 +136,10 @@ namespace ShaosilBot.Tests
 			string systemMessage = "This is a test system message";
 
 			// Act - Call chat twice - one with no system message, one with
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 			var firstCapturedRequest = _capturedChatRequest;
 			Configuration["ChatGPTSystemMessage"] = systemMessage;
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 			var secondCapturedRequest = _capturedChatRequest;
 
 			// Assert - Make sure chat was called twice, and the captured requests contain a system message if specified
@@ -159,10 +158,10 @@ namespace ShaosilBot.Tests
 			int tokenLimit = 1000;
 
 			// Act - Call chat twice, one with no limit and one with
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 			var firstCapturedRequest = _capturedChatRequest;
 			Configuration["ChatGPTMessageTokenLimit"] = tokenLimit.ToString();
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 			var secondCapturedRequest = _capturedChatRequest;
 
 			// Assert - Ensure either no max was sent or the specified limit was
@@ -178,7 +177,7 @@ namespace ShaosilBot.Tests
 			_sutUser.CustomSystemPrompt = "Hello from the custom user prompt";
 
 			// Act - Call chat
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - Make sure one of our messages contains the custom prompt
 			Assert.IsTrue(_capturedChatRequest.Messages.Any(m => m.Role == StaticValues.ChatMessageRoles.User && m.Content.Contains(_sutUser.CustomSystemPrompt)));
@@ -197,7 +196,7 @@ namespace ShaosilBot.Tests
 			Configuration["ChatGPTMessagePairsToKeep"] = pairsToKeep.ToString();
 
 			// Act - Call chat
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - Ensure ONLY X most recent historical records were sent
 			var userMessages = _capturedChatRequest.Messages.Where(c => c.Role == StaticValues.ChatMessageRoles.User).ToList();
@@ -220,7 +219,7 @@ namespace ShaosilBot.Tests
 			for (int i = 0; i < 3; i++) _fakeHistoryList.Add(new ChatGPTChannelMessage { Message = $"{Guid.NewGuid()}" });
 
 			// Act - Call chat
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - No history should have been included or saved
 			var userMessages = _capturedChatRequest.Messages.Where(c => c.Role == StaticValues.ChatMessageRoles.User).ToList();
@@ -238,7 +237,7 @@ namespace ShaosilBot.Tests
 			_fakeChatResponse.Usage = new() { TotalTokens = responseTokenCost };
 
 			// Act - Call chat
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Arrange - Make sure the SUT user's tokens have been adjusted
 			Assert.AreEqual(startingTokens - responseTokenCost, _sutUser.AvailableTokens);
@@ -268,7 +267,7 @@ namespace ShaosilBot.Tests
 			_fakeChatResponse.Usage = new() { TotalTokens = responseTokenCost };
 
 			// Act - Call chat
-			await SUT.HandleChatRequest(_sutMessage.Object);
+			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - Ensure we have 0 tokens left, the active users' tokens were untouched, and the inactive users tokens were evenly borrowed
 			Assert.AreEqual(0, _sutUser.AvailableTokens);

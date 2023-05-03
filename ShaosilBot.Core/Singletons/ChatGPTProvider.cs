@@ -6,8 +6,8 @@ using OpenAI.GPT3.Interfaces;
 using OpenAI.GPT3.ObjectModels.RequestModels;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
-using ShaosilBot.Core.Models.SQLite;
 using System.Globalization;
+using static ShaosilBot.Core.Interfaces.IChatGPTProvider;
 
 namespace ShaosilBot.Core.Singletons
 {
@@ -36,10 +36,10 @@ namespace ShaosilBot.Core.Singletons
 
 			// Initialize user buckets if needed
 			var allUsers = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTUsersFile);
-			if (!allUsers.Any()) ResetAndFillAllUserBuckets();
+			if (!allUsers.Any()) ResetAndFillAllUserBuckets().GetAwaiter().GetResult();
 		}
 
-		public async Task HandleChatRequest(IMessage message)
+		public async Task HandleChatRequest(IMessage message, eMessageType messageType)
 		{
 			/*
 				Each user will have a full bucket of tokens at the start of each month. based on amount of users I currently have. If users join
@@ -71,14 +71,25 @@ namespace ShaosilBot.Core.Singletons
 					sanitizedMessage = sanitizedMessage.Replace($"<@{mention.Id}>", mention.Username);
 				}
 				sanitizedMessage = $"[{DateTime.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"))} - {message.Author.Username}]: {sanitizedMessage}";
-				string customPrompt = (allUsers[message.Author.Id].CustomSystemPrompt ?? string.Empty).Trim();
-				if (!string.IsNullOrWhiteSpace(customPrompt)) customPrompt = $"(INSTRUCTIONS): {customPrompt}"; // Format if not empty
 
-				// Load history for this channel
+				// If the message type is simple message, include custom prompt and message history (if any)
 				int maxHistoryPairs = _configuration.GetValue<int>("ChatGPTMessagePairsToKeep");
 				var allHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatLogFile);
-				if (!allHistory.ContainsKey(message.Channel.Id)) allHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
-				var channelHistory = new Queue<ChatGPTChannelMessage>(allHistory[message.Channel.Id].TakeLast(maxHistoryPairs));
+				string customPrompt = string.Empty;
+				var channelHistory = new Queue<ChatGPTChannelMessage>();
+				if (messageType == eMessageType.Message)
+				{
+					customPrompt = (allUsers[message.Author.Id].CustomSystemPrompt ?? string.Empty).Trim();
+					if (!string.IsNullOrWhiteSpace(customPrompt)) customPrompt = $"(INSTRUCTIONS): {customPrompt}"; // Format if not empty
+
+					// Load history for this channel
+					if (!allHistory.ContainsKey(message.Channel.Id)) allHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
+					channelHistory = new Queue<ChatGPTChannelMessage>(allHistory[message.Channel.Id].TakeLast(maxHistoryPairs));
+				}
+				else
+				{
+					customPrompt = "(INSTRUCTIONS): Please reply as informative and concisely as possible.";
+				}
 
 				// Build system prompt and send request
 				string systemMessage = _configuration.GetValue<string>("ChatGPTSystemMessage");
@@ -110,8 +121,8 @@ namespace ShaosilBot.Core.Singletons
 				else if (string.IsNullOrWhiteSpace(content)) await sendMsg("[Empty response message received]");
 				else
 				{
-					// Trim and add to history queue as dictated by the config limit
-					if (maxHistoryPairs > 0)
+					// If this is a simple message type, trim and add to history queue as dictated by the config limit
+					if (messageType == eMessageType.Message && maxHistoryPairs > 0)
 					{
 						while (channelHistory.Count / 2 >= maxHistoryPairs) for (int i = 0; i < 2; i++) channelHistory.Dequeue();
 						if (channelHistory.Count / 2 < maxHistoryPairs)

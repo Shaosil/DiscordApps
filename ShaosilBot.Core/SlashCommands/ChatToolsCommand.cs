@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
-using ShaosilBot.Core.Models.SQLite;
 using ShaosilBot.Core.Providers;
 using ShaosilBot.Core.Singletons;
 using System.Text;
@@ -129,10 +128,18 @@ SUBCOMMANDS:
 					}
 					else
 					{
+						// TODO: List current starting tokens per user?
+
 						for (int i = 0; i < topUsers.Count; i++)
 						{
 							statsBuilder.AppendLine($"{i + 1,2}) <@{topUsers[i].Key}>: {topUsers[i].Value.TokensUsed.Sum(t => t.Value):N0} ({topUsers[i].Value.TokensUsed.Count:N0} chats)");
 						}
+
+						// TODO: Progress bar towards max limit?
+						statsBuilder.AppendLine();
+						statsBuilder.AppendLine($"TOTAL: {topUsers.Sum(u => u.Value.TokensUsed.Sum(t => t.Value)):N0} tokens and {topUsers.Sum(u => u.Value.TokensUsed.Count):N0} chats.");
+
+
 					}
 					ephermal = false;
 				}

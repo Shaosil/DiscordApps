@@ -48,7 +48,8 @@ namespace ShaosilBot.Core.Singletons
 			// Respond to chat request
 			if (message.Author.Id != ourself)
 			{
-				if (Regex.IsMatch(message.Content.Trim(), "^[\\.!]c ", RegexOptions.IgnoreCase))
+				var match = Regex.Match(message.Content.Trim(), "^[\\.!][cq] ", RegexOptions.IgnoreCase);
+				if (match.Success)
 				{
 					// If we are not enabled, notify the channel. Else, handle request on a separate thread
 					if (!_configuration.GetValue<bool>("ChatGPTEnabled"))
@@ -57,7 +58,8 @@ namespace ShaosilBot.Core.Singletons
 					}
 					else
 					{
-						await Task.Factory.StartNew(async () => await _chatGPTProvider.HandleChatRequest(message), TaskCreationOptions.LongRunning).ConfigureAwait(false);
+						IChatGPTProvider.eMessageType msgType = match.Value.ToLower().Contains("c") ? IChatGPTProvider.eMessageType.Message : IChatGPTProvider.eMessageType.Question;
+						await Task.Factory.StartNew(async () => await _chatGPTProvider.HandleChatRequest(message, msgType), TaskCreationOptions.LongRunning).ConfigureAwait(false);
 					}
 				}
 				// If it starts with a ping that isn't a reply, remind users to use the proper prefix
