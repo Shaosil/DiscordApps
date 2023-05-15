@@ -2,8 +2,8 @@
 {
 	public class EquipmentList
 	{
-		public List<Weapon> Weapons { get; set; }
-		public List<Armor> Armors { get; set; }
+		public List<Weapon> Weapons { get; set; } = new List<Weapon>();
+		public List<Armor> Armors { get; set; } = new List<Armor>();
 
 		public class Weapon
 		{
@@ -29,9 +29,9 @@
 	public class GameInfo
 	{
 		public int Health { get; set; }
-		public List<Attack> Attacks { get; set; }
+		public List<Attack> Attacks { get; set; } = new List<Attack>();
 		public EquipmentList.Armor BotArmor { get; set; }
-		public List<PlayerWeapon> PlayerWeapons { get; set; }
+		public List<PlayerWeapon> PlayerWeapons { get; set; } = new List<PlayerWeapon>();
 		public bool GameActive { get; set; }
 
 		public class Attack

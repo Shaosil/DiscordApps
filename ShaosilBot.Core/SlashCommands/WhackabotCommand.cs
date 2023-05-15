@@ -5,7 +5,6 @@ using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models.Whackabot;
 using ShaosilBot.Core.Providers;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace ShaosilBot.Core.SlashCommands
@@ -80,8 +79,7 @@ OPTIONAL ARGS:
 
 				// One match - store it and return success
 				playerWeapon.Weapon = matchingWeapons.First();
-				string newInfo = JsonSerializer.Serialize(_gameInfo, new JsonSerializerOptions { WriteIndented = true });
-				_fileAccessHelper.SaveFileJSON(GameFilename, newInfo);
+				_fileAccessHelper.SaveFileJSON(GameFilename, _gameInfo);
 				return cmdWrapper.Respond($"{cmdWrapper.Command.User.Mention} is now wielding *<{playerWeapon.Weapon.Name}>*!");
 			}
 
@@ -89,7 +87,7 @@ OPTIONAL ARGS:
 			if (!_gameInfo.GameActive)
 			{
 				// If it has been less than 60 seconds since the death blow, prevent a new game from starting
-				if ((DateTimeOffset.Now - _gameInfo.Attacks.OrderByDescending(a => a.TimeStamp).First().TimeStamp).TotalSeconds < 60)
+				if (_gameInfo.Attacks.Any() && (DateTimeOffset.Now - _gameInfo.Attacks.OrderByDescending(a => a.TimeStamp).First().TimeStamp).TotalSeconds < 60)
 				{
 					_fileAccessHelper.ReleaseFileLease(GameFilename);
 					return cmdWrapper.Respond("*I was recently knocked out and am recovering. Please give me a minute before starting a new challenge.*", ephemeral: true);
@@ -186,8 +184,7 @@ OPTIONAL ARGS:
 			}
 
 			// Update game file
-			string serializedGameInfo = JsonSerializer.Serialize(_gameInfo, new JsonSerializerOptions { WriteIndented = true });
-			_fileAccessHelper.SaveFileJSON(GameFilename, serializedGameInfo);
+			_fileAccessHelper.SaveFileJSON(GameFilename, _gameInfo);
 
 			// Prefix with skull if ded
 			return cmdWrapper.Respond($"{(_gameInfo.Health <= 0 ? ":skull_crossbones: " : string.Empty)}{sb}");
