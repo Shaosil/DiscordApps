@@ -40,7 +40,7 @@ namespace ShaosilBot.Core.Providers
 
 			// Prep some variables
 			var discordChannel = await _restClientProvider.GetChannelAsync(786668753407705160);
-			RestUserMessage lastMessage = null;
+			RestUserMessage? lastMessage = null;
 			string twitchLink = $"https://twitch.tv/{payload.event_type.broadcaster_user_login}";
 			var embed = new EmbedBuilder
 			{
@@ -59,11 +59,11 @@ namespace ShaosilBot.Core.Providers
 				// Channel info for game name and ID
 				_logger.LogInformation("Getting channel and game information for image and description.");
 				string channelResponse = await GetHttpResponseAsync<string>($"https://api.twitch.tv/helix/channels?broadcaster_id={payload.event_type.broadcaster_user_id}");
-				var channelInfo = JsonSerializer.Deserialize<ChannelInfoRoot>(channelResponse).Channels.First();
+				var channelInfo = JsonSerializer.Deserialize<ChannelInfoRoot>(channelResponse)!.Channels.First();
 
 				// Game image URL
 				string gameResponse = await GetHttpResponseAsync<string>($"https://api.twitch.tv/helix/games?id={payload.event_type.category_id ?? channelInfo.game_id}");
-				string gameUrl = JsonDocument.Parse(gameResponse).RootElement.GetProperty("data")[0].GetProperty("box_art_url").GetString().Replace("-{width}x{height}", string.Empty);
+				string gameUrl = JsonDocument.Parse(gameResponse).RootElement.GetProperty("data")[0].GetProperty("box_art_url").GetString()!.Replace("-{width}x{height}", string.Empty);
 
 				// Always set image and description from these events
 				embed.ImageUrl = gameUrl;
@@ -113,8 +113,8 @@ namespace ShaosilBot.Core.Providers
 			var lastEmbed = lastMessage?.Embeds.First();
 			embed.Title = embed.Title ?? lastEmbed?.Title;
 			embed.Description = embed.Description ?? lastEmbed?.Description;
-			embed.ImageUrl = embed.ImageUrl ?? lastEmbed?.Image.Value.Url;
-			embed.ThumbnailUrl = embed.ThumbnailUrl ?? lastEmbed?.Thumbnail.Value.Url;
+			embed.ImageUrl = embed.ImageUrl ?? lastEmbed?.Image!.Value.Url;
+			embed.ThumbnailUrl = embed.ThumbnailUrl ?? lastEmbed?.Thumbnail!.Value.Url;
 
 			// Send new message if the last one was over an hour ago, otherwise update the existing one if found
 			if (isOnlineEvent && hoursSinceLastMessage >= 1)
@@ -124,10 +124,11 @@ namespace ShaosilBot.Core.Providers
 
 				// Send a message to the #twitch-golives channel (hardcoded but... meh)
 				_logger.LogInformation("Sending new announcement message");
-				await discordChannel.SendMessageAsync("<@&1018601398839037992>", components: component, embed: embed.Build());
+				string? shaosilLivePing = payload.event_type.broadcaster_user_login == "shaosil" ? "<@&1018601398839037992>" : null;
+				await discordChannel.SendMessageAsync(shaosilLivePing, components: component, embed: embed.Build());
 			}
 			// Update any existing one within an hour unless this is a channel update without a live channel message
-			else if (lastMessage != null && (!isChannelUpdateEvent || embed.Title.Contains("[LIVE]")))
+			else if (lastMessage != null && (!isChannelUpdateEvent || (embed.Title?.Contains("[LIVE]") ?? false)))
 			{
 				_logger.LogInformation("Sending update message");
 				await (lastMessage.ModifyAsync(p => { p.Embed = embed.Build(); }) ?? Task.CompletedTask);
