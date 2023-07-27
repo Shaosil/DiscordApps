@@ -1,9 +1,9 @@
 ﻿using Discord;
-using OpenAI.GPT3.Interfaces;
-using OpenAI.GPT3.ObjectModels;
-using OpenAI.GPT3.ObjectModels.RequestModels;
-using OpenAI.GPT3.ObjectModels.ResponseModels;
-using OpenAI.GPT3.ObjectModels.SharedModels;
+using OpenAI.Interfaces;
+using OpenAI.ObjectModels;
+using OpenAI.ObjectModels.RequestModels;
+using OpenAI.ObjectModels.ResponseModels;
+using OpenAI.ObjectModels.SharedModels;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using ShaosilBot.Core.Singletons;

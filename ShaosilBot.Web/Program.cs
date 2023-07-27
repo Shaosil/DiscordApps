@@ -1,8 +1,10 @@
 using Discord;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.HttpLogging;
-using OpenAI.GPT3.Extensions;
+using OpenAI.Extensions;
+using OpenAI.ObjectModels;
 using Quartz;
+using Quartz.AspNetCore;
 using Serilog;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
@@ -46,7 +48,7 @@ builder.Services.AddOpenAIService(a =>
 {
 	a.ApiKey = builder.Configuration.GetValue<string>("OpenAIAPIKey") ?? string.Empty;
 	a.Organization = builder.Configuration.GetValue<string>("OpenAIOrganization") ?? string.Empty;
-	a.DefaultModelId = "gpt-3.5-turbo";
+	a.DefaultModelId = Models.ChatGpt3_5Turbo;
 });
 
 builder.Services.AddQuartz(c =>

@@ -31,12 +31,14 @@ namespace ShaosilBot.Core.Singletons
 		public Task UserJoined(SocketGuildUser user)
 		{
 			// Update ChatGPT buckets
+			_logger.LogInformation($"New user joined guild: {user}");
 			return Task.FromResult(() => { if (!user.IsBot) _chatGPTProvider.UpdateAllUserBuckets(user.Id, true); });
 		}
 
 		public Task UserLeft(SocketGuild guild, SocketUser user)
 		{
 			// Update ChatGPT buckets
+			_logger.LogInformation($"User left guild: {user}");
 			return Task.FromResult(() => { if (!user.IsBot) _chatGPTProvider.UpdateAllUserBuckets(user.Id, false); });
 		}
 

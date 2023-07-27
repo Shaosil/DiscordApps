@@ -2,8 +2,8 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using OpenAI.GPT3.Interfaces;
-using OpenAI.GPT3.ObjectModels.RequestModels;
+using OpenAI.Interfaces;
+using OpenAI.ObjectModels.RequestModels;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using System.Globalization;
@@ -92,7 +92,7 @@ namespace ShaosilBot.Core.Singletons
 				}
 
 				// Build system prompt and send request
-				string systemMessage = _configuration.GetValue<string>("ChatGPTSystemMessage");
+				string systemMessage = _configuration.GetValue<string>("ChatGPTSystemMessage")!;
 				int messageTokenLimit = _configuration.GetValue<int>("ChatGPTMessageTokenLimit");
 				var response = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
 				{
