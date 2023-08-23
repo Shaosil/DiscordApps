@@ -56,7 +56,7 @@ namespace ShaosilBot.Core.Singletons
 			if (!userHasTokens)
 			{
 				// If a user has at least 100 tokens OR the total amount of unborrowed tokens > 1000
-				await message.Channel.SendMessageAsync("You have no remaining tokens for this month! Check back on the 1st of next month.");
+				await LogAndSendChannelMessage(message.Channel, "You have no remaining tokens for this month! Check back on the 1st of next month.");
 				return;
 			}
 
@@ -125,7 +125,7 @@ namespace ShaosilBot.Core.Singletons
 				if (content.Length > 1997) content = $"{content!.Substring(0, 1997)}..."; // Discord limits responses to 2000 characters.
 
 				// Handle error or empty responses and send the response, suprressing embeds
-				var sendMsg = async (string msg) => await message.Channel.SendMessageAsync(msg, messageReference: reference, flags: MessageFlags.SuppressEmbeds);
+				var sendMsg = async (string msg) => await LogAndSendChannelMessage(message.Channel, msg, reference);
 				if (!string.IsNullOrWhiteSpace(response.Error?.Message)) await sendMsg($"Error from Chat API: {response.Error.Message}. Please try again later.");
 				else if (responseMessage == null) await sendMsg("Error: No message content received from Chat API.");
 				else if (string.IsNullOrWhiteSpace(content)) await sendMsg("[Empty response message received]");
@@ -152,12 +152,12 @@ namespace ShaosilBot.Core.Singletons
 			catch (Exception ex) when (ex is TaskCanceledException && ex.InnerException is TimeoutException)
 			{
 				_logger.LogError(ex, "Timeout in HandleChatRequest");
-				await message.Channel.SendMessageAsync("*[Chat server timeout. Please try again.]*");
+				await LogAndSendChannelMessage(message.Channel, "*[Chat server timeout. Please try again.]*");
 			}
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "Error in HandleChatRequest");
-				await message.Channel.SendMessageAsync("*[Internal exception occurred. <@392127164570664962>, check the logs.]*");
+				await LogAndSendChannelMessage(message.Channel, "*[Internal exception occurred. <@392127164570664962>, check the logs.]*");
 			}
 			finally
 			{
@@ -178,9 +178,15 @@ namespace ShaosilBot.Core.Singletons
 				}
 			});
 
-			await channel.SendMessageAsync(response.Choices[0].Message.Content);
+			await LogAndSendChannelMessage(channel, response.Choices[0].Message.Content);
 
 			SetTypingLock(false, channel);
+		}
+
+		private async Task LogAndSendChannelMessage(IMessageChannel channel, string message, MessageReference? reference = null)
+		{
+			_logger.LogInformation($"Sending message: {message}");
+			await channel.SendMessageAsync(message, messageReference: reference, flags: MessageFlags.SuppressEmbeds);
 		}
 
 		private void SetTypingLock(bool typing, IMessageChannel channel)
@@ -228,7 +234,7 @@ namespace ShaosilBot.Core.Singletons
 
 			// Let everyone know it's a new month
 			var generalChannel = await guild.GetChannelAsync(_configuration.GetValue<ulong>("MainChannel")) as ITextChannel;
-			await generalChannel!.SendMessageAsync($"It's a brand new month, and as a result, my chatting usage has been reset and everyone has a fresh new bucket of {totalMonthlyTokensPerUser:N0} tokens! Happy `!c`hatting everyone. :blush:");
+			await LogAndSendChannelMessage(generalChannel!, $"It's a brand new month, and as a result, my chatting usage has been reset and everyone has a fresh new bucket of {totalMonthlyTokensPerUser:N0} tokens! Happy `!c`hatting everyone. :blush:");
 		}
 
 		public void UpdateAllUserBuckets(ulong changedUserID, bool userAdded)

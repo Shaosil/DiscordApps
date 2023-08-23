@@ -101,7 +101,7 @@ namespace ShaosilBot.Tests
 
 			// Assert - Verify NO calls to openAI occurred but a message was still sent to the channel
 			_openAIChatCompletionServiceMock.VerifyNoOtherCalls();
-			_sutMessage.Verify(m => m.Channel.SendMessageAsync(It.IsAny<string>(), false, null, null, null, null, null, null, null, MessageFlags.None), Times.Once);
+			_sutMessage.Verify(m => m.Channel.SendMessageAsync(It.IsAny<string>(), false, null, null, null, null, null, null, null, It.IsAny<MessageFlags>()), Times.Once);
 		}
 
 		[TestMethod]
