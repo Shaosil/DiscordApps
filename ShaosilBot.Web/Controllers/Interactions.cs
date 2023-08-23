@@ -66,7 +66,7 @@ namespace ShaosilBot.Web.Controllers
 						_slashCommandWrapper.SetSlashCommand(slash);
 						_logger.LogInformation("Executing slash command");
 						string slashCommandResult = await commandHandler.HandleCommand(_slashCommandWrapper);
-						_logger.LogInformation("Received slash command result - sending response");
+						_logger.LogInformation($"Received slash command result - sending response:\n\t{slashCommandResult}");
 						return Content(slashCommandResult);
 					}
 

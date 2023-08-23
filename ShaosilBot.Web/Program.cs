@@ -1,4 +1,5 @@
 using Discord;
+using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.HttpLogging;
 using OpenAI.Extensions;
@@ -23,7 +24,15 @@ builder.Services.AddHttpClient();
 // Singletons
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IFileAccessHelper, FileAccessHelper>();
-builder.Services.AddSingleton((sp) => new DiscordSocketConfig { GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessageReactions | GatewayIntents.GuildMessages | GatewayIntents.MessageContent });
+builder.Services.AddSingleton((sp) => new DiscordSocketConfig
+{
+	GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers | GatewayIntents.GuildMessageReactions | GatewayIntents.GuildMessages | GatewayIntents.MessageContent,
+	LogLevel = LogSeverity.Debug
+});
+builder.Services.AddSingleton((sp) => new DiscordRestConfig
+{
+	LogLevel = LogSeverity.Debug
+});
 builder.Services.AddSingleton<IDiscordGatewayMessageHandler, DiscordGatewayMessageHandler>();
 builder.Services.AddSingleton<IDiscordSocketClientProvider, DiscordSocketClientProvider>();
 builder.Services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvider>();
@@ -48,19 +57,17 @@ builder.Services.AddOpenAIService(a =>
 {
 	a.ApiKey = builder.Configuration.GetValue<string>("OpenAIAPIKey") ?? string.Empty;
 	a.Organization = builder.Configuration.GetValue<string>("OpenAIOrganization") ?? string.Empty;
-	a.DefaultModelId = Models.ChatGpt3_5Turbo;
+	a.DefaultModelId = Models.Gpt_3_5_Turbo;
 });
 
 builder.Services.AddQuartz(c =>
 {
-	c.UseMicrosoftDependencyInjectionJobFactory();
-
 	c.UsePersistentStore(s =>
 	{
 		s.UseProperties = true;
 		s.PerformSchemaValidation = false;
 		s.UseMicrosoftSQLite($"Data Source={Path.Combine(builder.Configuration.GetValue<string>("FilesBasePath")!, "data.db")}");
-		s.UseJsonSerializer();
+		s.UseNewtonsoftJsonSerializer();
 	});
 
 })
@@ -81,7 +88,9 @@ builder.Services.AddHttpLogging(logging =>
 
 // Logging
 Log.Logger = new LoggerConfiguration()
-	.MinimumLevel.Information()
+	.MinimumLevel.Is(Serilog.Events.LogEventLevel.Verbose)
+	.MinimumLevel.Override("Quartz", Serilog.Events.LogEventLevel.Information)
+	.MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
 	.Enrich.WithThreadId()
 	.WriteTo.Console()
 	.WriteTo.File("../Logs/Applog-.txt", outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss:fff} ({ThreadId}) [{Level:u3}] {Message:lj}{NewLine}{Exception}",

@@ -23,7 +23,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string HelpSummary => "Manage the way you chat with the bot.";
 
-		public override string HelpDetails => @$"/{CommandName} stats (self | all) | custom-prompt (show | set [string prompt]) | clear-history
+		public override string HelpDetails => @$"/{CommandName} stats (self | all) | custom-prompt (show | set [string prompt, string user-or-bot]) | clear-history
 
 SUBCOMMANDS:
 * stats
@@ -37,8 +37,8 @@ SUBCOMMANDS:
 	- show
 		Displays your custom instructions to the bot that will be included in each message
 
-	- set (prompt)
-		Sets or clears your custom instructions
+	- set (prompt, user-or-bot)
+		Sets or clears your custom prompts for yourself and the bot
 
 * clear-history (ADMIN ONLY)
 	Erases all chat history from bot's memory for current channel. Only message administrators may use this command.";
@@ -72,11 +72,23 @@ SUBCOMMANDS:
 							new SlashCommandOptionBuilder
 							{
 								Name = "set",
-								Description = "Sets (or clears) your custom prompt",
+								Description = "Sets (or clears) a custom prompt for yourself or the bot's first response.",
 								Type = ApplicationCommandOptionType.SubCommand,
 								Options = new List<SlashCommandOptionBuilder>
 								{
-									new SlashCommandOptionBuilder { Name = "prompt", Description = "The custom prompt", Type = ApplicationCommandOptionType.String, MaxLength = 100 }
+									new SlashCommandOptionBuilder { Name = "prompt", Description = "The custom prompt", Type = ApplicationCommandOptionType.String, MaxLength = 100 },
+									new SlashCommandOptionBuilder
+									{
+										Name = "user-or-bot",
+										Description = "Who the custom prompt is for",
+										Type = ApplicationCommandOptionType.String,
+										IsRequired = true,
+										Choices = new[]
+										{
+											new ApplicationCommandOptionChoiceProperties { Name = "User", Value = "User" },
+											new ApplicationCommandOptionChoiceProperties { Name = "Bot", Value = "Bot" }
+										}.ToList()
+									}
 								}
 							}
 						}
@@ -108,13 +120,14 @@ SUBCOMMANDS:
 					// Show stats
 					statsBuilder.AppendLine($"Chat usage since {DateTime.Now:M/1/yyyy}:");
 					statsBuilder.AppendLine();
-					statsBuilder.AppendLine($"```* Chats sent:       {ourInfo.TokensUsed.Count():N0}");
-					statsBuilder.AppendLine($"* Used tokens:      {ourInfo.TokensUsed.Sum(t => t.Value):N0}");
-					statsBuilder.AppendLine($"* Remaining tokens: {ourInfo.AvailableTokens:N0}");
-					statsBuilder.AppendLine($"* Borrowed tokens:  {allUsers.SelectMany(u => u.Value.LentTokens.Where(t => t.Key == cmdWrapper.Command.User.Id)).Sum(t => t.Value):N0}");
-					statsBuilder.AppendLine($"* Lent tokens:      {ourInfo.LentTokens.Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"```* Chats sent:         {ourInfo.TokensUsed.Count():N0}");
+					statsBuilder.AppendLine($"* Used tokens:        {ourInfo.TokensUsed.Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Remaining tokens:   {ourInfo.AvailableTokens:N0}");
+					statsBuilder.AppendLine($"* Borrowed tokens:    {allUsers.SelectMany(u => u.Value.LentTokens.Where(t => t.Key == cmdWrapper.Command.User.Id)).Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Lent tokens:        {ourInfo.LentTokens.Sum(t => t.Value):N0}");
 					statsBuilder.AppendLine();
-					statsBuilder.AppendLine($"* Custom prompt:    {ourInfo.CustomSystemPrompt ?? "(none)"}```");
+					statsBuilder.AppendLine($"* Custom user prompt: {ourInfo.CustomUserPrompt ?? "(none)"}```");
+					statsBuilder.AppendLine($"* Custom asst prompt: {ourInfo.CustomAssistantPrompt ?? "(none)"}```");
 				}
 				else
 				{
@@ -153,15 +166,22 @@ SUBCOMMANDS:
 
 				if (subCmd.Name == "show")
 				{
-					if (!string.IsNullOrWhiteSpace(ourInfo.CustomSystemPrompt)) returnMessage = $"Your current custom prompt is:\n\n`{ourInfo.CustomSystemPrompt}`";
-					else returnMessage = "You currently have no customized prompt.";
+					returnMessage = $"Custom user prompt: {ourInfo.CustomUserPrompt ?? "(None)"}\nCustom bot prompt: {ourInfo.CustomAssistantPrompt ?? "(None)"}";
 				}
 				else
 				{
-					var prompt = subCmd.Options.FirstOrDefault()?.Value.ToString();
-					ourInfo.CustomSystemPrompt = prompt;
+					var prompt = subCmd.Options.First(o => o.Name == "prompt").Value.ToString();
+					bool forUser = (string)subCmd.Options.First(o => o.Name == "user-or-bot").Value == "User";
+					if (forUser)
+					{
+						ourInfo.CustomUserPrompt = prompt;
+					}
+					else
+					{
+						ourInfo.CustomAssistantPrompt = prompt;
+					}
 					_fileAccessHelper.SaveFileJSON(ChatGPTProvider.ChatGPTUsersFile, allUsers, false); // Manually release below
-					returnMessage = $"Custom prompt successfully {(string.IsNullOrWhiteSpace(prompt) ? "cleared" : "updated")}.";
+					returnMessage = $"Custom prompt successfully {(string.IsNullOrWhiteSpace(prompt) ? "cleared" : "updated")} for {(forUser ? "user" : "bot")}.";
 				}
 			}
 			else

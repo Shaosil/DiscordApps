@@ -64,6 +64,33 @@ namespace ShaosilBot.Core.Singletons
 			{
 				SetTypingLock(true, message.Channel);
 
+				// If the message type is simple message, include custom prompt and message history (if any)
+				int maxHistoryPairs = _configuration.GetValue<int>("ChatGPTMessagePairsToKeep");
+				var allHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatLogFile);
+				string systemMessage = string.Empty;
+				string customUserPrompt = string.Empty;
+				string customAssistantPrompt = string.Empty;
+				var channelHistory = new Queue<ChatGPTChannelMessage>();
+				if (messageType == eMessageType.Message)
+				{
+					// Normal system prompt
+					systemMessage = _configuration.GetValue<string>("ChatGPTSystemMessage")!;
+
+					// Custom user and assistant prompts, if any
+					customUserPrompt = (allUsers[message.Author.Id].CustomUserPrompt ?? string.Empty).Trim();
+					if (!string.IsNullOrWhiteSpace(customUserPrompt)) customUserPrompt = $"(INSTRUCTIONS): {customUserPrompt}"; // Format if not empty
+					customAssistantPrompt = (allUsers[message.Author.Id].CustomAssistantPrompt ?? string.Empty).Trim();
+
+					// Load history for this channel
+					if (!allHistory.ContainsKey(message.Channel.Id)) allHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
+					channelHistory = new Queue<ChatGPTChannelMessage>(allHistory[message.Channel.Id].TakeLast(maxHistoryPairs));
+				}
+				else
+				{
+					// Custom system prompt
+					systemMessage = "You are a helpful Discord bot. Reply informatively but as concisely as possible.";
+				}
+
 				// Replace any mentions with the root usernames, and use a custom prompt if one exists
 				string sanitizedMessage = message.Content.Trim().Substring(3);
 				foreach (var mention in (message as SocketMessage)?.MentionedUsers ?? new List<SocketUser>())
@@ -72,34 +99,17 @@ namespace ShaosilBot.Core.Singletons
 				}
 				sanitizedMessage = $"[{DateTime.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"))} - {message.Author.Username}]: {sanitizedMessage}";
 
-				// If the message type is simple message, include custom prompt and message history (if any)
-				int maxHistoryPairs = _configuration.GetValue<int>("ChatGPTMessagePairsToKeep");
-				var allHistory = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatLogFile);
-				string customPrompt = string.Empty;
-				var channelHistory = new Queue<ChatGPTChannelMessage>();
-				if (messageType == eMessageType.Message)
-				{
-					customPrompt = (allUsers[message.Author.Id].CustomSystemPrompt ?? string.Empty).Trim();
-					if (!string.IsNullOrWhiteSpace(customPrompt)) customPrompt = $"(INSTRUCTIONS): {customPrompt}"; // Format if not empty
-
-					// Load history for this channel
-					if (!allHistory.ContainsKey(message.Channel.Id)) allHistory[message.Channel.Id] = new Queue<ChatGPTChannelMessage>();
-					channelHistory = new Queue<ChatGPTChannelMessage>(allHistory[message.Channel.Id].TakeLast(maxHistoryPairs));
-				}
-				else
-				{
-					customPrompt = "(INSTRUCTIONS): Please reply as informative and concisely as possible.";
-				}
-
-				// Build system prompt and send request
-				string systemMessage = _configuration.GetValue<string>("ChatGPTSystemMessage")!;
+				// Send request
 				int messageTokenLimit = _configuration.GetValue<int>("ChatGPTMessageTokenLimit");
+				var messages = new List<ChatMessage>
+					((string.IsNullOrWhiteSpace(systemMessage) ? new ChatMessage[0] : new[] { ChatMessage.FromSystem($"{systemMessage} Current Channel: #{message.Channel.Name}") }) // System message
+					.Concat(channelHistory.Select(h => h.UserID != _restClientProvider.BotUser.Id ? ChatMessage.FromUser(h.Message) : ChatMessage.FromAssistant(h.Message)))            // Historical messages
+					.Concat(new[] { ChatMessage.FromUser(customUserPrompt), ChatMessage.FromAssistant(customAssistantPrompt), ChatMessage.FromUser(sanitizedMessage) })                 // Customized prompts
+					.Where(m => !string.IsNullOrWhiteSpace(m.Content)));
+				_logger.LogInformation($"Preparing to send messages:\n\t{string.Join("\n\t", messages.Select(m => $"{m.Role}: {m.Content}"))}");
 				var response = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
 				{
-					Messages = new List<ChatMessage>
-						(string.IsNullOrWhiteSpace(systemMessage) ? new ChatMessage[0] : new[] { ChatMessage.FromSystem($"{systemMessage}\n\nCurrent Channel: #{message.Channel.Name}") })  // System message
-						.Concat(channelHistory.Select(h => h.UserID != _restClientProvider.BotUser.Id ? ChatMessage.FromUser(h.Message) : ChatMessage.FromAssistant(h.Message)))            // Historical messages
-						.Concat(new[] { ChatMessage.FromUser(customPrompt), ChatMessage.FromUser(sanitizedMessage) }.Where(m => !string.IsNullOrWhiteSpace(m.Content))).ToList(),           // Current customized message
+					Messages = messages,
 					MaxTokens = messageTokenLimit > 0 ? messageTokenLimit : null
 				});
 
@@ -212,7 +222,7 @@ namespace ShaosilBot.Core.Singletons
 			var serialized = guildUsers.ToDictionary(u => u.Id, u => new ChatGPTUser
 			{
 				AvailableTokens = totalMonthlyTokensPerUser,
-				CustomSystemPrompt = existingUsers.FirstOrDefault(e => e.Key == u.Id).Value?.CustomSystemPrompt // Preserve system prompts
+				CustomUserPrompt = existingUsers.FirstOrDefault(e => e.Key == u.Id).Value?.CustomUserPrompt // Preserve system prompts
 			});
 			_fileAccessHelper.SaveFileJSON(ChatGPTUsersFile, serialized, false);
 

@@ -41,8 +41,11 @@ namespace ShaosilBot.Tests
 			openAIServiceMock.SetupGet(m => m.ChatCompletion).Returns(_openAIChatCompletionServiceMock.Object);
 
 			// Always start with our test user in the fake user list, and populate important properties of the message object
+			var _fakeMessageAuthor = new Mock<IUser>();
+			_fakeMessageAuthor.SetupGet(m => m.Username).Returns("Shaosil");
 			_sutMessage = new Mock<IMessage> { DefaultValue = DefaultValue.Mock };
 			_sutMessage.SetupGet(m => m.Content).Returns("!c Test message content");
+			_sutMessage.SetupGet(m => m.Author).Returns(_fakeMessageAuthor.Object);
 			_sutUser = new ChatGPTUser { AvailableTokens = 1000 };
 			_fakeUsers = new() { { 0, _sutUser } };
 			_fakeHistoryList = new();
@@ -174,13 +177,15 @@ namespace ShaosilBot.Tests
 		public async Task ChatRequest_SendsCustomPromptIfExists()
 		{
 			// Arrange - Provide a custom prompt
-			_sutUser.CustomSystemPrompt = "Hello from the custom user prompt";
+			_sutUser.CustomUserPrompt = "Hello from the custom user prompt";
+			_sutUser.CustomAssistantPrompt = "Hello from the custom assistant prompt";
 
 			// Act - Call chat
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
-			// Assert - Make sure one of our messages contains the custom prompt
-			Assert.IsTrue(_capturedChatRequest.Messages.Any(m => m.Role == StaticValues.ChatMessageRoles.User && m.Content.Contains(_sutUser.CustomSystemPrompt)));
+			// Assert - Make sure our messages contain the custom prompts
+			Assert.IsTrue(_capturedChatRequest.Messages.Any(m => m.Role == StaticValues.ChatMessageRoles.User && m.Content.Contains(_sutUser.CustomUserPrompt)));
+			Assert.IsTrue(_capturedChatRequest.Messages.Any(m => m.Role == StaticValues.ChatMessageRoles.Assistant && m.Content.Contains(_sutUser.CustomAssistantPrompt)));
 		}
 
 		[TestMethod]

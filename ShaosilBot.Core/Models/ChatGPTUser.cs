@@ -11,7 +11,9 @@ namespace ShaosilBot.Core.Models
 		[JsonIgnore]
 		public int BorrowableTokens => AvailableTokens - LentTokens.Sum(t => t.Value); // Helper calculation - The amount of tokens that may still yet be borrowed by others
 
-		public string? CustomSystemPrompt { get; set; }
+		public string? CustomUserPrompt { get; set; }
+
+		public string? CustomAssistantPrompt { get; set; }
 
 		public Dictionary<DateTime, int> TokensUsed { get; set; } = new Dictionary<DateTime, int>();
 	}

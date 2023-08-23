@@ -17,11 +17,11 @@ namespace ShaosilBot.Core.Singletons
 		public IReadOnlyCollection<IGuild> Guilds { get; private set; }
 		public IUser BotUser => _client.CurrentUser;
 
-		public DiscordRestClientProvider(ILogger<DiscordRestClientProvider> logger, IConfiguration configuration)
+		public DiscordRestClientProvider(ILogger<DiscordRestClientProvider> logger, DiscordRestConfig restConfig, IConfiguration configuration)
 		{
 			_logger = logger;
 			_configuration = configuration;
-			_client = new DiscordRestClient();
+			_client = new DiscordRestClient(restConfig);
 		}
 
 		public async Task Init()
