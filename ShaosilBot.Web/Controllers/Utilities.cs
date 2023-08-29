@@ -48,7 +48,7 @@ namespace ShaosilBot.Web
 				return NoContent();
 
 			// Send prompt
-			var channel = _restClientProvider.GetChannelAsync(channelId) as ITextChannel;
+			var channel = await _restClientProvider.GetChannelAsync(channelId) as ITextChannel;
 			await _chatGPTProvider.SendChatMessage(channel!, model.prompt);
 			return Ok();
 		}

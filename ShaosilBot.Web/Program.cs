@@ -88,7 +88,7 @@ builder.Services.AddHttpLogging(logging =>
 
 // Logging
 Log.Logger = new LoggerConfiguration()
-	.MinimumLevel.Is(Serilog.Events.LogEventLevel.Verbose)
+	.MinimumLevel.Is(Serilog.Events.LogEventLevel.Debug)
 	.MinimumLevel.Override("Quartz", Serilog.Events.LogEventLevel.Information)
 	.MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
 	.Enrich.WithThreadId()
@@ -100,7 +100,7 @@ builder.Host.UseSerilog();
 
 // Build and configure
 var app = builder.Build();
-app.UseHttpLogging(); // Enable for detailed HTTP logging at a slight performance cost
+//app.UseHttpLogging(); // Enable for detailed HTTP logging at a slight performance cost
 bool isDev = app.Environment.IsDevelopment();
 if (!isDev) app.UseHsts().UseHttpsRedirection();
 app.MapControllers();

@@ -25,14 +25,17 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string HelpSummary => "Schedules a public or private reminder that will trigger at the specified time.";
 
-		public override string HelpDetails => @$"/{CommandName} (in (string time-unit, int amount, bool private, string message) | (list | delete (last | id (string id))))
+		public override string HelpDetails => @$"/{CommandName} (in (string time-unit, int amount, bool private, string message) | (on (int day, string month, int year, string time, string timezone, bool private, string message)) | (list | delete (last | id (string id))))
 
 SUBCOMMANDS:
 * in (time-unit, amount, private, message)
     Schedules a reminder for [amount] [time-unit]s away. Can be private (DM) or public (channel).
 
+* on (day, month, year, time, timezone, private, message)
+	Schedules a reminder for the date/time specified. Month, year, and time default to current at midnight. Timezone defaults to EST.
+
 * list
-    Lists all of your own upcoming reminders
+    Lists all of your own upcoming reminders.
 
 * delete...
 	- last
@@ -42,6 +45,9 @@ SUBCOMMANDS:
 
 		public override SlashCommandProperties BuildCommand()
 		{
+			var months = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+			var timezones = new List<string> { "Eastern", "Central", "Mountain", "Pacific" };
+
 			return new SlashCommandBuilder
 			{
 				Description = HelpSummary,
@@ -63,6 +69,34 @@ SUBCOMMANDS:
 								Type = ApplicationCommandOptionType.Integer
 							},
 							new SlashCommandOptionBuilder { Name = "amount", Description = "How many of 'time-unit' to use", IsRequired = true, Type = ApplicationCommandOptionType.Integer, MinValue = 1 },
+							new SlashCommandOptionBuilder { Name = "private", Description = "Whether to DM you or this channel", IsRequired = true, Type = ApplicationCommandOptionType.Boolean },
+							new SlashCommandOptionBuilder { Name = "message", Description = "The reminder message", IsRequired = true, Type = ApplicationCommandOptionType.String }
+						}
+					},
+					new SlashCommandOptionBuilder
+					{
+						Type = ApplicationCommandOptionType.SubCommand,
+						Name = "on",
+						Description = "Set a reminder for an exact date and time",
+						Options = new List<SlashCommandOptionBuilder>
+						{
+							new SlashCommandOptionBuilder { Name = "day", Description = "What day of the month. Defaults to current.", Type = ApplicationCommandOptionType.Integer, MinValue = 1, MaxValue = 31 },
+							new SlashCommandOptionBuilder
+							{
+								Name = "month",
+								Description = "What month of the year. Defaults to current",
+								Type = ApplicationCommandOptionType.Integer,
+								Choices = months.Select((m, i) => new ApplicationCommandOptionChoiceProperties { Name = m, Value = i + 1 }).ToList()
+							},
+							new SlashCommandOptionBuilder { Name = "year", Description = "What year. Defaults to current", Type = ApplicationCommandOptionType.Integer, MinLength = 4, MaxLength = 4 },
+							new SlashCommandOptionBuilder { Name = "time", Description = "HH[:mm] [AM/PM] formatted string. Supports 12 or 24 hour. Defaults to 12:00 AM", Type = ApplicationCommandOptionType.String, MaxLength = 8 },
+							new SlashCommandOptionBuilder
+							{
+								Name = "timezone",
+								Description = "Which time zone. Defaults to Eastern.",
+								Type = ApplicationCommandOptionType.Integer,
+								Choices = timezones.Select((t, i) => new ApplicationCommandOptionChoiceProperties { Name = t, Value = i }).ToList()
+							},
 							new SlashCommandOptionBuilder { Name = "private", Description = "Whether to DM you or this channel", IsRequired = true, Type = ApplicationCommandOptionType.Boolean },
 							new SlashCommandOptionBuilder { Name = "message", Description = "The reminder message", IsRequired = true, Type = ApplicationCommandOptionType.String }
 						}
@@ -103,24 +137,58 @@ SUBCOMMANDS:
 			var subCmd = cmdWrapper.Command.Data.Options.First();
 			if (subCmd.Name == "list" || subCmd.Name == "delete") return Task.FromResult(cmdWrapper.Respond(ListOrDelete(cmdWrapper.Command.User.Id, subCmd), ephemeral: true));
 
-			// In X time-units
+			DateTimeOffset targetDateTime;
 			bool isPrivate = (bool)(subCmd.Options.FirstOrDefault(o => o.Name == "private")?.Value ?? true);
 			string msg = subCmd.Options.FirstOrDefault(o => o.Name == "message")?.Value?.ToString() ?? "ERROR: No Message";
-			var timeUnit = Enum.Parse<eTimeUnits>($"{subCmd.Options.FirstOrDefault(o => o.Name == "time-unit")?.Value ?? ((int)eTimeUnits.Minutes)}");
-			int amount = int.Parse($"{subCmd.Options.FirstOrDefault(o => o.Name == "amount")?.Value ?? 1}");
 
-			// Validate we are not too far out (a year and a day max)
-			var targetDate = timeUnit == eTimeUnits.Seconds ? DateTimeOffset.Now.AddSeconds(amount)
-				: timeUnit == eTimeUnits.Minutes ? DateTimeOffset.Now.AddMinutes(amount)
-				: timeUnit == eTimeUnits.Hours ? DateTimeOffset.Now.AddHours(amount)
-				: timeUnit == eTimeUnits.Days ? DateTimeOffset.Now.AddDays(amount)
-				: timeUnit == eTimeUnits.Weeks ? DateTimeOffset.Now.AddDays(amount * 7)
-				: DateTimeOffset.Now.AddMonths(amount);
+			// In X time-units
+			if (subCmd.Name == "in")
+			{
+				var timeUnit = Enum.Parse<eTimeUnits>($"{subCmd.Options.FirstOrDefault(o => o.Name == "time-unit")?.Value ?? ((int)eTimeUnits.Minutes)}");
+				int amount = int.Parse($"{subCmd.Options.FirstOrDefault(o => o.Name == "amount")?.Value ?? 1}");
 
-			if ((targetDate - DateTimeOffset.Now).Days > 366) return Task.FromResult(cmdWrapper.Respond("Target date is too far in the future! Please keep it within a year.", ephemeral: true));
+				targetDateTime = timeUnit == eTimeUnits.Seconds ? DateTimeOffset.Now.AddSeconds(amount)
+					: timeUnit == eTimeUnits.Minutes ? DateTimeOffset.Now.AddMinutes(amount)
+					: timeUnit == eTimeUnits.Hours ? DateTimeOffset.Now.AddHours(amount)
+					: timeUnit == eTimeUnits.Days ? DateTimeOffset.Now.AddDays(amount)
+					: timeUnit == eTimeUnits.Weeks ? DateTimeOffset.Now.AddDays(amount * 7)
+					: DateTimeOffset.Now.AddMonths(amount);
+			}
+			// On exact date
+			else
+			{
+				// Store options, or lack thereof and their defaults
+				int day = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "day")?.Value.ToString() ?? DateTime.Today.Day.ToString());
+				int month = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "month")?.Value.ToString() ?? DateTime.Today.ToString("MM"));
+				int year = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "year")?.Value.ToString() ?? DateTime.Today.Year.ToString());
+				string time = (subCmd.Options.FirstOrDefault(o => o.Name == "time")?.Value.ToString() ?? "00:00").Replace(" ", "").ToUpper();
+				int timezoneOffset = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "timezone")?.Value.ToString() ?? "0");
 
-			_quartzProvider.ScheduleUserReminder(cmdWrapper.Command.User.Id, cmdWrapper.Command.Data.Id, cmdWrapper.Command.ChannelId!.Value, targetDate, isPrivate, msg);
-			return Task.FromResult(cmdWrapper.Respond($"Successfully scheduled {(isPrivate ? "DM" : "public")} reminder for <t:{targetDate.ToUnixTimeSeconds()}>. See you then!", ephemeral: isPrivate));
+				// Parse the time first and display an error if unable to parse
+				var timeRegex = new Regex(@"(\d{1,2}):?(\d\d)?([AP]M)?").Match(time);
+				int.TryParse(timeRegex.Groups.Count > 1 ? timeRegex.Groups[1].Value : "0", out var hour);
+				int.TryParse(timeRegex.Groups.Count > 2 ? timeRegex.Groups[2].Value : "0", out var minute);
+				if (timeRegex.Groups.Count > 3 && timeRegex.Groups[3].Value == "PM") hour += 12; // Always ensure 24 hour format
+				if (hour > 23 || minute > 59)
+				{
+					return Task.FromResult(cmdWrapper.Respond($"The time you provided parsed to '{hour}:{minute}' (24 hour), which is invalid.", ephemeral: true));
+				}
+
+				// Convert all values to DateTimeOffset
+				int estOffset = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time").GetUtcOffset(DateTime.UtcNow).Hours;
+				string toParse = $"{month:00}/{day:00}/{year} {hour}:{minute} {estOffset - timezoneOffset}";
+				if (!DateTimeOffset.TryParse(toParse, out targetDateTime))
+				{
+					return Task.FromResult(cmdWrapper.Respond($"The date and time you provided could not be parsed ({toParse}). Please input a valid time.", ephemeral: true));
+				}
+			}
+
+			// Validate we are not in the past or too far out (a year and a day max)
+			if (targetDateTime < DateTimeOffset.Now.AddSeconds(10)) return Task.FromResult(cmdWrapper.Respond("Target date is in the past. Please provide a future date.", ephemeral: true));
+			else if ((targetDateTime - DateTimeOffset.Now).Days > 366) return Task.FromResult(cmdWrapper.Respond("Target date is too far in the future! Please keep it within a year.", ephemeral: true));
+
+			_quartzProvider.ScheduleUserReminder(cmdWrapper.Command.User.Id, cmdWrapper.Command.Data.Id, cmdWrapper.Command.ChannelId!.Value, targetDateTime, isPrivate, msg);
+			return Task.FromResult(cmdWrapper.Respond($"Successfully scheduled {(isPrivate ? "DM" : "public")} reminder for <t:{targetDateTime.ToUnixTimeSeconds()}>. See you then!", ephemeral: isPrivate));
 		}
 
 		private string ListOrDelete(ulong userID, IApplicationCommandInteractionDataOption cmd)
