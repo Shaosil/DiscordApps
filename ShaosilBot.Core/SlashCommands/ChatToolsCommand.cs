@@ -170,7 +170,7 @@ SUBCOMMANDS:
 				}
 				else
 				{
-					var prompt = subCmd.Options.First(o => o.Name == "prompt").Value.ToString();
+					string? prompt = subCmd.Options.FirstOrDefault(o => o.Name == "prompt")?.Value.ToString();
 					bool forUser = (string)subCmd.Options.First(o => o.Name == "user-or-bot").Value == "User";
 					if (forUser)
 					{
