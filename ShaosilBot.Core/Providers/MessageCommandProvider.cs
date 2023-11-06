@@ -4,6 +4,9 @@ using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using ShaosilBot.Core.SlashCommands;
+using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ShaosilBot.Core.Providers
 {
@@ -18,10 +21,12 @@ namespace ShaosilBot.Core.Providers
 		private readonly RemindMeCommand _remindMeCommand;
 		private readonly PollCommand _pollCommand;
 		private readonly IFileAccessHelper _fileAccessHelper;
+		private readonly IDiscordRestClientProvider _restClientProvider;
 
 		public class CommandNames
 		{
 			public const string RemindMe = "Remind Me!";
+			public const string MockThis = "mOcK tHiS";
 
 			public class Modals
 			{
@@ -32,12 +37,39 @@ namespace ShaosilBot.Core.Providers
 		public MessageCommandProvider(ILogger<SlashCommandProvider> logger,
 			RemindMeCommand remindMeCommand,
 			PollCommand pollCommand,
-			IFileAccessHelper fileAccessHelper)
+			IFileAccessHelper fileAccessHelper,
+			IDiscordRestClientProvider restClientProvider)
 		{
 			_logger = logger;
 			_remindMeCommand = remindMeCommand;
 			_pollCommand = pollCommand;
 			_fileAccessHelper = fileAccessHelper;
+			_restClientProvider = restClientProvider;
+		}
+
+		public async Task BuildMessageCommands()
+		{
+			var allMessageNames = typeof(CommandNames).GetFields(BindingFlags.Static | BindingFlags.Public).Select(f => f.GetValue(null)!.ToString()!).ToList();
+
+			var guilds = _restClientProvider.Guilds;
+
+			foreach (var guild in guilds)
+			{
+				// Create message commands
+				var messageCommands = (await guild.GetApplicationCommandsAsync()).Where(c => c.Type == ApplicationCommandType.Message).ToList();
+
+				// Remove ones that no longer exist
+				foreach (var msgCommand in messageCommands.Where(c => !allMessageNames.Contains(c.Name)))
+				{
+					await msgCommand.DeleteAsync();
+				}
+
+				// Create ones that are new
+				foreach (string newMsgCommandName in allMessageNames.Where(n => !messageCommands.Any(c => c.Name == n)))
+				{
+					await guild.CreateApplicationCommandAsync(new MessageCommandBuilder { Name = newMsgCommandName }.Build());
+				}
+			}
 		}
 
 		public string HandleMessageCommand(RestMessageCommand command)
@@ -46,6 +78,9 @@ namespace ShaosilBot.Core.Providers
 			{
 				case CommandNames.RemindMe:
 					return _remindMeCommand.HandleRemindMeMessageCommand(command);
+
+				case CommandNames.MockThis:
+					return ExecuteMockReply(command);
 
 				default:
 					return command.Respond("Unsupported command! Poke Shaosil for details.");
@@ -136,6 +171,44 @@ namespace ShaosilBot.Core.Providers
 					});
 				}
 			}
+		}
+
+		private string ExecuteMockReply(RestMessageCommand command)
+		{
+			// Read the content of the message, if any
+			var regex = new Regex("[a-zA-Z]");
+			string? originalText = command.Data.Message.Content?.Trim();
+			if (string.IsNullOrWhiteSpace(originalText))
+			{
+				return command.Respond("The target message has no text, nothing to mock.", ephemeral: true);
+			}
+			// Don't mock < 4 characters
+			else if (regex.Matches(originalText).Count < 4)
+			{
+				return command.Respond("Sorry, this message doesn't have enough letters to effectively mock.", ephemeral: true);
+			}
+			// Don't mock messages from ourself
+			else if (command.Data.Message.Author.Id == _restClientProvider.BotUser.Id)
+			{
+				return command.Respond("Nice try, but I refuse to mock my own words. :slight_smile:", ephemeral: true);
+			}
+
+			// For each alpha character, flip back and forth from lowers to uppers
+			var sb = new StringBuilder();
+			int alphaInc = 0;
+			foreach (char c in originalText)
+			{
+				if (regex.IsMatch($"{c}"))
+				{
+					sb.Append(alphaInc++ % 2 == 0 ? $"{c}".ToLower() : $"{c}".ToUpper());
+				}
+				else
+				{
+					sb.Append(c);
+				}
+			}
+
+			return command.Respond(sb.ToString());
 		}
 	}
 }
