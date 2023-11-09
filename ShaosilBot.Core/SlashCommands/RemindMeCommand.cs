@@ -88,7 +88,7 @@ SUBCOMMANDS:
 								Type = ApplicationCommandOptionType.Integer,
 								Choices = months.Select((m, i) => new ApplicationCommandOptionChoiceProperties { Name = m, Value = i + 1 }).ToList()
 							},
-							new SlashCommandOptionBuilder { Name = "year", Description = "What year. Defaults to current", Type = ApplicationCommandOptionType.Integer, MinLength = 4, MaxLength = 4 },
+							new SlashCommandOptionBuilder { Name = "year", Description = "What year. Defaults to current", Type = ApplicationCommandOptionType.Integer },
 							new SlashCommandOptionBuilder { Name = "time", Description = "HH[:mm] [AM/PM] formatted string. Supports 12 or 24 hour. Defaults to 12:00 AM", Type = ApplicationCommandOptionType.String, MaxLength = 8 },
 							new SlashCommandOptionBuilder
 							{

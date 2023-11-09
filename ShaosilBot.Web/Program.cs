@@ -36,6 +36,7 @@ builder.Services.AddSingleton((sp) => new DiscordRestConfig
 builder.Services.AddSingleton<IDiscordGatewayMessageHandler, DiscordGatewayMessageHandler>();
 builder.Services.AddSingleton<IDiscordSocketClientProvider, DiscordSocketClientProvider>();
 builder.Services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvider>();
+builder.Services.AddSingleton<IRabbitMQProvider, RabbitMQProvider>();
 builder.Services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
 builder.Services.AddSingleton<IChatGPTProvider, ChatGPTProvider>();
 builder.Services.AddSingleton<IGuildHelper, GuildHelper>();

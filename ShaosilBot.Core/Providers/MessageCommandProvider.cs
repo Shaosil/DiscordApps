@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using ShaosilBot.Core.SlashCommands;
-using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -45,31 +44,6 @@ namespace ShaosilBot.Core.Providers
 			_pollCommand = pollCommand;
 			_fileAccessHelper = fileAccessHelper;
 			_restClientProvider = restClientProvider;
-		}
-
-		public async Task BuildMessageCommands()
-		{
-			var allMessageNames = typeof(CommandNames).GetFields(BindingFlags.Static | BindingFlags.Public).Select(f => f.GetValue(null)!.ToString()!).ToList();
-
-			var guilds = _restClientProvider.Guilds;
-
-			foreach (var guild in guilds)
-			{
-				// Create message commands
-				var messageCommands = (await guild.GetApplicationCommandsAsync()).Where(c => c.Type == ApplicationCommandType.Message).ToList();
-
-				// Remove ones that no longer exist
-				foreach (var msgCommand in messageCommands.Where(c => !allMessageNames.Contains(c.Name)))
-				{
-					await msgCommand.DeleteAsync();
-				}
-
-				// Create ones that are new
-				foreach (string newMsgCommandName in allMessageNames.Where(n => !messageCommands.Any(c => c.Name == n)))
-				{
-					await guild.CreateApplicationCommandAsync(new MessageCommandBuilder { Name = newMsgCommandName }.Build());
-				}
-			}
 		}
 
 		public string HandleMessageCommand(RestMessageCommand command)

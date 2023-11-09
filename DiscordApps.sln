@@ -14,6 +14,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ShaosilBot.Web", "ShaosilBo
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ShaosilBot.Core", "ShaosilBot.Core\ShaosilBot.Core.csproj", "{1A20E32A-511B-4671-9E60-5901E4FBD576}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ServerManager", "ServerManager\ServerManager.csproj", "{A93ACFBE-DCFB-40B8-8C32-737E7033BA60}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerManager.Core", "ServerManager.Core\ServerManager.Core.csproj", "{BB21D8AB-76C4-4946-B8D3-70EFB0FF2C92}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +36,14 @@ Global
 		{1A20E32A-511B-4671-9E60-5901E4FBD576}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1A20E32A-511B-4671-9E60-5901E4FBD576}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1A20E32A-511B-4671-9E60-5901E4FBD576}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A93ACFBE-DCFB-40B8-8C32-737E7033BA60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A93ACFBE-DCFB-40B8-8C32-737E7033BA60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A93ACFBE-DCFB-40B8-8C32-737E7033BA60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A93ACFBE-DCFB-40B8-8C32-737E7033BA60}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB21D8AB-76C4-4946-B8D3-70EFB0FF2C92}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB21D8AB-76C4-4946-B8D3-70EFB0FF2C92}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB21D8AB-76C4-4946-B8D3-70EFB0FF2C92}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB21D8AB-76C4-4946-B8D3-70EFB0FF2C92}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

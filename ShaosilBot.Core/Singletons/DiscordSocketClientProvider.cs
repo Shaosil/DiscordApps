@@ -13,21 +13,18 @@ namespace ShaosilBot.Core.Singletons
 		private readonly IConfiguration _configuration;
 		private readonly IDiscordGatewayMessageHandler _messageHandler;
 		private readonly ISlashCommandProvider _slashCommandProvider;
-		private readonly IMessageCommandProvider _messageCommandProvider;
 		private readonly DiscordSocketClient _client;
 
 		public DiscordSocketClientProvider(ILogger<DiscordSocketClientProvider> logger,
 			IConfiguration configuration,
 			DiscordSocketConfig config,
 			IDiscordGatewayMessageHandler messageHandler,
-			ISlashCommandProvider slashCommandProvider,
-			IMessageCommandProvider messageCommandProvider)
+			ISlashCommandProvider slashCommandProvider)
 		{
 			_logger = logger;
 			_configuration = configuration;
 			_messageHandler = messageHandler;
 			_slashCommandProvider = slashCommandProvider;
-			_messageCommandProvider = messageCommandProvider;
 			_client = new DiscordSocketClient(config);
 		}
 
@@ -37,10 +34,17 @@ namespace ShaosilBot.Core.Singletons
 			_client.Log += async (msg) => await Task.Run(() => LogSocketMessage(msg));
 			_client.Ready += () => Task.Factory.StartNew(async () =>
 			{
-				// Start long running commands on a new thread
-				await _client.SetGameAsync("/help for info, !c to chat");
-				await _slashCommandProvider.BuildGuildCommands();
-				await _messageCommandProvider.BuildMessageCommands();
+				try
+				{
+					// Start long running commands on a new thread
+					await _client.SetGameAsync("/help for info, !c to chat");
+					await _slashCommandProvider.BuildGuildCommands();
+					await _slashCommandProvider.BuildMessageCommands();
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "Error during command building.");
+				}
 			}, TaskCreationOptions.LongRunning);
 
 			// Only handle guild events in production
