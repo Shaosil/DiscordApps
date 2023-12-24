@@ -98,7 +98,8 @@ namespace ServerManager.Processors
 						else
 						{
 							string num = message.Arguments.First().ToString()!;
-							response = new QueueMessageResponse(string.Join('\n', _serverLogs.TakeLast(int.Parse(num))));
+							string allLogs = string.Join('\n', _serverLogs.TakeLast(int.Parse(num)));
+							response = new QueueMessageResponse($"```{allLogs}```");
 						}
 						break;
 
