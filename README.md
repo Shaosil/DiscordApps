@@ -42,6 +42,9 @@ First of all, I assume you plan on using this code for your own bot, because run
     "ImgurClientID": "<Only needed if using the /git-blame command>",
     "ImgurGitBlameAlbum": "<The Imgur API album URL to pull blame images from. Only needed if using the /git-blame command. My current images are at https://imgur.com/a/1IzijHj>",
 
+    "IsThereAnyDealCheckHours": "<How many hours to check for new deals. Omit or <= 0 to disable>",
+    "IsThereAnyDealChannel": "<The channel in which to announce game deals>",
+
     "OpenAIAPIKey": "<Only needed if integrating with ChatGPT>",
     "OpenAIOrganization": "<Only needed if integrating with ChatGPT>",
     "ChatGPTEnabled": "false (Unless you are integrating with ChatGPT)",

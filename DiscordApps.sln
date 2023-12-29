@@ -16,7 +16,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ShaosilBot.Core", "ShaosilB
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ServerManager", "ServerManager\ServerManager.csproj", "{A93ACFBE-DCFB-40B8-8C32-737E7033BA60}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerManager.Core", "ServerManager.Core\ServerManager.Core.csproj", "{BB21D8AB-76C4-4946-B8D3-70EFB0FF2C92}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ServerManager.Core", "ServerManager.Core\ServerManager.Core.csproj", "{BB21D8AB-76C4-4946-B8D3-70EFB0FF2C92}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

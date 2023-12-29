@@ -229,6 +229,37 @@ namespace ShaosilBot.Core.Providers
 
 		#endregion
 
+		public List<T> GetAllDataRecords<T>() where T : ITable, new()
+		{
+			// If the table type is not yet cached, get all records
+			if (!_tableCache.ContainsKey(typeof(T)))
+			{
+				_tableCache[typeof(T)] = new();
+
+				var propColumns = GetColumnProperties(typeof(T));
+				var pkCol = propColumns.First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null);
+
+				using (var conn = new SqliteConnection(ConnectionString))
+				{
+					var cmd = conn.CreateCommand();
+					cmd.CommandText = $"SELECT * FROM {typeof(T).Name}s";
+					conn.Open();
+
+					using (var reader = cmd.ExecuteReader())
+					{
+						while (reader.Read())
+						{
+							var result = new T();
+							PopulateObjectData(result, propColumns, pkCol, reader);
+						}
+					}
+				}
+			}
+
+			// Everything will be cached now, so return it from that
+			return _tableCache[typeof(T)].Values.Cast<T>().ToList();
+		}
+
 		public T? GetDataRecord<T, TID>(TID primaryKeyValue) where T : ITable, new() where TID : struct
 		{
 			// If we already have it cached, return it
@@ -255,83 +286,86 @@ namespace ShaosilBot.Core.Providers
 
 				using (var reader = cmd.ExecuteReader())
 				{
-					// Load direct properties
-					reader.Read();
-					foreach (var propColumn in propColumns)
+					if (reader.Read())
 					{
-						object? val;
-						var trueType = Nullable.GetUnderlyingType(propColumn.PropertyType) ?? propColumn.PropertyType;
-						switch (trueType)
-						{
-							// Some types need a specific read
-							case Type t when t == typeof(bool):
-								val = reader.IsDBNull(propColumn.Name) ? null : reader.GetBoolean(propColumn.Name);
-								break;
-
-							// The rest can be read in as strings and converted like this
-							default:
-								val = reader.IsDBNull(propColumn.Name) ? null : reader.GetString(propColumn.Name);
-								if (val != null) val = TypeDescriptor.GetConverter(propColumn.PropertyType).ConvertFrom(val)!;
-								break;
-						}
-						propColumn.SetValue(result, val);
+						PopulateObjectData(result, propColumns, pkCol, reader);
 					}
-				}
-			}
-
-			// Cache result
-			if (!_tableCache.ContainsKey(typeof(T))) _tableCache[typeof(T)] = new();
-			_tableCache[typeof(T)][pkCol.GetValue(result)!] = result;
-
-			// Recursively load connected entity info via reflection. Infinite circular references should be prevented by the cache.
-			if (result != null)
-			{
-				var allProps = typeof(T).GetProperties();
-				var connectedSingleEntities = allProps.Where(p => p.PropertyType.IsAssignableTo(typeof(ITable))).ToList();
-				var connectedMultiEntities = allProps.Where(p => p.PropertyType.IsAssignableTo(typeof(IEnumerable<ITable>))).ToList();
-				var genericGetRecord = GetType().GetMethod(nameof(GetDataRecord))!;
-
-				foreach (var singleEntity in connectedSingleEntities)
-				{
-					// Find the FK constraint for the current type
-					var fkIDProp = allProps.FirstOrDefault(p => GetForeignKeyAttributeType(p) == singleEntity.PropertyType);
-					if (fkIDProp == null) continue;
-
-					// Recrusively load the target FK type single record based on this entity's FK value
-					var curMethod = genericGetRecord.MakeGenericMethod(singleEntity.PropertyType, fkIDProp.PropertyType);
-					var loadedEntity = curMethod.Invoke(this, new[] { fkIDProp.GetValue(result) });
-					singleEntity.SetValue(result, loadedEntity);
-				}
-
-				foreach (var multiEntity in connectedMultiEntities)
-				{
-					// Get the generic type of the current enumerable
-					var listType = multiEntity.PropertyType.GenericTypeArguments[0];
-					var listTypeProps = GetColumnProperties(listType);
-
-					// Get the FK property of that type
-					var fkIDProp = listTypeProps.FirstOrDefault(p => p.GetCustomAttribute<ForeignKeyAttribute<T>>() != null);
-					if (fkIDProp == null) continue;
-
-					// Get the PK property of that type
-					var pkIDProp = listTypeProps.First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null);
-
-					// Get target PK all records where the FK property is equal to this ID
-					var stringIDs = GetSimpleData<string>($"SELECT [{pkIDProp.Name}] FROM {listType.Name}s WHERE [{fkIDProp.Name}] = @pkVal", new() { { "@pkVal", primaryKeyValue } });
-
-					// Recursively load for each ID of that type
-					var curMethod = genericGetRecord.MakeGenericMethod(listType, fkIDProp.PropertyType);
-					var loadedEntities = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(listType))!;
-					foreach (string sid in stringIDs)
-					{
-						var converter = TypeDescriptor.GetConverter(fkIDProp.PropertyType);
-						loadedEntities.Add(curMethod.Invoke(this, new[] { converter.ConvertFrom(sid) }));
-					}
-					multiEntity.SetValue(result, loadedEntities);
 				}
 			}
 
 			return result;
+		}
+
+		private void PopulateObjectData<T>(T item, List<PropertyInfo> itemProperties, PropertyInfo pkCol, SqliteDataReader openReader) where T : ITable
+		{
+			foreach (var propColumn in itemProperties)
+			{
+				object? val;
+				var trueType = Nullable.GetUnderlyingType(propColumn.PropertyType) ?? propColumn.PropertyType;
+				switch (trueType)
+				{
+					// Some types need a specific read
+					case Type t when t == typeof(bool):
+						val = openReader.IsDBNull(propColumn.Name) ? null : openReader.GetBoolean(propColumn.Name);
+						break;
+
+					// The rest can be read in as strings and converted like this
+					default:
+						val = openReader.IsDBNull(propColumn.Name) ? null : openReader.GetString(propColumn.Name);
+						if (val != null) val = TypeDescriptor.GetConverter(propColumn.PropertyType).ConvertFrom(val)!;
+						break;
+				}
+				propColumn.SetValue(item, val);
+			}
+
+			// Cache result
+			object pkVal = pkCol.GetValue(item)!;
+			_tableCache[typeof(T)][pkVal] = item;
+
+			// Recursively load connected entity info via reflection. Infinite circular references should be prevented by the cache.
+			var allProps = typeof(T).GetProperties();
+			var connectedSingleEntities = allProps.Where(p => p.PropertyType.IsAssignableTo(typeof(ITable))).ToList();
+			var connectedMultiEntities = allProps.Where(p => p.PropertyType.IsAssignableTo(typeof(IEnumerable<ITable>))).ToList();
+			var genericGetRecord = GetType().GetMethod(nameof(GetDataRecord))!;
+
+			foreach (var singleEntity in connectedSingleEntities)
+			{
+				// Find the FK constraint for the current type
+				var fkIDProp = allProps.FirstOrDefault(p => GetForeignKeyAttributeType(p) == singleEntity.PropertyType);
+				if (fkIDProp == null) continue;
+
+				// Recrusively load the target FK type single record based on this entity's FK value
+				var curMethod = genericGetRecord.MakeGenericMethod(singleEntity.PropertyType, fkIDProp.PropertyType);
+				var loadedEntity = curMethod.Invoke(this, new[] { fkIDProp.GetValue(item) });
+				singleEntity.SetValue(item, loadedEntity);
+			}
+
+			foreach (var multiEntity in connectedMultiEntities)
+			{
+				// Get the generic type of the current enumerable
+				var listType = multiEntity.PropertyType.GenericTypeArguments[0];
+				var listTypeProps = GetColumnProperties(listType);
+
+				// Get the FK property of that type
+				var fkIDProp = listTypeProps.FirstOrDefault(p => p.GetCustomAttribute<ForeignKeyAttribute<T>>() != null);
+				if (fkIDProp == null) continue;
+
+				// Get the PK property of that type
+				var pkIDProp = listTypeProps.First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null);
+
+				// Get target PK all records where the FK property is equal to this ID
+				var stringIDs = GetSimpleData<string>($"SELECT [{pkIDProp.Name}] FROM {listType.Name}s WHERE [{fkIDProp.Name}] = @pkVal", new() { { "@pkVal", pkVal } });
+
+				// Recursively load for each ID of that type
+				var curMethod = genericGetRecord.MakeGenericMethod(listType, fkIDProp.PropertyType);
+				var loadedEntities = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(listType))!;
+				foreach (string sid in stringIDs)
+				{
+					var converter = TypeDescriptor.GetConverter(fkIDProp.PropertyType);
+					loadedEntities.Add(curMethod.Invoke(this, new[] { converter.ConvertFrom(sid) }));
+				}
+				multiEntity.SetValue(item, loadedEntities);
+			}
 		}
 
 		public void UpsertDataRecords<T>(params T[] records) where T : ITable, new()

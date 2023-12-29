@@ -11,6 +11,7 @@ namespace ShaosilBot.Core.Providers
 	public class QuartzProvider : IQuartzProvider
 	{
 		public const string FillMonthlyChatGPTTokensJobIdentity = "FillMonthlyChatGPTTokens";
+		public const string SearchForGameDealsJobIdentity = "SearchForGameDeals";
 
 		private bool _isDevelopment = true;
 		private readonly IScheduler _scheduler;
@@ -56,13 +57,28 @@ namespace ShaosilBot.Core.Providers
 			if (_configuration.GetValue<bool>("ChatGPTEnabled"))
 			{
 				var job = JobBuilder.Create<FillMonthlyChatGPTTokensJob>().WithIdentity(chatGPTTokensKey).Build();
-				var trigger = TriggerBuilder.Create().WithIdentity(FillMonthlyChatGPTTokensJobIdentity).WithCronSchedule("0 0 0 1 * ? *", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+				var trigger = TriggerBuilder.Create().WithIdentity(FillMonthlyChatGPTTokensJobIdentity).WithCronSchedule("0 0 0 1 * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
 
 				_scheduler.ScheduleJob(job, trigger);
 			}
 			else
 			{
 				_scheduler.DeleteJob(chatGPTTokensKey).Wait();
+			}
+
+			// Every X hours searching for game deals
+			var gameDealsKey = new JobKey(SearchForGameDealsJobIdentity);
+			int? gameHourInterval = _configuration.GetValue<int?>("IsThereAnyDealCheckHours");
+			if (gameHourInterval.HasValue && gameHourInterval >= 1)
+			{
+				var job = JobBuilder.Create<GameSaleNotifierJob>().WithIdentity(gameDealsKey).Build();
+				var trigger = TriggerBuilder.Create().WithIdentity(SearchForGameDealsJobIdentity).WithCronSchedule($"0 0 */{gameHourInterval} * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+
+				_scheduler.ScheduleJob(job, trigger);
+			}
+			else
+			{
+				_scheduler.DeleteJob(gameDealsKey).Wait();
 			}
 
 			// If we are here, we are NOT in development

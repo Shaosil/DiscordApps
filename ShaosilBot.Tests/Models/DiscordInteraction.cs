@@ -8,6 +8,7 @@ namespace ShaosilBot.Tests.Models
 		public InteractionType type { get; private set; }
 		public User user { get; private set; } = new();
 		public Data data { get; private set; }
+		public object[] entitlements { get; private set; } = new object[0];
 
 		public static DiscordInteraction CreatePing() => new DiscordInteraction { type = InteractionType.Ping };
 
