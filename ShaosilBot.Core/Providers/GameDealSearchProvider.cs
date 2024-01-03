@@ -44,7 +44,7 @@ namespace ShaosilBot.Core.Providers
 				new ("timestamp", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
 			};
 			var content = new FormUrlEncodedContent(items);
-			_logger.LogInformation("Posting to isthereanydeal with filters...");
+			_logger.LogInformation($"Posting to isthereanydeal with filters {items[2].Value}...");
 			var response = await _httpClient.PostAsync("https://isthereanydeal.com/ajax/data/lazy.deals.php", content);
 			var responseString = await response.Content.ReadAsStringAsync();
 
@@ -81,12 +81,15 @@ namespace ShaosilBot.Core.Providers
 
 						var dealNode = game.SelectSingleNode("div[contains(@class, 'deals')]/a[last()]");
 						string bestPrice = dealNode.InnerText;
-						foundGame.BestPrice = decimal.Parse(Regex.Match(bestPrice, "\\$([\\d\\.]+)").Groups[1].Value);
+						if (!string.IsNullOrWhiteSpace(bestPrice) && decimal.TryParse(Regex.Match(bestPrice, "\\$([\\d\\.]+)").Groups[1].Value, out var bestPriceVal))
+						{
+							foundGame.BestPrice = bestPriceVal;
+						}
 						foundGame.BestPercentStoreLink = dealNode.GetAttributeValue("href", string.Empty);
 
 						var bestStoreNode = game.SelectSingleNode("div[contains(@class, 'details')]/a[last()]/div");
 						foundGame.BestPercentOff = int.Parse(bestStoreNode?.SelectSingleNode("span").InnerText ?? "0");
-						if (bestStoreNode != null)
+						if (bestStoreNode != null && !string.IsNullOrWhiteSpace(bestStoreNode.InnerText))
 						{
 							var storeDetails = Regex.Match(bestStoreNode.InnerText, "(.+) \\$([\\d\\.]+) ");
 							foundGame.BestPercentStore = storeDetails.Groups[1].Value;
