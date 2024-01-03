@@ -36,7 +36,7 @@ namespace ShaosilBot.Core.Providers
 			{
 				new ("offset", "0"),
 				new ("limit", "5"),
-				new ("filter", "&price/0/0,&regular/5/max,-dlc,-itchio,&last/48"),
+				new ("filter", "&price/0/0,&regular/4.99/max,-dlc,-itchio,&last/48"),
 				new ("by", "trending:desc"),
 				new ("options", null),
 				new ("seen", null),
@@ -106,7 +106,8 @@ namespace ShaosilBot.Core.Providers
 				_logger.LogInformation($"Parsing complete. Loading existing DB records...");
 				var allExistingGames = _sqliteProvider.GetAllDataRecords<GameSale>();
 				var missingGames = allExistingGames.Where(ag => !foundGames.Any(fg => fg.PlainGameID == ag.PlainGameID)).ToArray();
-				var differentPriceGames = foundGames.Where(fg => allExistingGames.FirstOrDefault(ag => ag.PlainGameID == fg.PlainGameID)?.BestPrice != fg.BestPrice).ToArray();
+				var differentPriceGames = foundGames.Where(fg => allExistingGames.Any(ag => ag.PlainGameID == fg.PlainGameID)
+					&& allExistingGames.First(ag => ag.PlainGameID == fg.PlainGameID).BestPrice != fg.BestPrice).ToArray();
 				var newGames = foundGames.Where(fg => !allExistingGames.Any(ag => ag.PlainGameID == fg.PlainGameID)).ToArray();
 				_logger.LogInformation($"Found {allExistingGames.Count} existing games. {missingGames.Length} to be deleted, {differentPriceGames.Length} to be updated, and {newGames.Length} to be added.");
 
@@ -134,7 +135,7 @@ namespace ShaosilBot.Core.Providers
 					_logger.LogInformation("Complete!");
 				}
 
-				if (foundGames.Any())
+				if (differentPriceGames.Any() || newGames.Any())
 				{
 					// TODO: If there is a different sale for an existing record, update the message
 					if (differentPriceGames.Any())
