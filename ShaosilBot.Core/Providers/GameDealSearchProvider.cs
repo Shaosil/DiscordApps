@@ -111,6 +111,12 @@ namespace ShaosilBot.Core.Providers
 				var newGames = foundGames.Where(fg => !allExistingGames.Any(ag => ag.PlainGameID == fg.PlainGameID)).ToArray();
 				_logger.LogInformation($"Found {allExistingGames.Count} existing games. {missingGames.Length} to be deleted, {differentPriceGames.Length} to be updated, and {newGames.Length} to be added.");
 
+				// If there is nothing to do, just return here
+				if (!missingGames.Any() && !differentPriceGames.Any() && !newGames.Any())
+				{
+					return;
+				}
+
 				// Load and store channels for later use
 				bool hasAnnouncementChannel = ulong.TryParse(_configuration["IsThereAnyDealChannel"], out var announcementChannelID);
 				var allChannelIDs = allExistingGames.Where(ag => ag.DiscordChannelID.HasValue).Select(ag => ag.DiscordChannelID!.Value)

@@ -72,9 +72,9 @@ namespace ShaosilBot.Core.Providers
 			if (gameHourInterval.HasValue && gameHourInterval >= 1)
 			{
 				var job = JobBuilder.Create<GameSaleNotifierJob>().WithIdentity(gameDealsKey).Build();
-				var trigger = TriggerBuilder.Create().WithIdentity(SearchForGameDealsJobIdentity).WithCronSchedule($"0 0 */{gameHourInterval} * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+				var trigger = TriggerBuilder.Create().WithIdentity(SearchForGameDealsJobIdentity).WithCronSchedule($"0 0 0,9-23/{gameHourInterval} * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
 
-				_scheduler.ScheduleJob(job, trigger);
+				_scheduler.ScheduleJob(job, new[] { trigger }, true);
 			}
 			else
 			{
