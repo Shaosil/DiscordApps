@@ -130,7 +130,7 @@ namespace ShaosilBot.Core.Providers
 		{
 			{ "INTEGER", new[] { typeof(bool), typeof(sbyte), typeof(byte), typeof(short), typeof(ushort), typeof(int), typeof(uint), typeof(long), typeof(ulong) } },
 			{ "REAL", new[] { typeof(double), typeof(float) } },
-			{ "TEXT", new[] { typeof(char), typeof(DateOnly), typeof(DateTime), typeof(DateTimeOffset), typeof(decimal), typeof(string), typeof(TimeOnly), typeof(TimeSpan) } },
+			{ "TEXT", new[] { typeof(char), typeof(DateOnly), typeof(DateTime), typeof(DateTimeOffset), typeof(decimal), typeof(string), typeof(TimeOnly), typeof(TimeSpan), typeof(Guid) } },
 			{ "BLOB", new[] { typeof(byte[]) } }
 		};
 

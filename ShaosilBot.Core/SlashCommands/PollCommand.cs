@@ -140,7 +140,8 @@ OPTIONAL ARGS:
 				choices.Select(c => new SelectMenuOptionBuilder(c, c)).ToList(),
 				$"Cast your vote{(multiselect ? "s" : string.Empty)}!",
 				minValues: 0,
-				maxValues: multiselect ? choices.Count : 1);
+				maxValues: multiselect ? choices.Count : 1,
+				defaultValues: new SelectMenuDefaultValue[0]);
 
 			// Set a task to run AFTER the response is sent so we can grab it and store the message ID
 			return cmdWrapper.DeferWithCode(async () =>
@@ -243,7 +244,12 @@ OPTIONAL ARGS:
 						{
 							m.Content = messageComponent.Message.Content;
 							m.Embed = modifiedEmbed;
-							m.Components = ComponentBuilder.FromComponents(messageComponent.Message.Components).Build();
+
+							// I have to rebuild it this way because of a null value bug in Discord.NET's SelectMenuBuilder :(
+							var oldSelectMenu = messageComponent.Message.Components.First().Components.First() as SelectMenuComponent;
+							var curSelectMenu = new SelectMenuBuilder(oldSelectMenu);
+							curSelectMenu.CustomId = oldSelectMenu!.CustomId;
+							m.Components = new ComponentBuilder().WithSelectMenu(curSelectMenu).Build();
 						});
 					}
 				}
