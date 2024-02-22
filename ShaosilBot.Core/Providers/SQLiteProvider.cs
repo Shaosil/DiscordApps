@@ -429,7 +429,11 @@ namespace ShaosilBot.Core.Providers
 			using (var conn = new SqliteConnection(ConnectionString))
 			{
 				var cmd = conn.CreateCommand();
-				cmd.CommandText = $"DELETE FROM {typeof(T).Name}s WHERE {pkColumn.Name} IN ({string.Join(", ", records.Select(r => $"'{pkColumn.GetValue(r)}'"))})";
+				cmd.CommandText = $"DELETE FROM {typeof(T).Name}s WHERE {pkColumn.Name} IN ({string.Join(", ", records.Select((r, i) => $"@{pkColumn.Name}_{i}"))})";
+				for (int i = 0; i < records.Length; i++)
+				{
+					cmd.Parameters.AddWithValue($"{pkColumn.Name}_{i}", pkColumn.GetValue(records[i]));
+				}
 				conn.Open();
 				cmd.ExecuteNonQuery();
 

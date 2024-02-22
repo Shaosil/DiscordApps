@@ -35,7 +35,7 @@ namespace ShaosilBot.Core.Providers
 		{
 			_logger.LogInformation("Calling isthereanydeal deals endpoint...");
 			var dealsUri = new UriBuilder("https://api.isthereanydeal.com/deals/v2");
-			dealsUri.Query = $"key={_configuration["IsThereAnyDealAPIKey"]}&filter={_configuration["IsThereAnyDealFilter"]}";
+			dealsUri.Query = $"key={_configuration["IsThereAnyDealAPIKey"]}&filter={Uri.EscapeDataString(_configuration["IsThereAnyDealFilter"]!)}";
 			var response = await _httpClient.GetAsync(dealsUri.Uri);
 			var responseString = await response.Content.ReadAsStringAsync();
 
@@ -103,7 +103,10 @@ namespace ShaosilBot.Core.Providers
 
 					foreach (var missingGame in missingGames.Where(mg => mg.DiscordChannelID.HasValue && mg.DiscordMessageID.HasValue))
 					{
-						await loadedChannels[missingGame.DiscordChannelID!.Value].DeleteMessageAsync(missingGame.DiscordMessageID!.Value);
+						if ((await loadedChannels[missingGame.DiscordChannelID!.Value].GetMessageAsync(missingGame.DiscordMessageID!.Value)) != null)
+						{
+							await loadedChannels[missingGame.DiscordChannelID!.Value].DeleteMessageAsync(missingGame.DiscordMessageID!.Value);
+						}
 					}
 					_logger.LogInformation("Complete!");
 				}
