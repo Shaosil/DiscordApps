@@ -13,11 +13,21 @@
 		public PrimaryKeyAttribute(bool autoIncrement) { AutoIncrement = autoIncrement; }
 	}
 
-	public class ForeignKeyAttribute<T> : Attribute where T : ITable // Tells the ORM this is a FK to the specified table type and column
+	public class ForeignKeyAttribute : Attribute // Tells the ORM this is a FK to the specified table type and column
 	{
 		public Type ReferenceTable { get; }
 		public string ReferenceColumn { get; }
 
-		public ForeignKeyAttribute(string referenceColumn) { ReferenceTable = typeof(T); ReferenceColumn = referenceColumn; }
+		public ForeignKeyAttribute(Type refTableType, string refColumn)
+		{
+			// Soft enforcement on ITable to save headaches with GetCustomAttribute
+			if (refTableType.IsAssignableFrom(typeof(ITable)))
+			{
+				throw new Exception($"Foreign key reference table type must derive from {nameof(ITable)}!");
+			}
+
+			ReferenceTable = refTableType;
+			ReferenceColumn = refColumn;
+		}
 	}
 }

@@ -48,7 +48,7 @@ namespace ShaosilBot.Core.Jobs
 					{
 						// Remove the components and update the description
 						var originalEmbed = originalMessage.Embeds.First();
-						string newDesc = $"{_pollCommand.GetDescriptionFromChoices(poll.PollChoices, true)}\n\nPoll has ended and the results are in!";
+						string newDesc = _pollCommand.GetPollDescription(poll, true);
 
 						var modifiedEmbed = new EmbedBuilder()
 						{

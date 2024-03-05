@@ -23,7 +23,11 @@ namespace ShaosilBot.Core.Providers
 			_logger = logger;
 			if (string.IsNullOrWhiteSpace(ConnectionString))
 			{
-				ConnectionString = $"Data Source={Path.Combine(configuration.GetValue<string>("FilesBasePath")!, "data.db")}";
+				var connStringBuilder = new SqliteConnectionStringBuilder();
+				connStringBuilder.DataSource = Path.Combine(configuration.GetValue<string>("FilesBasePath")!, "data.db");
+				connStringBuilder.ForeignKeys = true;
+
+				ConnectionString = connStringBuilder.ToString();
 			}
 		}
 
@@ -97,12 +101,22 @@ namespace ShaosilBot.Core.Providers
 			_logger.LogInformation($"Creating table '{table.Name}s'");
 			var propertyDefinitions = GetCodeColumnDefinitions(table).Select(p => $"\t{p}").ToList();
 
+			var allProps = GetColumnProperties(table);
+
 			// PK detection - Create table scoped PK if there is no autoincrement column
 			var constraints = new List<string>();
-			var pk = GetColumnProperties(table).First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null); // TODO - Enforce and support 1+ PK
+			var pk = allProps.First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null); // TODO - Enforce and support 1+ PK
 			if (!pk.GetCustomAttribute<PrimaryKeyAttribute>()!.AutoIncrement)
 			{
 				constraints.Add($"\tPRIMARY KEY ({pk.Name})");
+			}
+
+			// FK detection
+			var fkProps = allProps.Where(p => p.GetCustomAttribute<ForeignKeyAttribute>() != null).ToList();
+			foreach (var fkProp in fkProps)
+			{
+				var curFk = fkProp.GetCustomAttribute<ForeignKeyAttribute>()!;
+				constraints.Add($"\tFOREIGN KEY ([{fkProp.Name}]) REFERENCES {curFk.ReferenceTable.Name}s ([{curFk.ReferenceColumn}]) ON DELETE CASCADE ON UPDATE CASCADE");
 			}
 
 			using (var conn = new SqliteConnection(ConnectionString))
@@ -160,12 +174,6 @@ namespace ShaosilBot.Core.Providers
 				// Apart from required columns, mark value types (that are not nullable) as NOT NULL
 				bool required = prop.GetCustomAttribute<RequiredAttribute>() != null;
 				if (required || (prop.PropertyType.IsValueType && nullableType == null)) constraints.Add("NOT NULL");
-
-				// Foreign key
-				var fkAttr = prop.GetCustomAttribute(typeof(ForeignKeyAttribute<>));
-				Type? fkTable = fkAttr?.GetType().GetProperty(nameof(ForeignKeyAttribute<ITable>.ReferenceTable))!.GetValue(fkAttr) as Type;
-				string? fkCol = fkAttr?.GetType().GetProperty(nameof(ForeignKeyAttribute<ITable>.ReferenceColumn))!.GetValue(fkAttr) as string;
-				if (fkTable != null && fkCol != null) constraints.Add($"REFERENCES {fkTable.Name}s ({fkCol})");
 
 				definitions.Add(new ColumnDefinition(prop.Name, cType, constraints));
 			}
@@ -331,7 +339,7 @@ namespace ShaosilBot.Core.Providers
 			foreach (var singleEntity in connectedSingleEntities)
 			{
 				// Find the FK constraint for the current type
-				var fkIDProp = allProps.FirstOrDefault(p => GetForeignKeyAttributeType(p) == singleEntity.PropertyType);
+				var fkIDProp = allProps.FirstOrDefault(p => p.GetCustomAttribute<ForeignKeyAttribute>()?.ReferenceTable == singleEntity.PropertyType);
 				if (fkIDProp == null) continue;
 
 				// Recrusively load the target FK type single record based on this entity's FK value
@@ -347,7 +355,7 @@ namespace ShaosilBot.Core.Providers
 				var listTypeProps = GetColumnProperties(listType);
 
 				// Get the FK property of that type
-				var fkIDProp = listTypeProps.FirstOrDefault(p => p.GetCustomAttribute<ForeignKeyAttribute<T>>() != null);
+				var fkIDProp = listTypeProps.FirstOrDefault(p => p.GetCustomAttribute<ForeignKeyAttribute>() != null);
 				if (fkIDProp == null) continue;
 
 				// Get the PK property of that type
@@ -398,15 +406,14 @@ namespace ShaosilBot.Core.Providers
 
 			// Set any parent FK single properties in this class
 			var iTableProps = typeof(T).GetProperties().Where(p => p.PropertyType.IsAssignableTo(typeof(ITable))).ToList();
-			var fkColumns = nonPkColumns.Where(p => p.GetCustomAttribute(typeof(ForeignKeyAttribute<>)) != null).ToList();
+			var fkColumns = nonPkColumns.Where(p => p.GetCustomAttribute<ForeignKeyAttribute>() != null).ToList();
 			foreach (var fkColumn in fkColumns)
 			{
 				// Get the matching FK type
-				var fkAttr = fkColumn.GetCustomAttribute(typeof(ForeignKeyAttribute<>))!;
-				var fkType = fkAttr.GetType().GetProperty(nameof(ForeignKeyAttribute<ITable>.ReferenceTable))!.GetValue(fkAttr) as Type;
+				var fkAttr = fkColumn.GetCustomAttribute<ForeignKeyAttribute>()!;
 
 				// Find the matching single property type
-				var matchingFKProp = iTableProps.FirstOrDefault(p => p.PropertyType == fkType);
+				var matchingFKProp = iTableProps.FirstOrDefault(p => p.PropertyType == fkAttr.ReferenceTable);
 				if (matchingFKProp == null) continue;
 
 				foreach (var record in records)
@@ -446,12 +453,6 @@ namespace ShaosilBot.Core.Providers
 			UpdateParentListsFromChildEntities(false, records);
 		}
 
-		private Type? GetForeignKeyAttributeType(PropertyInfo prop)
-		{
-			var fkAttr = prop.GetCustomAttribute(typeof(ForeignKeyAttribute<>));
-			return fkAttr?.GetType().GetProperty(nameof(ForeignKeyAttribute<ITable>.ReferenceTable))!.GetValue(fkAttr) as Type;
-		}
-
 		private void UpdateParentListsFromChildEntities<T>(bool isUpsert, params T[] childEntities) where T : ITable
 		{
 			// Remove from or update cache
@@ -483,7 +484,7 @@ namespace ShaosilBot.Core.Providers
 					foreach (var child in childEntities)
 					{
 						// Get the FK column of this type for the current parent
-						var fkIdProp = propColumns.FirstOrDefault(p => GetForeignKeyAttributeType(p) == parentRecord.PropertyType);
+						var fkIdProp = propColumns.FirstOrDefault(p => p.GetCustomAttribute<ForeignKeyAttribute>()?.ReferenceTable == parentRecord.PropertyType);
 						if (fkIdProp == null) continue;
 
 						// Load parent object from cache

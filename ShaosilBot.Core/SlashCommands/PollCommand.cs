@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models.SQLite;
 using ShaosilBot.Core.Providers;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace ShaosilBot.Core.SlashCommands
@@ -26,7 +27,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string HelpSummary => "Lets people vote on a question. Can be a simple yes/no or up to 20 choices!";
 
-		public override string HelpDetails => @$"/{CommandName} (string question) [string choice1 - choice20, bool blind, int minute-limit, bool multiselect]
+		public override string HelpDetails => @$"/{CommandName} (string question) [int minute-limit, string choice1 - choice20, bool blind, bool multiselect]
 
 Passing only a question will provide 'Aye' and 'Nay' choices by default. Otherwise, provide 2+ choices for a custom list.
 
@@ -35,14 +36,14 @@ REQUIRED ARGS:
     The text on which to vote.
 
 OPTIONAL ARGS:
+* minute-limit:
+	If provided, will end the poll after the specified minutes. Must be between 1 and 180.
+
 * choice1 - choice20:
     If one is provided, at least two must be.
 
 * blind
 	If true, will NOT display voting results until the poll expires. minute-limit must also be provided for blind polls.
-
-* minute-limit:
-	If provided, will end the poll after the specified minutes. Must be between 1 and 180.
 
 * multiselect:
 	Allows more than one selection for this poll.";
@@ -69,6 +70,13 @@ OPTIONAL ARGS:
 						Type = ApplicationCommandOptionType.String,
 						Description = "What do you want people to vote on?",
 						IsRequired = true
+					},
+					new SlashCommandOptionBuilder
+					{
+						Name = "minute-limit",
+						Type = ApplicationCommandOptionType.Integer,
+						Description = "Optional time limit (in minutes)",
+						MinValue = 1, MaxValue = 180 // 3 hours max
 					}
 				}
 				.Concat(choices)
@@ -79,13 +87,6 @@ OPTIONAL ARGS:
 						Name = "blind",
 						Type = ApplicationCommandOptionType.Boolean,
 						Description = "Hide voting results until the end."
-					},
-					new SlashCommandOptionBuilder
-					{
-						Name = "minute-limit",
-						Type = ApplicationCommandOptionType.Integer,
-						Description = "Optional time limit (in minutes)",
-						MinValue = 1, MaxValue = 180 // 3 hours max
 					},
 					new SlashCommandOptionBuilder
 					{
@@ -115,25 +116,18 @@ OPTIONAL ARGS:
 				choices.AddRange(new[] { "Aye!", "Nay!" });
 
 			bool.TryParse(cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "blind")?.Value.ToString(), out var isBlind);
+			bool.TryParse(cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "multiselect")?.Value.ToString(), out var multiselect);
 
 			// Get the time limit. If one was not provided, use a week but do not show it
-			int.TryParse(cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "minute-limit")?.Value.ToString() ?? $"{new TimeSpan(7, 0, 0, 0).TotalMinutes}", out var minuteLimit);
+			var minuteLimitVal = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "minute-limit")?.Value.ToString();
+			int.TryParse(minuteLimitVal ?? $"{new TimeSpan(7, 0, 0, 0).TotalMinutes}", out var minuteLimit);
 			var targetTime = DateTimeOffset.Now.AddMinutes(minuteLimit);
-			string extraText = string.Empty;
-			if ((targetTime - DateTimeOffset.Now).Days < 1)
-			{
-				extraText = $"\n\nPoll will end <t:{targetTime.AddSeconds(1).ToUnixTimeSeconds()}:R>!";
-			}
-			else if (isBlind)
+
+			// Validate blind polls have a minute limit
+			if (isBlind && string.IsNullOrEmpty(minuteLimitVal))
 			{
 				return Task.FromResult(cmdWrapper.Respond("Blind polls are only supported with time limits! Please also specify the `minute-limit` option.", ephemeral: true));
 			}
-			if (isBlind)
-			{
-				extraText += "\n\nBlind Poll! Results will be revealed when it ends.";
-			}
-
-			bool.TryParse(cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "multiselect")?.Value.ToString(), out var multiselect);
 
 			// Build the select menu
 			var selectMenu = new ComponentBuilder().WithSelectMenu(SelectMenuID,
@@ -141,7 +135,7 @@ OPTIONAL ARGS:
 				$"Cast your vote{(multiselect ? "s" : string.Empty)}!",
 				minValues: 0,
 				maxValues: multiselect ? choices.Count : 1,
-				defaultValues: new SelectMenuDefaultValue[0]);
+				defaultValues: []);
 
 			// Set a task to run AFTER the response is sent so we can grab it and store the message ID
 			return cmdWrapper.DeferWithCode(async () =>
@@ -162,12 +156,12 @@ OPTIONAL ARGS:
 
 				// Store the poll in the DB and schedule the poll end job
 				var newPoll = new PollMessage { MessageID = response.Id, IsBlind = isBlind, Text = questionText.Trim(), ExpiresAt = targetTime };
-				var newChoices = choices.Select((c, i) => new PollChoice { PollMessageID = response.Id, Order = i + 1, Text = c! }).ToList();
+				var newChoices = choices.Select((c, i) => new PollChoice { PollMessageID = response.Id, SortOrder = i, Text = c! }).ToList();
 				_sqliteProvider.UpsertDataRecords(newPoll);
 				_sqliteProvider.UpsertDataRecords(newChoices.ToArray());
 				_quartzProvider.SchedulePollEnd(cmdWrapper.Command.ChannelId!.Value, response.Id, targetTime);
 
-				var embed = new EmbedBuilder() { Title = $"📊 **{questionText.Trim()}**", Description = $"{GetDescriptionFromChoices(newChoices)}{extraText}", Color = new Color(0x7c0089) };
+				var embed = new EmbedBuilder() { Title = $"📊 **{questionText.Trim()}**", Description = GetPollDescription(newPoll), Color = new Color(0x7c0089) };
 				response = await cmdWrapper.Command.FollowupAsync(embed: embed.Build(), components: (multiselect ? null : selectMenu.Build()));
 
 				// If this is multiselect, handle voting in a separate message so user selections are persisted
@@ -199,20 +193,23 @@ OPTIONAL ARGS:
 					var referenceMessage = messageComponent.Message.Reference != null ? await messageComponent.Channel.GetMessageAsync(messageComponent.Message.Reference.MessageId.Value) : null;
 					var originalEmbed = (referenceMessage ?? messageComponent.Message).Embeds.First();
 
-					// If there is any extra description after the choices, capture it here
-					string endingDesc = Regex.Match(originalEmbed.Description, "(\n\nPoll .+)", RegexOptions.Singleline).Groups[1].Value;
+					// Validate poll still exists in case of race conditions
+					ulong pollMessageID = referenceMessage?.Id ?? messageComponent.Message.Id;
+					var poll = _sqliteProvider.GetDataRecord<PollMessage, ulong>(pollMessageID);
+					if (poll == null)
+					{
+						return;
+					}
 
 					// Delete current user votes for this choice
-					ulong pollMessageID = referenceMessage?.Id ?? messageComponent.Message.Id;
-					var choices = _sqliteProvider.GetDataRecord<PollMessage, ulong>(pollMessageID)!.PollChoices.ToList();
-					var curChoices = choices.SelectMany(c => c.PollUserVotes).Where(v => v.UserID == messageComponent.User.Id).ToList();
-					_sqliteProvider.DeleteDataRecords(curChoices.ToArray());
+					var curChoices = poll.PollChoices.SelectMany(c => c.PollUserVotes).Where(v => v.UserID == messageComponent.User.Id).ToArray();
+					_sqliteProvider.DeleteDataRecords(curChoices);
 
 					// Insert new user votes if there are any
 					List<PollUserVote> newVotes = new();
 					foreach (var vote in messageComponent.Data.Values)
 					{
-						var matchingChoice = choices.First(c => c.Text == vote);
+						var matchingChoice = poll.PollChoices.First(c => c.Text == vote);
 						newVotes.Add(new PollUserVote { PollChoiceID = matchingChoice.ID, UserID = messageComponent.User.Id });
 					}
 					if (newVotes.Any())
@@ -220,37 +217,39 @@ OPTIONAL ARGS:
 						_sqliteProvider.UpsertDataRecords(newVotes.ToArray());
 					}
 
-					// Update description and message
-					string newDesc = $"{GetDescriptionFromChoices(choices)}{endingDesc}";
-					var modifiedEmbed = new EmbedBuilder()
+					// Update description and message if the poll is not blind
+					if (!poll.IsBlind)
 					{
-						Title = originalEmbed.Title,
-						Color = originalEmbed.Color,
-						Description = newDesc
-					}.Build();
-
-					// Update the poll or the voting message's referenced message (for multiselect)
-					if (referenceMessage != null)
-					{
-						await messageComponent.Channel.ModifyMessageAsync(referenceMessage.Id, m =>
+						var modifiedEmbed = new EmbedBuilder()
 						{
-							m.Content = referenceMessage.Content;
-							m.Embed = modifiedEmbed;
-						});
-					}
-					else
-					{
-						await messageComponent.ModifyOriginalResponseAsync(m =>
-						{
-							m.Content = messageComponent.Message.Content;
-							m.Embed = modifiedEmbed;
+							Title = originalEmbed.Title,
+							Color = originalEmbed.Color,
+							Description = GetPollDescription(poll)
+						}.Build();
 
-							// I have to rebuild it this way because of a null value bug in Discord.NET's SelectMenuBuilder :(
-							var oldSelectMenu = messageComponent.Message.Components.First().Components.First() as SelectMenuComponent;
-							var curSelectMenu = new SelectMenuBuilder(oldSelectMenu);
-							curSelectMenu.CustomId = oldSelectMenu!.CustomId;
-							m.Components = new ComponentBuilder().WithSelectMenu(curSelectMenu).Build();
-						});
+						// Update the poll or the voting message's referenced message (for multiselect)
+						if (referenceMessage != null)
+						{
+							await messageComponent.Channel.ModifyMessageAsync(referenceMessage.Id, m =>
+							{
+								m.Content = referenceMessage.Content;
+								m.Embed = modifiedEmbed;
+							});
+						}
+						else
+						{
+							await messageComponent.ModifyOriginalResponseAsync(m =>
+							{
+								m.Content = messageComponent.Message.Content;
+								m.Embed = modifiedEmbed;
+
+								// I have to rebuild it this way because of a null value bug in Discord.NET's SelectMenuBuilder :(
+								var oldSelectMenu = messageComponent.Message.Components.First().Components.First() as SelectMenuComponent;
+								var curSelectMenu = new SelectMenuBuilder(oldSelectMenu);
+								curSelectMenu.CustomId = oldSelectMenu!.CustomId;
+								m.Components = new ComponentBuilder().WithSelectMenu(curSelectMenu).Build();
+							});
+						}
 					}
 				}
 				finally
@@ -263,11 +262,45 @@ OPTIONAL ARGS:
 			return messageComponent.Defer(true);
 		}
 
-		public string GetDescriptionFromChoices(List<PollChoice> choices, bool forceShowResults = false)
+		public string GetPollDescription(PollMessage poll, bool pollEnded = false)
 		{
-			bool showResults = !choices.First().Message.IsBlind || forceShowResults;
-			int maxPadding = choices.Max(c => c.PollUserVotes.Count).ToString().Length;
-			return string.Join("\n", choices.Select(c => $"{$"{c.Order}".PadLeft(maxPadding)}: {c.Text}{(showResults ? $" ({c.PollUserVotes.Count})" : string.Empty)}"));
+			var descSb = new StringBuilder();
+
+			bool showResults = pollEnded || !poll.IsBlind;
+
+			// Choices
+			foreach (var choice in poll.PollChoices)
+			{
+				descSb.AppendLine($"{choice.SortOrder + 1}: {choice.Text}{(showResults ? $" ({choice.PollUserVotes.Count})" : string.Empty)}");
+			}
+
+			// Voters
+			if (showResults && poll.PollChoices.Sum(c => c.PollUserVotes.Count) > 0)
+			{
+				descSb.AppendLine();
+				foreach (var choice in poll.PollChoices.Where(c => c.PollUserVotes.Any()).OrderByDescending(c => c.PollUserVotes.Count))
+				{
+					descSb.AppendLine($"*{choice.SortOrder + 1}: {string.Join(", ", choice.PollUserVotes.Select(v => $"<@{v.UserID}>"))}*");
+				}
+			}
+
+			// Ending description
+			descSb.AppendLine();
+			if (pollEnded)
+			{
+				descSb.AppendLine("Poll has ended and the results are in!");
+			}
+			else
+			{
+				if (poll.IsBlind)
+				{
+					descSb.AppendLine("Blind Poll! Results will be revealed when it ends.");
+					descSb.AppendLine();
+				}
+				descSb.AppendLine($"Poll will end <t:{poll.ExpiresAt.AddSeconds(1).ToUnixTimeSeconds()}:R>!");
+			}
+
+			return descSb.ToString();
 		}
 	}
 }

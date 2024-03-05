@@ -22,10 +22,10 @@
 		[PrimaryKey(true)]
 		public int ID { get; set; }
 
-		[ForeignKey<PollMessage>(nameof(PollMessage.MessageID))]
+		[ForeignKey(typeof(PollMessage), nameof(PollMessage.MessageID))]
 		public ulong PollMessageID { get; set; }
 
-		public int Order { get; set; }
+		public int SortOrder { get; set; }
 
 		[Required]
 		public string Text { get; set; }
@@ -41,7 +41,7 @@
 
 		public ulong UserID { get; set; }
 
-		[ForeignKey<PollChoice>(nameof(PollChoice.ID))]
+		[ForeignKey(typeof(PollChoice), nameof(PollChoice.ID))]
 		public int PollChoiceID { get; set; }
 
 		public PollChoice Choice { get; set; }
