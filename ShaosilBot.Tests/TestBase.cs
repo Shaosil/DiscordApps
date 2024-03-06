@@ -9,6 +9,7 @@
 	{
 		protected ILogger<T> Logger { get; private set; }
 		protected IConfiguration Configuration { get; private set; }
+		protected T SUT { get; set; }
 
 		[TestInitialize]
 		public void LoggerBaseTestInit()

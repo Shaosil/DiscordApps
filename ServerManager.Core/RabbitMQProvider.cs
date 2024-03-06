@@ -1,12 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using ServerManager.Core;
+using ServerManager.Core.Interfaces;
 using ServerManager.Core.Models;
-using ShaosilBot.Core.Interfaces;
 using static ServerManager.Core.Models.QueueMessage;
 
-namespace ShaosilBot.Core.Singletons
+namespace ServerManager.Core
 {
 	public class RabbitMQProvider : IRabbitMQProvider
 	{
@@ -33,10 +32,6 @@ namespace ShaosilBot.Core.Singletons
 					_logger.LogInformation("Creating new connection to RabbitMQ.");
 					_connection = _factory.CreateConnection();
 					_channel = _connection.CreateModel();
-
-					var consumer = new EventingBasicConsumer(_channel);
-					consumer.Received += HandleResponsePipeline;
-					_channel.BasicConsume(queue: QueueNames.COMMAND_RESPONSE_QUEUE, false, consumer: consumer);
 				}
 
 				return true;
@@ -58,7 +53,13 @@ namespace ShaosilBot.Core.Singletons
 			var tcs = new TaskCompletionSource<QueueMessageResponse>();
 			_correlationTasks.Add(correlationID, tcs);
 
-			// First, send the command over the typical pipeline, with a new correlation ID
+			// First, create a temporary queue for the callback
+			var consumer = new EventingBasicConsumer(_channel);
+			consumer.Received += HandleResponsePipeline;
+			var tempQueue = _channel.QueueDeclare();
+			_channel.BasicConsume(queue: tempQueue.QueueName, false, consumer: consumer);
+
+			// Then send the command over the typical pipeline, with a new correlation ID
 			QueueMessage message = new QueueMessage
 			{
 				CommandType = commandType,
@@ -67,7 +68,7 @@ namespace ShaosilBot.Core.Singletons
 			};
 			var props = _channel.CreateBasicProperties();
 			props.CorrelationId = correlationID;
-			props.ReplyTo = QueueNames.COMMAND_RESPONSE_QUEUE;
+			props.ReplyTo = tempQueue.QueueName;
 			_logger.LogInformation($"Sending message {props.CorrelationId} to {QueueNames.COMMAND_QUEUE}...");
 			_channel.BasicPublish(exchange: string.Empty, QueueNames.COMMAND_QUEUE, mandatory: true, basicProperties: props, body: message.Serialize());
 

@@ -14,7 +14,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task PullsRandomUnspecifiedFact()
 		{
 			// Arrange - Create 100 guid strings for EACH declared file name
-			var allProps = SlashCommandSUT.GetType().GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly).Where(f => f.Name.EndsWith("FileName")).ToList();
+			var allProps = SUT.GetType().GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly).Where(f => f.Name.EndsWith("FileName")).ToList();
 			Dictionary<FieldInfo, List<string>> fieldsToGuids = new Dictionary<FieldInfo, List<string>>();
 			foreach (var prop in allProps)
 			{
@@ -25,7 +25,7 @@ namespace ShaosilBot.Tests.SlashCommands
 
 				FileAccessProviderMock.Setup(m => m.LoadFileText(fileName, It.IsAny<bool>())).Returns(serializedFacts);
 			}
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
 			var response = await RunInteractions(interaction) as ContentResult;
@@ -46,7 +46,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var serializedFacts = string.Join(Environment.NewLine, fakeFacts);
 			FileAccessProviderMock.Setup(m => m.LoadFileText(AnimalFactsCommand.CatFactsFileName, It.IsAny<bool>())).Returns(serializedFacts);
 			AddOption("type", AnimalFactsCommand.CatFactsFileName);
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
 			var response = await RunInteractions(interaction) as ContentResult;
@@ -66,7 +66,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var serializedFacts = string.Join(Environment.NewLine, fakeFacts);
 			FileAccessProviderMock.Setup(m => m.LoadFileText(AnimalFactsCommand.DogFactsFileName, It.IsAny<bool>())).Returns(serializedFacts);
 			AddOption("type", AnimalFactsCommand.DogFactsFileName);
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
 			var response = await RunInteractions(interaction) as ContentResult;

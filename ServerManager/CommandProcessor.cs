@@ -23,6 +23,7 @@ namespace ServerManager
 
 			// Map a resolved instance of every implementation of IServerManagerCommand to the CommandType enums
 			_commandProcessors.Add(eCommandType.BDS, serviceProvider.GetRequiredService<BDSCommand>());
+			_commandProcessors.Add(eCommandType.InvokeAI, serviceProvider.GetRequiredService<InvokeAICommand>());
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -57,7 +58,6 @@ namespace ServerManager
 			_channel = _connection.CreateModel();
 			var ttlArgs = new Dictionary<string, object> { { "x-message-ttl", 10000 } };
 			_channel.QueueDeclare(queue: QueueNames.COMMAND_QUEUE, durable: false, exclusive: false, autoDelete: false, arguments: ttlArgs);
-			_channel.QueueDeclare(queue: QueueNames.COMMAND_RESPONSE_QUEUE, durable: false, exclusive: false, autoDelete: false, arguments: ttlArgs);
 
 			var consumer = new EventingBasicConsumer(_channel);
 			consumer.Received += ProcessQueueMessage;
@@ -106,7 +106,7 @@ namespace ServerManager
 		public override void Dispose()
 		{
 			// Gracefully shut down BDS if needed by passing it instructions
-			var shutdownMessage = new QueueMessage { Instructions = SupportedCommands.BDS.Shutdown, Arguments = new object[] { true } };
+			var shutdownMessage = new QueueMessage { Instructions = SupportedCommands.BDS.Shutdown, Arguments = [true] };
 			_commandProcessors[eCommandType.BDS].Process(shutdownMessage).GetAwaiter().GetResult();
 
 			_channel?.Close();

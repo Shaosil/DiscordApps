@@ -7,7 +7,6 @@ namespace ShaosilBot.Tests
 	[TestClass]
 	public class FileAccessHelperTests : TestBase<FileAccessHelper>
 	{
-		private FileAccessHelper SUT;
 		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
 		private static string _testDir;
 

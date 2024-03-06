@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ServerManager.Proxy": {
+      "commandName": "Project",
+      "commandLineArgs": "InvokeAI Startup"
+    }
+  }
+}

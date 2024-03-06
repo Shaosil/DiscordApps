@@ -7,6 +7,8 @@ using OpenAI.ObjectModels;
 using Quartz;
 using Quartz.AspNetCore;
 using Serilog;
+using ServerManager.Core;
+using ServerManager.Core.Interfaces;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
 using ShaosilBot.Core.Singletons;
@@ -22,7 +24,6 @@ builder.Services.AddScoped<UtilitiesAuthorizationAttribute>();
 builder.Services.AddHttpClient();
 
 // Singletons
-builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IFileAccessHelper, FileAccessHelper>();
 builder.Services.AddSingleton((sp) => new DiscordSocketConfig
 {

@@ -366,4 +366,4 @@ MigrationBackup/
 FodyWeavers.xsd
 /ShaosilBot.Web/appsettings.json
 /ServerManager/appsettings.*json
-/ServerManager/Publish.bat
+/ServerManager/Bat Files

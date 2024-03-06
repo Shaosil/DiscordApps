@@ -13,7 +13,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task ReturnsSuccess()
 		{
 			// Arrange
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
 			var response = await RunInteractions(interaction) as ContentResult;

@@ -13,7 +13,6 @@ namespace ShaosilBot.Tests
 	[TestClass]
 	public class ChatGPTProviderTests : TestBase<ChatGPTProvider>
 	{
-		private ChatGPTProvider SUT;
 		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
 		private Mock<IFileAccessHelper> _fileAccessHelperMock;
 		private Mock<IChatCompletionService> _openAIChatCompletionServiceMock;

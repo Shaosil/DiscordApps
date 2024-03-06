@@ -3,7 +3,7 @@
 	[Serializable]
 	public class QueueMessage : SerializableMessage<QueueMessage>
 	{
-		public enum eCommandType { BDS }
+		public enum eCommandType { BDS, InvokeAI }
 
 		public eCommandType CommandType { get; set; }
 

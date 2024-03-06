@@ -11,7 +11,6 @@ namespace ShaosilBot.Tests.SlashCommands
 	{
 		private List<IApplicationCommandInteractionDataOption> _optionsMocks;
 
-		protected T SlashCommandSUT { get; private set; }
 		protected Mock<IGuildHelper> GuildHelperMock { get; private set; }
 		protected Mock<IHttpUtilities> HttpUtilitiesMock { get; private set; }
 		protected Mock<IGuildUser> UserMock { get; private set; }
@@ -28,8 +27,8 @@ namespace ShaosilBot.Tests.SlashCommands
 			GuildHelperMock = new Mock<IGuildHelper>();
 			HttpUtilitiesMock = new Mock<IHttpUtilities>();
 			FileAccessProviderMock = new Mock<IFileAccessHelper>();
-			SlashCommandSUT = GetInstance();
-			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(SlashCommandSUT.CommandName)).Returns(SlashCommandSUT);
+			SUT = GetInstance();
+			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(SUT.CommandName)).Returns(SUT);
 
 			string testUserName = "UnitTester";
 			UserMock = new Mock<IGuildUser>();

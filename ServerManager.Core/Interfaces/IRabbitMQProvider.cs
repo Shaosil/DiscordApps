@@ -1,7 +1,7 @@
 ﻿using ServerManager.Core.Models;
 using static ServerManager.Core.Models.QueueMessage;
 
-namespace ShaosilBot.Core.Interfaces
+namespace ServerManager.Core.Interfaces
 {
 	public interface IRabbitMQProvider
 	{

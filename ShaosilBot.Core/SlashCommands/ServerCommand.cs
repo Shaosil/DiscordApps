@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Quartz;
 using ServerManager.Core;
+using ServerManager.Core.Interfaces;
 using ServerManager.Core.Models;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
@@ -103,6 +104,34 @@ namespace ShaosilBot.Core.SlashCommands
 					new SlashCommandOptionBuilder
 					{
 						Type = ApplicationCommandOptionType.SubCommandGroup,
+						Name = "invokeai",
+						Description = "Manage the InvokeAI web server",
+						Options = new List<SlashCommandOptionBuilder>
+						{
+							new SlashCommandOptionBuilder
+							{
+								Name = SupportedCommands.InvokeAI.Status,
+								Description = "Gives the current status of the InvokeAI server.",
+								Type = ApplicationCommandOptionType.SubCommand
+							},
+							new SlashCommandOptionBuilder
+							{
+								Name = SupportedCommands.InvokeAI.Startup,
+								Description = "Starts the InvokeAI server.",
+								Type = ApplicationCommandOptionType.SubCommand
+							},
+							new SlashCommandOptionBuilder
+							{
+								Name = SupportedCommands.InvokeAI.Shutdown,
+								Description = "Shuts down the InvokeAI server.",
+								Type = ApplicationCommandOptionType.SubCommand
+							}
+						}
+					},
+
+					new SlashCommandOptionBuilder
+					{
+						Type = ApplicationCommandOptionType.SubCommandGroup,
 						Name = "scheduled-jobs",
 						Description = "Manually execute scheduled bot tasks",
 						Options = new List<SlashCommandOptionBuilder>
@@ -146,37 +175,33 @@ namespace ShaosilBot.Core.SlashCommands
 			var subCmd = group.Options.First();
 
 			// Verify the ServerManager service is running if needed
-			bool serviceRunning = false;
-			if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+			if (group.Name == "bds" || group.Name == "invokeai")
 			{
-				var sc = new ServiceController("ServerManager");
-				try
+				bool serviceRunning = false;
+				if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 				{
-					serviceRunning = sc.Status == ServiceControllerStatus.Running;
+					var sc = new ServiceController("ServerManager");
+					try
+					{
+						serviceRunning = sc.Status == ServiceControllerStatus.Running;
+					}
+					catch (InvalidOperationException) { } // This means the service doesn't exist
 				}
-				catch (InvalidOperationException) { } // This means the service doesn't exist
-			}
-			if (!serviceRunning || group.Name != "scheduled-jobs")
-			{
-				return cmdWrapper.Respond($"ERROR: The ServerManager service does not appear to be running on the server.", ephemeral: true);
+				if (!serviceRunning)
+				{
+					return cmdWrapper.Respond($"ERROR: The ServerManager service does not appear to be running on the server.", ephemeral: true);
+				}
 			}
 
 			// Set the server command type based on the subcommand group
-			Func<eCommandType, string, object[], Task<QueueMessageResponse>> commandTypeFunc;
-			eCommandType targetCommandType;
 			object[]? args = Array.Empty<object>();
-			string instructions;
 			if (group.Name == "bds")
 			{
-				targetCommandType = eCommandType.BDS;
-				instructions = subCmd.Name;
-				commandTypeFunc = _rabbitMQProvider.SendCommand;
-
-				if (instructions == SupportedCommands.BDS.Shutdown)
+				if (subCmd.Name == SupportedCommands.BDS.Shutdown)
 				{
 					args = [(object)(subCmd.Options.FirstOrDefault()?.Value is bool force && force)]; // Whether to force kill it
 				}
-				else if (instructions == SupportedCommands.BDS.Logs)
+				else if (subCmd.Name == SupportedCommands.BDS.Logs)
 				{
 					args = [subCmd.Options.FirstOrDefault()?.Value ?? 10]; // Amount of logs. Default to 10
 				}
@@ -186,7 +211,28 @@ namespace ShaosilBot.Core.SlashCommands
 				{
 					// Wait no longer than 30 seconds
 					Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
-					var completedTask = await Task.WhenAny(commandTypeFunc(targetCommandType, instructions, args), timeoutTask);
+					var completedTask = await Task.WhenAny(_rabbitMQProvider.SendCommand(eCommandType.BDS, subCmd.Name, args), timeoutTask);
+
+					if (completedTask == timeoutTask)
+					{
+						await cmdWrapper.Command.FollowupAsync("Timeout while waiting for response - ask Shaosil to verify the ServerManager service is running.");
+					}
+					else
+					{
+						var result = ((Task<QueueMessageResponse>)completedTask).Result;
+						await cmdWrapper.Command.FollowupAsync($"Response from server:\n\n{result.Response}");
+					}
+
+				}, true);
+			}
+			else if (group.Name == "invokeai")
+			{
+				// Defer while we wait for a response
+				return await cmdWrapper.DeferWithCode(async () =>
+				{
+					// Wait no longer than 60 seconds
+					Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(60));
+					var completedTask = await Task.WhenAny(_rabbitMQProvider.SendCommand(eCommandType.InvokeAI, subCmd.Name, args), timeoutTask);
 
 					if (completedTask == timeoutTask)
 					{

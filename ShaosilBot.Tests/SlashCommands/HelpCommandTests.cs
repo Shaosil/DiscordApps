@@ -38,14 +38,14 @@ namespace ShaosilBot.Tests.SlashCommands
 			base.TestInitialize();
 
 			SlashCommandProviderMock.Setup(m => m.CommandProperties).Returns(_mappedCommands);
-			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(It.IsNotIn(SlashCommandSUT.CommandName))).Returns<string>(s => _mappedInstances[s]);
+			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(It.IsNotIn(SUT.CommandName))).Returns<string>(s => _mappedInstances[s]);
 		}
 
 		[TestMethod]
 		public async Task HelpCommand_ListsAllCommandsExceptItself()
 		{
 			// Arrange - Ensure we call the command as admin
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			UserMock.Setup(m => m.GuildPermissions).Returns(GuildPermissions.All);
 
 			// Act
@@ -64,7 +64,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task HelpCommand_HidesAdminCommands()
 		{
 			// Arrange - Call as a default nobody
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
 			var response = await RunInteractions(interaction) as ContentResult;
@@ -84,7 +84,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task HelpCommandTarget_ShowsDetails()
 		{
 			// Arrange - Ensure we call the command as admin
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			UserMock.Setup(m => m.GuildPermissions).Returns(GuildPermissions.All);
 
 			// Act for each command
@@ -105,7 +105,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task HelpCommandPartialTarget_AsksForClarification()
 		{
 			// Arrange - Call as a default nobody with a super basic command request
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			AddOption("command", "b");
 
 			// Act
@@ -124,7 +124,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task HelpCommandInvalidTarget_FailsSmoothly()
 		{
 			// Arrange - Call as a default nobody with a missing command request
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			AddOption("command", "THIS IS NOT A VALID COMMAND");
 
 			// Act

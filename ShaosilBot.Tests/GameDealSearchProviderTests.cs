@@ -8,7 +8,6 @@ namespace ShaosilBot.Tests
 	[TestClass]
 	public class GameDealSearchProviderTests : TestBase<GameDealSearchProvider>
 	{
-		private GameDealSearchProvider SUT;
 		private ISQLiteProvider _sqliteProvider;
 		private Mock<IDiscordRestClientProvider> _restClientProvider;
 		private SqliteConnection _activeSqliteConnection;
@@ -41,14 +40,6 @@ namespace ShaosilBot.Tests
 		public async Task Search_Generic_Test()
 		{
 			await SUT.DoDefaultSearch();
-		}
-	}
-
-	internal class HttpClientFactoryHelper : IHttpClientFactory
-	{
-		public HttpClient CreateClient(string name)
-		{
-			return new HttpClient();
 		}
 	}
 }

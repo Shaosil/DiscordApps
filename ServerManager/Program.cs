@@ -15,9 +15,11 @@ IHost host = Host.CreateDefaultBuilder(args)
 	.ConfigureServices(services =>
 	{
 		services.AddSingleton<BDSCommand>();
+		services.AddSingleton<InvokeAICommand>();
 
 		services.AddHostedService<CommandProcessor>();
 		services.AddWindowsService();
+		services.AddHttpClient();
 
 		// Use the following ADMIN PowerShell commands to create the service after your first publish:
 		/*
@@ -28,7 +30,7 @@ IHost host = Host.CreateDefaultBuilder(args)
 			sc.exe start ServerManager
 		*/
 
-		// The following can be used in a .bat file for easy publishing:
+		// The following can be used in a .bat file for easy publishing (run as admin):
 		/*
 			@echo off
 
@@ -37,10 +39,7 @@ IHost host = Host.CreateDefaultBuilder(args)
 
 			:: Execute dotnet publish command
 			SET PROJ_PATH="<THIS PROJECT LOCATION>"
-			dotnet publish %PROJ_PATH% --configuration Release --framework net7.0 --runtime win-x64 --output "<YOUR PUBLISH LOCATION>" --self-contained false
-
-			:: Restart the ServerManager service
-			sc.exe start ServerManager
+			dotnet publish %PROJ_PATH% --configuration Release --framework net8.0 --runtime win-x64 --output "<YOUR PUBLISH LOCATION>" --self-contained false
 
 			:: Pause to keep the command prompt open
 			pause

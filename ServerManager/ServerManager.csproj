@@ -8,6 +8,21 @@
     <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Logs\**" />
+    <Content Remove="Logs\**" />
+    <EmbeddedResource Remove="Logs\**" />
+    <None Remove="Logs\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
@@ -21,12 +36,14 @@
     <ProjectReference Include="..\ServerManager.Core\ServerManager.Core.csproj" />
   </ItemGroup>
 
-    <Target Name="StopService" BeforeTargets="BeforePublish">
-        <Message Text="Inside the StopService/BeforePublish Target" Importance="high" />
-        <Exec Command="sc.exe stop ServerManager" />
-    </Target>
+  <ItemGroup>
+    <None Update="Bat Files\start-invokeai.bat">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
     <Target Name="StartService" AfterTargets="AfterPublish">
-        <Message Text="Inside the StartService/AfterPublish Target" Importance="high" />
+        <Message Text="Starting service after publish." Importance="high" />
         <Exec Command="sc.exe start ServerManager" />
     </Target>
 </Project>

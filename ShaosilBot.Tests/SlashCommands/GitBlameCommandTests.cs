@@ -31,7 +31,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task SimpleBlame_Succeeds()
 		{
 			// Arrange - Build command with no options
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 
 			// Act
@@ -46,7 +46,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task NoBlameablesCanViewChannel_FailsSmoothly()
 		{
 			// Arrange - Build command with no options and ensure users have no permissions
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 
 			// Act
@@ -62,7 +62,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task ErrorFetchingImages_FailsSmoothly()
 		{
 			// Arrange - Build command with no options and ensure HTTP call throws exception
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			HttpUtilitiesMock.Setup(m => m.GetRandomGitBlameImage()).Throws(new Exception());
 			Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 
@@ -81,7 +81,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
 			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser).Result;
 			AddOption("target-user", targetUser);
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
 			await RunInteractions(interaction);
@@ -100,7 +100,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
 			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser).Result;
 			AddOption("target-user", targetUser);
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
 			await RunInteractions(interaction);
@@ -117,7 +117,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Arrange - Build command with mock users and ensure target user is the caller
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			AddOption("target-user", UserMock.Object);
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
 			await RunInteractions(interaction);
@@ -134,7 +134,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Pass the functions option
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			AddOption("functions", 1);
 
 			// Act
@@ -153,7 +153,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Prepare captured savefile. If this is a remove, generate discord users and target one of them
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			var savedFiles = new List<List<ulong>>();
 			FileAccessProviderMock.Setup(m => m.SaveFileJSON(GitBlameCommand.BlameablesFilename, It.IsAny<List<ulong>>(), It.IsAny<bool>()))
 				.Callback<string, List<ulong>, bool>((file, content, lease) => savedFiles.Add(content));
@@ -187,7 +187,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		public async Task AddBlameable_Unauthorized_Fails()
 		{
 			// Arrange - Make sure the guild helper returns unauthorized
-			var interaction = DiscordInteraction.CreateSlash(SlashCommandSUT);
+			var interaction = DiscordInteraction.CreateSlash(SUT);
 			GuildHelperMock.Setup(m => m.UserCanEditTargetUser(It.IsAny<IGuild>(), It.IsAny<IGuildUser>(), It.IsAny<IGuildUser>())).Returns(false);
 
 			// Act - Attempt to toggle ourselves

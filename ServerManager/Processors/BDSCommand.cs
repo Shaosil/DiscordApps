@@ -37,7 +37,7 @@ namespace ServerManager.Processors
 
 			try
 			{
-				switch (message.Instructions)
+				switch (message.Instructions.ToLower())
 				{
 					case SupportedCommands.BDS.Status:
 						response = new QueueMessageResponse($"Bedrock Dedicated Server is **{(_server == null ? "OFFLINE" : "ONLINE")}**");
@@ -139,8 +139,7 @@ namespace ServerManager.Processors
 				startInfo.RedirectStandardInput = true;
 				startInfo.RedirectStandardOutput = true;
 				startInfo.RedirectStandardError = true;
-				startInfo.UseShellExecute = false;
-				startInfo.CreateNoWindow = true;
+				startInfo.UseShellExecute = true;
 				_server = new Process();
 				_server.StartInfo = startInfo;
 				_server.ErrorDataReceived += (sender, error) => HandleServerLog(error.Data, true);
