@@ -1,16 +1,20 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models.InvokeAI;
 
 namespace ShaosilBot.Core.Providers
 {
-	public class InvokeAIProvider
+	public class InvokeAIProvider : IImageGenerationProvider
 	{
 		private readonly ILogger<InvokeAIProvider> _logger;
 		private readonly IConfiguration _configuration;
 		private readonly HttpClient _httpClient;
-		private readonly IReadOnlyList<string> _validModels;
+
+		private readonly IReadOnlyCollection<string> _validModels;
+		public IReadOnlyCollection<string> ValidSchedulers { get; private set; } = ["ddim", "ddpm", "deis", "lms", "lms_k", "pndm", "heun", "heun_k", "euler", "euler_k", "euler_a",
+			"kdpm_2", "kdpm_2_a", "dpmpp_2s", "dpmpp_2s_k", "dpmpp_2m", "dpmpp_2m_k", "dpmpp_2m_sde", "dpmpp_2m_sde_k", "dpmpp_sde", "dpmpp_sde_k", "unipc", "lcm"];
 
 		public InvokeAIProvider(ILogger<InvokeAIProvider> logger,
 			IConfiguration configuration,
@@ -26,8 +30,15 @@ namespace ShaosilBot.Core.Providers
 
 		public async Task<bool> IsOnline()
 		{
-			var response = await _httpClient.GetAsync("app/version");
-			return response.IsSuccessStatusCode;
+			try
+			{
+				var response = await _httpClient.GetAsync("app/version");
+				return response.IsSuccessStatusCode;
+			}
+			catch (HttpRequestException)
+			{
+				return false;
+			}
 		}
 
 		public async Task<List<string>> GetModels()
@@ -37,8 +48,9 @@ namespace ShaosilBot.Core.Providers
 			var response = await _httpClient.GetAsync("models/?model_type=main");
 			if (response.IsSuccessStatusCode)
 			{
+				// Show the first one as default
 				var body = JsonConvert.DeserializeObject<Model>(await response.Content.ReadAsStringAsync());
-				return body?.Models?.Where(m => _validModels.Contains(m.ModelName)).Select(m => m.ModelName).ToList() ?? [];
+				return _validModels.Where(m => body?.Models?.Any(b => b.ModelName == m) ?? false).Select((m, i) => $"{m}{(i == 0 ? " (Default)" : string.Empty)}").ToList() ?? [];
 			}
 			else
 			{

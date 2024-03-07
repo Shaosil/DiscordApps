@@ -50,6 +50,7 @@ builder.Services.AddScoped<IHttpUtilities, HttpUtilities>();
 builder.Services.AddScoped<SlashCommandWrapper>();
 builder.Services.AddScoped<ITwitchProvider, TwitchProvider>();
 builder.Services.AddScoped<IGameDealSearchProvider, GameDealSearchProvider>();
+builder.Services.AddScoped<IImageGenerationProvider, InvokeAIProvider>();
 var derivedCommandTypes = typeof(BaseCommand).Assembly.DefinedTypes.Where(t => t.BaseType == typeof(BaseCommand)).ToList();
 foreach (var commandType in derivedCommandTypes)
 {

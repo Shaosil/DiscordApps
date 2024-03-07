@@ -6,16 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-ServerManager-716301b7-6443-445e-8adc-e85e164ca551</UserSecretsId>
     <PublishSingleFile>true</PublishSingleFile>
+    <OutputType>WinExe</OutputType>
   </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DebugType>none</DebugType>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DebugType>none</DebugType>
-  </PropertyGroup>
-
+    
   <ItemGroup>
     <Compile Remove="Logs\**" />
     <Content Remove="Logs\**" />
@@ -37,13 +30,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Bat Files\Publish.bat">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Bat Files\start-invokeai.bat">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
-    <Target Name="StartService" AfterTargets="AfterPublish">
-        <Message Text="Starting service after publish." Importance="high" />
-        <Exec Command="sc.exe start ServerManager" />
-    </Target>
 </Project>

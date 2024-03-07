@@ -6,8 +6,7 @@ using ServerManager.Core.Interfaces;
 using ServerManager.Core.Models;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
-using System.Runtime.InteropServices;
-using System.ServiceProcess;
+using System.Diagnostics;
 using static ServerManager.Core.Models.QueueMessage;
 
 namespace ShaosilBot.Core.SlashCommands
@@ -177,19 +176,9 @@ namespace ShaosilBot.Core.SlashCommands
 			// Verify the ServerManager service is running if needed
 			if (group.Name == "bds" || group.Name == "invokeai")
 			{
-				bool serviceRunning = false;
-				if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+				if (Process.GetProcessesByName("ServerManager").Length == 0)
 				{
-					var sc = new ServiceController("ServerManager");
-					try
-					{
-						serviceRunning = sc.Status == ServiceControllerStatus.Running;
-					}
-					catch (InvalidOperationException) { } // This means the service doesn't exist
-				}
-				if (!serviceRunning)
-				{
-					return cmdWrapper.Respond($"ERROR: The ServerManager service does not appear to be running on the server.", ephemeral: true);
+					return cmdWrapper.Respond($"ERROR: The server manager does not appear to be running.", ephemeral: true);
 				}
 			}
 
@@ -215,7 +204,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 					if (completedTask == timeoutTask)
 					{
-						await cmdWrapper.Command.FollowupAsync("Timeout while waiting for response - ask Shaosil to verify the ServerManager service is running.");
+						await cmdWrapper.Command.FollowupAsync("Timeout while waiting for response - ask Shaosil to verify the server manager is running.");
 					}
 					else
 					{

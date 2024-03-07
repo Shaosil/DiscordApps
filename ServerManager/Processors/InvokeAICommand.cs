@@ -91,7 +91,6 @@ namespace ServerManager.Processors
 				// Start new process
 				_server = new Process();
 				_server.StartInfo.FileName = serverFile.FullName;
-				_server.StartInfo.CreateNoWindow = false;
 				_server.Start();
 
 				// Ping version check API for up to 50 seconds
@@ -119,7 +118,7 @@ namespace ServerManager.Processors
 				if (!startedSuccessfully)
 				{
 					// Kill process
-					_server.Kill();
+					_server.Kill(true);
 					_server = null;
 
 					return new QueueMessageResponse($"WARNING: InvokeAI process NOT started successfully.");
@@ -138,7 +137,7 @@ namespace ServerManager.Processors
 			if (_server != null)
 			{
 				// Simply kill the process
-				_server.Kill();
+				_server.Kill(true);
 				_server = null;
 
 				return new QueueMessageResponse("InvokeAI process successfully terminated.");

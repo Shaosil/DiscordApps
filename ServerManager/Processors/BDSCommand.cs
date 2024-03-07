@@ -165,7 +165,7 @@ namespace ServerManager.Processors
 				if (!startedSuccessfully)
 				{
 					// Kill process
-					_server.Kill();
+					_server.Kill(true);
 					_serverInput?.Close();
 					_serverInput?.Dispose();
 					_server = null;
@@ -203,7 +203,7 @@ namespace ServerManager.Processors
 				if (!quitSuccessfully && force)
 				{
 					// Kill the process manually
-					_server.Kill();
+					_server.Kill(true);
 				}
 
 				_serverInput?.Close();
@@ -230,7 +230,7 @@ namespace ServerManager.Processors
 
 				if (existingProcess != null)
 				{
-					existingProcess.Kill();
+					existingProcess.Kill(true);
 					return new QueueMessageResponse("Unmanaged Bedrock Dedicated Server has successfully been forcefully terminated.");
 				}
 				else
