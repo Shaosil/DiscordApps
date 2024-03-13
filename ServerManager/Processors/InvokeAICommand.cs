@@ -40,8 +40,7 @@ namespace ServerManager.Processors
 				switch (message.Instructions.ToLower())
 				{
 					case SupportedCommands.InvokeAI.Status:
-						bool isOffline = _server == null && !ProcessAlreadyRunning();
-						response = new QueueMessageResponse($"InvokeAI is **{(isOffline ? "OFFLINE" : "ONLINE")}**");
+						response = new QueueMessageResponse($"InvokeAI is **{(IsOnline() ? "ONLINE" : "OFFLINE")}**");
 						break;
 
 					case SupportedCommands.InvokeAI.Startup:
@@ -71,11 +70,31 @@ namespace ServerManager.Processors
 			return response;
 		}
 
+		private bool IsOnline()
+		{
+			// Is the server managed and running?
+			if (!(_server?.HasExited ?? true))
+			{
+				return true;
+			}
+
+			// Did we find an existing process?
+			var localServer = System.Diagnostics.Process.GetProcessesByName("python").FirstOrDefault(p => p.Modules.Count > 100 && p.Modules.Cast<ProcessModule>().Any(m => m.FileName.Contains("\\invokeai\\")))
+				?? System.Diagnostics.Process.GetProcessesByName("invokeai-web").FirstOrDefault();
+
+			return localServer != null;
+		}
+
 		private async Task<QueueMessageResponse> Startup()
 		{
 			try
 			{
-				if (_server != null || ProcessAlreadyRunning())
+				if (!_configuration.GetValue<bool>("InvokeAIEnabled"))
+				{
+					return new QueueMessageResponse("WARNING: The server owner has disabled the InvokeAI commands for now.");
+				}
+
+				if (IsOnline())
 				{
 					return new QueueMessageResponse("Existing InvokeAI process found. No action taken.");
 				}
@@ -134,6 +153,11 @@ namespace ServerManager.Processors
 
 		private QueueMessageResponse Shutdown()
 		{
+			if (!_configuration.GetValue<bool>("InvokeAIEnabled"))
+			{
+				return new QueueMessageResponse("WARNING: The server owner has disabled the InvokeAI commands for now.");
+			}
+
 			if (_server != null)
 			{
 				// Simply kill the process
@@ -147,15 +171,6 @@ namespace ServerManager.Processors
 				// If we aren't aware of it here, do nothing
 				return new QueueMessageResponse("WARNING: No existing managed InvokeAI instance found. No action taken.");
 			}
-		}
-
-		private bool ProcessAlreadyRunning()
-		{
-			// If it's running already, do nothing
-			var localServer = System.Diagnostics.Process.GetProcessesByName("python").FirstOrDefault(p => p.Modules.Count > 100 && p.Modules.Cast<ProcessModule>().Any(m => m.FileName.Contains("\\invokeai\\")))
-				?? System.Diagnostics.Process.GetProcessesByName("invokeai-web").FirstOrDefault();
-
-			return localServer != null;
 		}
 	}
 }

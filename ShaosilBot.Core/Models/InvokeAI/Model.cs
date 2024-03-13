@@ -3,7 +3,6 @@ using static ShaosilBot.Core.Models.InvokeAI.Model;
 
 namespace ShaosilBot.Core.Models.InvokeAI
 {
-
 	public record Model([property: JsonProperty("models")] IReadOnlyList<Content> Models)
 	{
 		public record Content(

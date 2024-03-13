@@ -1,4 +1,5 @@
-﻿using ShaosilBot.Core.Providers;
+﻿using ShaosilBot.Core.Singletons;
+using System.Text.RegularExpressions;
 
 namespace ShaosilBot.Tests
 {
@@ -24,6 +25,12 @@ namespace ShaosilBot.Tests
 		public async Task GetModels_Succeeds()
 		{
 			Assert.IsTrue((await SUT.GetModels()).Count > 0);
+		}
+
+		[TestMethod]
+		public void MyTestMethod()
+		{
+			var test = Regex.Match("Image Generation-Delete-4BF5A8DE-05C2-4D5C-B4C1-B211D2CECCB4", "(.+?)-(.+?)-(.+)");
 		}
 	}
 }

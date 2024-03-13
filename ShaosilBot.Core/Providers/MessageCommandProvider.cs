@@ -6,6 +6,7 @@ using ShaosilBot.Core.Models;
 using ShaosilBot.Core.SlashCommands;
 using System.Text;
 using System.Text.RegularExpressions;
+using static ShaosilBot.Core.Providers.MessageCommandProvider.MessageComponentNames;
 
 namespace ShaosilBot.Core.Providers
 {
@@ -13,47 +14,61 @@ namespace ShaosilBot.Core.Providers
 	{
 		private const string ChannelVisibilitiesFile = "ChannelVisibilityMappings.json";
 
-		// Hardcoded channel visibility ID
-		private const ulong CHANNEL_VISIBILITIES_ID = 1052640054100639784;
-
 		private readonly ILogger<SlashCommandProvider> _logger;
 		private readonly RemindMeCommand _remindMeCommand;
+		private readonly ImageGenerateCommand _imageGenerateCommand;
 		private readonly PollCommand _pollCommand;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IDiscordRestClientProvider _restClientProvider;
 
-		public class CommandNames
+		public static class MessageCommandNames
 		{
 			public const string RemindMe = "Remind Me!";
 			public const string MockThis = "mOcK tHiS";
 
-			public class Modals
+			public static class Modals
 			{
 				public const string CustomReminder = "custom-reminder-modal";
 			}
 		}
 
+		public static class MessageComponentNames
+		{
+			public static class ImageGeneration
+			{
+				public const string ImageGenerate = "Image Generate";
+				public const string CmdCancel = "Cancel"; // By batch ID
+				public const string CmdRequeue = "Requeue"; // By image name
+				public const string CmdDelete = "Delete"; // By image name
+			}
+		}
+
 		public MessageCommandProvider(ILogger<SlashCommandProvider> logger,
 			RemindMeCommand remindMeCommand,
+			ImageGenerateCommand imageGenerateCommand,
 			PollCommand pollCommand,
 			IFileAccessHelper fileAccessHelper,
 			IDiscordRestClientProvider restClientProvider)
 		{
 			_logger = logger;
 			_remindMeCommand = remindMeCommand;
+			_imageGenerateCommand = imageGenerateCommand;
 			_pollCommand = pollCommand;
 			_fileAccessHelper = fileAccessHelper;
 			_restClientProvider = restClientProvider;
 		}
 
+		/// <summary>
+		/// Handles message commands (i.e. app commands, or the custom context/right click menu things)
+		/// </summary>
 		public string HandleMessageCommand(RestMessageCommand command)
 		{
 			switch (command.Data.Name)
 			{
-				case CommandNames.RemindMe:
+				case MessageCommandNames.RemindMe:
 					return _remindMeCommand.HandleRemindMeMessageCommand(command);
 
-				case CommandNames.MockThis:
+				case MessageCommandNames.MockThis:
 					return ExecuteMockReply(command);
 
 				default:
@@ -61,6 +76,9 @@ namespace ShaosilBot.Core.Providers
 			}
 		}
 
+		/// <summary>
+		/// Handles message components (i.e. buttons, dropdowns, etc within a message)
+		/// </summary>
 		public async Task<string> HandleMessageComponent(RestMessageComponent messageComponent)
 		{
 			string customButtonId = messageComponent.Data.CustomId;
@@ -68,9 +86,13 @@ namespace ShaosilBot.Core.Providers
 			switch (messageComponent.Data.Type)
 			{
 				case ComponentType.Button:
-					if (customButtonId.StartsWith($"{CommandNames.RemindMe}-"))
+					if (customButtonId.StartsWith($"{MessageCommandNames.RemindMe}-"))
 					{
 						return await _remindMeCommand.HandleReminderTimeButton(messageComponent);
+					}
+					else if (customButtonId.StartsWith($"{ImageGeneration.ImageGenerate}-"))
+					{
+						return await _imageGenerateCommand.HandleGenerationButton(messageComponent);
 					}
 					else
 					{
@@ -101,7 +123,7 @@ namespace ShaosilBot.Core.Providers
 		{
 			switch (modal.Data.CustomId)
 			{
-				case CommandNames.Modals.CustomReminder:
+				case MessageCommandNames.Modals.CustomReminder:
 					return await _remindMeCommand.HandleReminderTimeModal(modal);
 
 				default:

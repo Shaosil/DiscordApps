@@ -140,14 +140,7 @@ OPTIONAL ARGS:
 			// Set a task to run AFTER the response is sent so we can grab it and store the message ID
 			return cmdWrapper.DeferWithCode(async () =>
 			{
-				int tries = 0;
-				IUserMessage? response = null;
-				do
-				{
-					await Task.Delay(250);
-					response = await cmdWrapper.Command.GetOriginalResponseAsync();
-				} while (tries++ < 3 && response == null);
-
+				var response = await cmdWrapper.GetOriginalMessage();
 				if (response == null)
 				{
 					await cmdWrapper.Command.FollowupAsync("*Error: could not load original response!*");
@@ -220,12 +213,7 @@ OPTIONAL ARGS:
 					// Update description and message if the poll is not blind
 					if (!poll.IsBlind)
 					{
-						var modifiedEmbed = new EmbedBuilder()
-						{
-							Title = originalEmbed.Title,
-							Color = originalEmbed.Color,
-							Description = GetPollDescription(poll)
-						}.Build();
+						var modifiedEmbed = originalEmbed.Copy(newDesc: GetPollDescription(poll));
 
 						// Update the poll or the voting message's referenced message (for multiselect)
 						if (referenceMessage != null)

@@ -83,9 +83,9 @@ namespace ShaosilBot.Core.Providers
 		}
 
 		// TODO: This doesn't really belong here, but I can't put it in MessageCommandProvider because that has different DI scopes
-		public async Task BuildMessageCommands()
+		public async Task BuildAppCommands()
 		{
-			var allMessageNames = typeof(CommandNames).GetFields(BindingFlags.Static | BindingFlags.Public).Select(f => f.GetValue(null)!.ToString()!).ToList();
+			var allMessageNames = typeof(MessageCommandNames).GetFields(BindingFlags.Static | BindingFlags.Public).Select(f => f.GetValue(null)!.ToString()!).ToList();
 
 			var guilds = _restClientProvider.Guilds;
 

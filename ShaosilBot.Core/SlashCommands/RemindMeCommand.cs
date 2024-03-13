@@ -234,11 +234,11 @@ SUBCOMMANDS:
 		{
 			// Pass message ID along via component ID so we have a reference later
 			var components = new ComponentBuilder()
-				.WithButton("15 Minutes", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-{15}")
-				.WithButton("1 Day", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-{60 * 24}")
-				.WithButton("1 Week", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-{60 * 24 * 7}")
-				.WithButton("Custom Hours", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-CustomHours", ButtonStyle.Secondary)
-				.WithButton("Custom Days", $"{CommandNames.RemindMe}-{command.Data.Message.Id}-CustomDays", ButtonStyle.Secondary).Build();
+				.WithButton("15 Minutes", $"{MessageCommandNames.RemindMe}-{command.Data.Message.Id}-{15}")
+				.WithButton("1 Day", $"{MessageCommandNames.RemindMe}-{command.Data.Message.Id}-{60 * 24}")
+				.WithButton("1 Week", $"{MessageCommandNames.RemindMe}-{command.Data.Message.Id}-{60 * 24 * 7}")
+				.WithButton("Custom Hours", $"{MessageCommandNames.RemindMe}-{command.Data.Message.Id}-CustomHours", ButtonStyle.Secondary)
+				.WithButton("Custom Days", $"{MessageCommandNames.RemindMe}-{command.Data.Message.Id}-CustomDays", ButtonStyle.Secondary).Build();
 			return command.Respond("Remind you when?", components: components, ephemeral: true);
 		}
 
@@ -253,7 +253,7 @@ SUBCOMMANDS:
 				// Respond with a modal asking for X hours or days
 				string desc = buttonId.EndsWith("Hours") ? "hours" : "days";
 				var textInput = new TextInputBuilder("Amount", $"amount-{originalMessageId}-{desc}", value: $"{(desc == "hours" ? 1 : 3)}", minLength: 1, maxLength: 3, required: true);
-				return messageComponent.RespondWithModal(new ModalBuilder($"How many {desc} do you want to schedule it?", CommandNames.Modals.CustomReminder).AddTextInput(textInput).Build());
+				return messageComponent.RespondWithModal(new ModalBuilder($"How many {desc} do you want to schedule it?", MessageCommandNames.Modals.CustomReminder).AddTextInput(textInput).Build());
 			}
 			else
 			{

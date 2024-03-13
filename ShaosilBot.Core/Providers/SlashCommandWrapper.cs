@@ -9,7 +9,7 @@ namespace ShaosilBot.Core.Providers
 		private RestSlashCommand _slashCommand;
 		private readonly ILogger<SlashCommandWrapper> _logger;
 
-		public virtual ISlashCommandInteraction Command => _slashCommand;
+		public ISlashCommandInteraction Command => _slashCommand;
 
 		public SlashCommandWrapper(ILogger<SlashCommandWrapper> logger)
 		{
@@ -21,7 +21,7 @@ namespace ShaosilBot.Core.Providers
 			_slashCommand = slash;
 		}
 
-		public virtual Task<string> DeferWithCode(Func<Task> code, bool ephermal = false)
+		public Task<string> DeferWithCode(Func<Task> code, bool ephermal = false)
 		{
 			// Run the code asynchronously before returning a defer response to the client
 			Task.Factory.StartNew(() =>
@@ -36,6 +36,19 @@ namespace ShaosilBot.Core.Providers
 				}
 			}, TaskCreationOptions.LongRunning).ConfigureAwait(false);
 			return Task.FromResult(_slashCommand.Defer(ephermal));
+		}
+
+		public async Task<IUserMessage> GetOriginalMessage()
+		{
+			int tries = 0;
+			IUserMessage? originalMessage;
+			do
+			{
+				await Task.Delay(500);
+				originalMessage = await Command.GetOriginalResponseAsync();
+			} while (tries++ < 5 && originalMessage == null);
+
+			return originalMessage;
 		}
 
 		public string Respond(string? text = null, bool ephemeral = false, MessageComponent? components = null, Embed? embed = null)

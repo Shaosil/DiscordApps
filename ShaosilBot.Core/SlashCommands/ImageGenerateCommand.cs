@@ -1,16 +1,28 @@
 ﻿using Discord;
+using Discord.Rest;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
+using ShaosilBot.Core.Models.InvokeAI;
 using ShaosilBot.Core.Providers;
+using System.Text;
+using System.Text.RegularExpressions;
+using static ShaosilBot.Core.Providers.MessageCommandProvider.MessageComponentNames;
 
 namespace ShaosilBot.Core.SlashCommands
 {
 	public class ImageGenerateCommand : BaseCommand
 	{
+		private readonly ILogger<ImageGenerateCommand> _logger;
+		private readonly IConfiguration _configuration;
 		private readonly IImageGenerationProvider _imageGenerationProvider;
 
-		public ImageGenerateCommand(ILogger<ImageGenerateCommand> logger, IImageGenerationProvider imageGenerationProvider) : base(logger)
+		public ImageGenerateCommand(ILogger<ImageGenerateCommand> logger,
+			IConfiguration configuration,
+			IImageGenerationProvider imageGenerationProvider) : base(logger)
 		{
+			_logger = logger;
+			_configuration = configuration;
 			_imageGenerationProvider = imageGenerationProvider;
 		}
 
@@ -22,15 +34,13 @@ namespace ShaosilBot.Core.SlashCommands
 		public override string HelpDetails => @$"/{CommandName} (enqueue)
 
 SUBCOMMANDS:
-* enqueue (string prompt, [int width, int height, uint seed, string model, string scheduler, int steps, int cfg, bool private])
-    Sends a new item to the image processing queue for generation, with optional configuration parameters.
-
-* list-models
-    Displays all currently available image generation models, and notes the default.";
+* enqueue (string prompt, [string neg-prompt, string model, uint seed, string scheduler, int steps, int cfg, int width, int height, bool private])
+    Sends a new item to the image processing queue for generation, with optional configuration parameters.";
 
 		public override SlashCommandProperties BuildCommand()
 		{
-			int[] validDimensions = [640, 768, 1024];
+			int[] validDimensions = [640, 768, 832, 1024, 1280, 1344];
+			var validModels = _imageGenerationProvider.GetConfigValidModels();
 
 			return new SlashCommandBuilder
 			{
@@ -49,21 +59,22 @@ SUBCOMMANDS:
 								Name = "prompt",
 								Description = "Describe the image you want to generate. Be specific and detailed.",
 								Type = ApplicationCommandOptionType.String,
-								IsRequired = true
+								IsRequired = true,
+								MaxLength = 1000
 							},
 							new SlashCommandOptionBuilder
 							{
-								Name = "width",
-								Description = "How many pixels wide the image should be. Defaults to 1024.",
-								Type = ApplicationCommandOptionType.Integer,
-								Choices = validDimensions.Select(d => new ApplicationCommandOptionChoiceProperties { Name = $"{d}", Value = d }).ToList()
+								Name = "neg-prompt",
+								Description = "An option anti-description of the image you want.",
+								Type = ApplicationCommandOptionType.String,
+								MaxLength = 1000
 							},
 							new SlashCommandOptionBuilder
 							{
-								Name = "height",
-								Description = "How many pixels tall the image should be. Defaults to 1024.",
-								Type = ApplicationCommandOptionType.Integer,
-								Choices = validDimensions.Select(d => new ApplicationCommandOptionChoiceProperties { Name = $"{d}", Value = d }).ToList()
+								Name = "model",
+								Description = "Which image generation model to use.",
+								Type = ApplicationCommandOptionType.String,
+								Choices = validModels.Select(m => new ApplicationCommandOptionChoiceProperties { Name = m.Value, Value = m.Key }).ToList()
 							},
 							new SlashCommandOptionBuilder
 							{
@@ -72,12 +83,6 @@ SUBCOMMANDS:
 								Type = ApplicationCommandOptionType.Integer,
 								MinValue = 0,
 								MaxValue = uint.MaxValue
-							},
-							new SlashCommandOptionBuilder
-							{
-								Name = "model",
-								Description = "Which image generation model to use. Use list-models for details.",
-								Type = ApplicationCommandOptionType.String
 							},
 							new SlashCommandOptionBuilder
 							{
@@ -104,18 +109,25 @@ SUBCOMMANDS:
 							},
 							new SlashCommandOptionBuilder
 							{
+								Name = "width",
+								Description = "How many pixels wide the image should be. Defaults to 1024.",
+								Type = ApplicationCommandOptionType.Integer,
+								Choices = validDimensions.Select(d => new ApplicationCommandOptionChoiceProperties { Name = $"{d}", Value = d }).ToList()
+							},
+							new SlashCommandOptionBuilder
+							{
+								Name = "height",
+								Description = "How many pixels tall the image should be. Defaults to 1024.",
+								Type = ApplicationCommandOptionType.Integer,
+								Choices = validDimensions.Select(d => new ApplicationCommandOptionChoiceProperties { Name = $"{d}", Value = d }).ToList()
+							},
+							new SlashCommandOptionBuilder
+							{
 								Name = "private",
 								Description = "Whether or not the image generation is for your eyes only. Defaults to false.",
 								Type = ApplicationCommandOptionType.Boolean
 							}
 						}
-					},
-
-					new SlashCommandOptionBuilder
-					{
-						Name = "list-models",
-						Description = "Displays all currently available image generation models.",
-						Type = ApplicationCommandOptionType.SubCommand
 					}
 				}.ToList()
 			}.Build();
@@ -126,25 +138,15 @@ SUBCOMMANDS:
 			var subCmd = cmdWrapper.Command.Data.Options.First();
 
 			// Extra params
+			string posPrompt = subCmd.Options.FirstOrDefault(o => o.Name == "prompt")?.Value.ToString() ?? string.Empty;
+			string negPrompt = subCmd.Options.FirstOrDefault(o => o.Name == "neg-prompt")?.Value.ToString() ?? string.Empty;
 			int.TryParse(subCmd.Options.FirstOrDefault(o => o.Name == "width")?.Value.ToString() ?? "1024", out var width);
 			int.TryParse(subCmd.Options.FirstOrDefault(o => o.Name == "height")?.Value.ToString() ?? "1024", out var height);
 			string? seedStr = subCmd.Options.FirstOrDefault(o => o.Name == "seed")?.Value.ToString();
-			uint seed;
-			if (seedStr == null)
-			{
-				// TODO - MOVE TO PROVIDER
-				var uintBytes = new byte[4];
-				new Random().NextBytes(uintBytes);
-				seed = BitConverter.ToUInt32(uintBytes);
-			}
-			else
-			{
-				seed = uint.Parse(seedStr);
-			}
 			string? model = subCmd.Options.FirstOrDefault(o => o.Name == "model")?.Value.ToString();
 			string scheduler = subCmd.Options.FirstOrDefault(o => o.Name == "scheduler")?.Value.ToString() ?? "dpmpp_2m_sde_k";
 			int.TryParse(subCmd.Options.FirstOrDefault(o => o.Name == "steps")?.Value.ToString() ?? "35", out var steps);
-			int.TryParse(subCmd.Options.FirstOrDefault(o => o.Name == "cfg")?.Value.ToString() ?? "7", out var cfg);
+			string cfg = subCmd.Options.FirstOrDefault(o => o.Name == "cfg")?.Value.ToString() ?? "7";
 			bool.TryParse(subCmd.Options.FirstOrDefault(o => o.Name == "private")?.Value.ToString() ?? false.ToString(), out var isPrivate);
 
 			// Since everything relies on web requests, defer with code
@@ -153,31 +155,136 @@ SUBCOMMANDS:
 				// Pokemon style exception handling
 				try
 				{
-					// List models
-					if (subCmd.Name == "list-models")
+					if (!await _imageGenerationProvider.IsOnline())
 					{
-						if (!await _imageGenerationProvider.IsOnline())
+						await cmdWrapper.Command.FollowupAsync("The image generation service is not running. Ask an admin to start it for you.");
+					}
+					else
+					{
+						// Load the original message so we can pass it to the image provider for later modifications
+						var originalMessage = await cmdWrapper.GetOriginalMessage();
+						if (originalMessage == null)
 						{
-							await cmdWrapper.Command.FollowupAsync("The image generation service is not running. Ask an admin to start it for you.");
+							await cmdWrapper.Command.FollowupAsync("Error: Could not load deferred message! Nothing sent to queue.");
+							return;
+						}
+
+						// Make sure there are not more than N queue messages already
+						var numPending = (await _imageGenerationProvider.GetPendingQueueItems()).Items.Count;
+						if (numPending >= _configuration.GetValue<int>("InvokeAIQueueLimit"))
+						{
+							await cmdWrapper.Command.FollowupAsync("Sorry, too many items in the image queue! Wait a little then try again.");
 						}
 						else
 						{
-							var models = (await _imageGenerationProvider.GetModels()).Select(m => $"* {m}");
-							await cmdWrapper.Command.FollowupAsync($"Available models:\n\n{string.Join('\n', models)}");
-						}
-					}
+							try
+							{
+								// Followup with in-progress message
+								var queueData = await _imageGenerationProvider.EnqueueBatchItem(originalMessage, cmdWrapper.Command.User, posPrompt, negPrompt, width, height, seedStr, model, scheduler, steps, cfg);
+								var messageData = BuildMessageDetailsFromQueueItem(queueData);
 
-					// The big one
-					else if (subCmd.Name == "enqueue")
-					{
-						await cmdWrapper.Command.FollowupAsync("Work in progress! Poke Shaosil for more details. Or don't. That's probably better.");
+								await cmdWrapper.Command.FollowupAsync($"{cmdWrapper.Command.User.Mention} is generating an image!", embed: messageData.Key.Build(), components: messageData.Value.Build());
+							}
+							catch (Exception ex)
+							{
+								await cmdWrapper.Command.FollowupAsync($"Error while enqueuing item: {ex.Message}");
+							}
+						}
 					}
 				}
 				catch (Exception ex)
 				{
 					await cmdWrapper.Command.FollowupAsync($"ERROR: {ex.Message}");
 				}
-			}, ephermal: true /* subCmd.Name == "list-models" || isPrivate*/);
+			}, ephermal: isPrivate);
+		}
+
+		public async Task<string> HandleGenerationButton(RestMessageComponent messageComponent)
+		{
+			// Make sure it's even online first
+			if (!await _imageGenerationProvider.IsOnline())
+			{
+				return messageComponent.Respond($"The image generation service is not running. Ask an admin to start it for you.", ephemeral: true);
+			}
+
+			// Custom ID is always in format (main ID)-(command)-(GUID)
+			string[] msgIDs = Regex.Match(messageComponent.Data.CustomId, ".+?-(.+?)-(.+)").Groups.Cast<Group>().Skip(1).Select(g => g.Value).ToArray();
+			string command = msgIDs[0];
+			string ID = msgIDs[1];
+
+			switch (command)
+			{
+				case ImageGeneration.CmdCancel:
+					// If successful, remove the original message
+					if (_imageGenerationProvider.TryCancelQueueItem(messageComponent.User, ID, out var cancelResponse))
+					{
+						await messageComponent.Message.DeleteAsync();
+					}
+					return messageComponent.Respond(cancelResponse, ephemeral: true);
+
+				case ImageGeneration.CmdRequeue:
+
+					IUserMessage? requeueMessage = null;
+					try
+					{
+						// Send a new message
+						requeueMessage = await messageComponent.Channel.SendMessageAsync($"{messageComponent.User.Mention} is generating an image!");
+
+						// Requeue and modify message
+						var requeueData = await _imageGenerationProvider.RequeueImage(ID, requeueMessage, messageComponent.User);
+						var requeueMessageData = BuildMessageDetailsFromQueueItem(requeueData);
+						await requeueMessage.ModifyAsync(p =>
+						{
+							p.Embed = requeueMessageData.Key.Build();
+							p.Components = requeueMessageData.Value.Build();
+						});
+
+					}
+					catch (Exception ex)
+					{
+						if (requeueMessage != null)
+						{
+							await requeueMessage.ModifyAsync(p => { p.Content = $"Error requeueing image: {ex.Message}"; });
+						}
+					}
+
+					// Always silently defer the button interaction since we create a new message
+					return messageComponent.Defer();
+
+				case ImageGeneration.CmdDelete:
+					// If successful, remove the original message
+					if (_imageGenerationProvider.TryDeleteImage(messageComponent.User, ID, out var deleteResponse))
+					{
+						await messageComponent.Message.DeleteAsync();
+					}
+					return messageComponent.Respond(deleteResponse, ephemeral: true);
+
+				default:
+					return messageComponent.Respond("Unknown button command! Poke Shaosil for more details.", ephemeral: true);
+			}
+		}
+
+		private KeyValuePair<EmbedBuilder, ComponentBuilder> BuildMessageDetailsFromQueueItem(FriendlyEnqueueResult queueItem)
+		{
+			var descSB = new StringBuilder();
+			descSB.AppendLine($"Prompt: {queueItem.PositivePrompt}");
+			if (!string.IsNullOrWhiteSpace(queueItem.NegativePrompt))
+			{
+				descSB.AppendLine($"Negative Prompt: {queueItem.NegativePrompt}");
+			}
+			descSB.AppendLine($"Seed: {queueItem.Seed}");
+			descSB.AppendLine($"Model: {queueItem.Model}");
+			descSB.AppendLine($"Steps: {queueItem.Steps}");
+			descSB.AppendLine($"CFG: {queueItem.CFG}");
+			var embedBuilder = new EmbedBuilder()
+			{
+				Color = new Color(0x7c0089),
+				Title = $"Status: Queued ({(queueItem.LinePos > 1 ? $"#{queueItem.LinePos}" : "Next")} in line)",
+				Description = descSB.ToString()
+			};
+			var componentBuilder = new ComponentBuilder().AddRow(new ActionRowBuilder().WithButton("Cancel", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdCancel}-{queueItem.BatchID}", ButtonStyle.Danger));
+
+			return new KeyValuePair<EmbedBuilder, ComponentBuilder>(embedBuilder, componentBuilder);
 		}
 	}
 }

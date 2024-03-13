@@ -50,12 +50,12 @@ namespace ShaosilBot.Core.Models.InvokeAI
 		public record SdxlDenoiseLatentsNode(
 			[property: JsonProperty("type")] string Type,
 			[property: JsonProperty("id")] string Id,
-			[property: JsonProperty("cfg_scale")] int CfgScale,
-			[property: JsonProperty("cfg_rescale_multiplier")] int CfgRescaleMultiplier,
+			[property: JsonProperty("cfg_scale")] string CfgScale,
+			[property: JsonProperty("cfg_rescale_multiplier")] string CfgRescaleMultiplier,
 			[property: JsonProperty("scheduler")] string Scheduler,
 			[property: JsonProperty("steps")] int Steps,
-			[property: JsonProperty("denoising_start")] int DenoisingStart,
-			[property: JsonProperty("denoising_end")] int DenoisingEnd,
+			[property: JsonProperty("denoising_start")] string DenoisingStart,
+			[property: JsonProperty("denoising_end")] string DenoisingEnd,
 			[property: JsonProperty("is_intermediate")] bool IsIntermediate
 		);
 
@@ -71,8 +71,8 @@ namespace ShaosilBot.Core.Models.InvokeAI
 			[property: JsonProperty("id")] string Id,
 			[property: JsonProperty("type")] string Type,
 			[property: JsonProperty("generation_mode")] string GenerationMode,
-			[property: JsonProperty("cfg_scale")] int CfgScale,
-			[property: JsonProperty("cfg_rescale_multiplier")] int CfgRescaleMultiplier,
+			[property: JsonProperty("cfg_scale")] string CfgScale,
+			[property: JsonProperty("cfg_rescale_multiplier")] string CfgRescaleMultiplier,
 			[property: JsonProperty("height")] int Height,
 			[property: JsonProperty("width")] int Width,
 			[property: JsonProperty("negative_prompt")] string NegativePrompt,
@@ -81,7 +81,7 @@ namespace ShaosilBot.Core.Models.InvokeAI
 			[property: JsonProperty("rand_device")] string RandDevice,
 			[property: JsonProperty("scheduler")] string Scheduler,
 			[property: JsonProperty("negative_style_prompt")] string NegativeStylePrompt,
-			[property: JsonProperty("vae")] Vae Vae
+			[property: JsonProperty("vae")] VaeModel Vae
 		);
 
 		public record LinearUiOutputNode(
@@ -100,11 +100,6 @@ namespace ShaosilBot.Core.Models.InvokeAI
 
 		public record Board(
 			[property: JsonProperty("board_id")] string BoardId
-		);
-
-		public record Vae(
-			[property: JsonProperty("model_name")] string ModelName,
-			[property: JsonProperty("base_model")] string BaseModel
 		);
 
 		public record VaeLoaderNode(

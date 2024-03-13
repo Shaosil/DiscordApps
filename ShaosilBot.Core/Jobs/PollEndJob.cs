@@ -1,5 +1,4 @@
-﻿using Discord;
-using Quartz;
+﻿using Quartz;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models.SQLite;
 using ShaosilBot.Core.SlashCommands;
@@ -47,17 +46,8 @@ namespace ShaosilBot.Core.Jobs
 					if (originalMessage != null)
 					{
 						// Remove the components and update the description
-						var originalEmbed = originalMessage.Embeds.First();
-						string newDesc = _pollCommand.GetPollDescription(poll, true);
-
-						var modifiedEmbed = new EmbedBuilder()
-						{
-							Title = originalEmbed.Title,
-							Color = originalEmbed.Color,
-							Description = newDesc
-						};
-
-						await originalChannel.ModifyMessageAsync(messageID, (m) => { m.Embed = modifiedEmbed.Build(); m.Components = null; });
+						var modifiedEmbed = originalMessage.Embeds.First().Copy(newDesc: _pollCommand.GetPollDescription(poll, true));
+						await originalChannel.ModifyMessageAsync(messageID, (m) => { m.Embed = modifiedEmbed; m.Components = null; });
 					}
 
 					// Delete separate voting message if one exists

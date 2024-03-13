@@ -39,7 +39,7 @@ namespace ShaosilBot.Core.Singletons
 					// Start long running commands on a new thread
 					await _client.SetGameAsync("/help for info, !c to chat");
 					await _slashCommandProvider.BuildGuildCommands();
-					await _slashCommandProvider.BuildMessageCommands();
+					await _slashCommandProvider.BuildAppCommands();
 				}
 				catch (Exception ex)
 				{

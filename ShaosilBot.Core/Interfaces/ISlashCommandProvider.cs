@@ -8,7 +8,7 @@ namespace ShaosilBot.Core.Interfaces
 		IReadOnlyDictionary<string, SlashCommandProperties> CommandProperties { get; }
 
 		Task BuildGuildCommands();
-		Task BuildMessageCommands();
+		Task BuildAppCommands();
 		BaseCommand GetSlashCommandHandler(string name);
 	}
 }

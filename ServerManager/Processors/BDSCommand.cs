@@ -44,7 +44,11 @@ namespace ServerManager.Processors
 						break;
 
 					case SupportedCommands.BDS.Startup:
-						if (_server != null)
+						if (!_configuration.GetValue<bool>("BDSEnabled"))
+						{
+							response = new QueueMessageResponse("WARNING: The server owner has disabled the BDS commands for now.");
+						}
+						else if (_server != null)
 						{
 							response = new QueueMessageResponse("A Bedrock dedicated server instance is already running. No action taken.");
 						}
@@ -73,6 +77,12 @@ namespace ServerManager.Processors
 						break;
 
 					case SupportedCommands.BDS.Shutdown:
+						if (!_configuration.GetValue<bool>("BDSEnabled"))
+						{
+							response = new QueueMessageResponse("WARNING: The server owner has disabled the BDS commands for now.");
+							break;
+						}
+
 						bool force = (bool?)message.Arguments.FirstOrDefault() ?? false;
 						var connectedPlayers = await GetConnectedPlayers();
 						if (connectedPlayers.Any() && !force)

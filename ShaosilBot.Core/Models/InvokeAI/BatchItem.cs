@@ -8,10 +8,12 @@ namespace ShaosilBot.Core.Models.InvokeAI
 	)
 	{
 		public record BatchItem(
+			[property: JsonProperty("batch_id", NullValueHandling = NullValueHandling.Ignore)] string? BatchID,
 			[property: JsonProperty("graph")] Graph Graph,
 			[property: JsonProperty("runs")] int Runs,
 			[property: JsonProperty("data")] IReadOnlyList<List<Data>> Data
 		);
+
 		public record Graph(
 			[property: JsonProperty("id")] string Id,
 			[property: JsonProperty("nodes")] BatchNodes Nodes,
