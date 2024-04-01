@@ -36,7 +36,7 @@ namespace ShaosilBot.Core.Singletons
 			_configuration = configuration;
 			_httpClient = httpClientFactory.CreateClient();
 			_httpClient.BaseAddress = new Uri(_configuration["InvokeAIBaseURL"]!);
-			_httpClient.Timeout = TimeSpan.FromSeconds(5); // None of the endpoints should take more than a second or two to be called
+			_httpClient.Timeout = TimeSpan.FromSeconds(2); // None of the endpoints should take more than a second or two to be called
 
 			// Subscribe to socket.io events
 			var socketOptions = new SocketIOOptions { Path = "/ws/socket.io", ConnectionTimeout = TimeSpan.FromSeconds(3), ReconnectionAttempts = 0 };
@@ -73,7 +73,6 @@ namespace ShaosilBot.Core.Singletons
 				var response = await _httpClient.GetAsync("app/version");
 				if (response.IsSuccessStatusCode && !_socket.Connected)
 				{
-
 					// Handle reconnect attempts manually since it often decides to speed through the timeouts internally
 					int retries = 0;
 					do
@@ -86,7 +85,6 @@ namespace ShaosilBot.Core.Singletons
 						catch (ConnectionException connEx)
 						{
 							_logger.LogError($"Connection error! {connEx}");
-							return false; // TODO: Don't have a hard dependency on socket.io
 						}
 
 						if (!_socket.Connected)
@@ -96,9 +94,9 @@ namespace ShaosilBot.Core.Singletons
 					} while (!_socket.Connected && retries < 5);
 				}
 
-				return response.IsSuccessStatusCode;
+				return response.IsSuccessStatusCode && _socket.Connected; // TODO: Don't have a hard dependency on socket.io
 			}
-			catch (HttpRequestException)
+			catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException)
 			{
 				return false;
 			}
@@ -446,14 +444,13 @@ namespace ShaosilBot.Core.Singletons
 			return false;
 		}
 
-		public async Task<FriendlyEnqueueResult> RequeueImage(string imageName, IUserMessage message, IUser requestor)
+		public async Task<FriendlyEnqueueResult> RequeueImage(string imageName, IUserMessage message, IUser requestor, string posPrompt, string? negPrompt, string? seedStr, string model, int steps)
 		{
 			// Fetch image first
 			var imageData = (await GetImageMetadata(imageName))!;
 
-			// Requeue with a blank seed and return the result
-			return await EnqueueBatchItem(message, requestor, imageData.PositivePrompt, imageData.NegativePrompt, imageData.Width, imageData.Height, null,
-				imageData.Model.ModelName, imageData.Scheduler, imageData.Steps, imageData.CfgScale);
+			// Requeue with a blank seed and updated parameters and return the result
+			return await EnqueueBatchItem(message, requestor, posPrompt, negPrompt ?? string.Empty, imageData.Width, imageData.Height, seedStr, model, imageData.Scheduler, steps, imageData.CfgScale);
 		}
 
 		private async Task<ImageMetadata?> GetImageMetadata(string imageName)
@@ -652,9 +649,7 @@ namespace ShaosilBot.Core.Singletons
 						}
 						else
 						{
-							// Clean up tracked item if the message no longer exists
-							_logger.LogWarning("Could not find original message! Removing tracked object.");
-							_trackedBatches.Remove(data.QueueBatchID);
+							_logger.LogWarning("Could not find original message!");
 						}
 					}
 					catch (Exception ex)

@@ -17,7 +17,7 @@ namespace ShaosilBot.Core.Interfaces
 		Task<QueueItemCollection.QueueItem?> GetCurrentQueueItem();
 		Task<QueueItemCollection> GetPendingQueueItems();
 		bool TryCancelQueueItem(IUser user, string ID, out string response);
-		Task<FriendlyEnqueueResult> RequeueImage(string imageName, IUserMessage message, IUser requestor);
+		Task<FriendlyEnqueueResult> RequeueImage(string imageName, IUserMessage message, IUser requestor, string posPrompt, string? negPrompt, string? seedStr, string model, int steps);
 		bool TryDeleteImage(IUser user, string imageName, out string deleteResponse);
 	}
 }

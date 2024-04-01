@@ -29,6 +29,7 @@ namespace ShaosilBot.Core.Providers
 			public static class Modals
 			{
 				public const string CustomReminder = "custom-reminder-modal";
+				public const string RequeueImage = "requeue-image-modal";
 			}
 		}
 
@@ -123,8 +124,11 @@ namespace ShaosilBot.Core.Providers
 		{
 			switch (modal.Data.CustomId)
 			{
-				case MessageCommandNames.Modals.CustomReminder:
+				case string s when s.StartsWith(MessageCommandNames.Modals.CustomReminder):
 					return await _remindMeCommand.HandleReminderTimeModal(modal);
+
+				case string s when s.StartsWith(MessageCommandNames.Modals.RequeueImage):
+					return await _imageGenerateCommand.HandleRequeueModal(modal);
 
 				default:
 					return modal.Respond("Unknown modal type! Poke Shaosil for details.", ephemeral: true);

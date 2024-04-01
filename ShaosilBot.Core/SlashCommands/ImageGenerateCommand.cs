@@ -7,6 +7,7 @@ using ShaosilBot.Core.Models.InvokeAI;
 using ShaosilBot.Core.Providers;
 using System.Text;
 using System.Text.RegularExpressions;
+using static ShaosilBot.Core.Providers.MessageCommandProvider;
 using static ShaosilBot.Core.Providers.MessageCommandProvider.MessageComponentNames;
 
 namespace ShaosilBot.Core.SlashCommands
@@ -34,7 +35,7 @@ namespace ShaosilBot.Core.SlashCommands
 		public override string HelpDetails => @$"/{CommandName} (enqueue)
 
 SUBCOMMANDS:
-* enqueue (string prompt, [string neg-prompt, string model, uint seed, string scheduler, int steps, int cfg, int width, int height, bool private])
+* enqueue (string prompt, [string neg-prompt, string model, uint seed, string scheduler, int steps, int cfg, int width, int height])
     Sends a new item to the image processing queue for generation, with optional configuration parameters.";
 
 		public override SlashCommandProperties BuildCommand()
@@ -120,12 +121,6 @@ SUBCOMMANDS:
 								Description = "How many pixels tall the image should be. Defaults to 1024.",
 								Type = ApplicationCommandOptionType.Integer,
 								Choices = validDimensions.Select(d => new ApplicationCommandOptionChoiceProperties { Name = $"{d}", Value = d }).ToList()
-							},
-							new SlashCommandOptionBuilder
-							{
-								Name = "private",
-								Description = "Whether or not the image generation is for your eyes only. Defaults to false.",
-								Type = ApplicationCommandOptionType.Boolean
 							}
 						}
 					}
@@ -147,7 +142,6 @@ SUBCOMMANDS:
 			string scheduler = subCmd.Options.FirstOrDefault(o => o.Name == "scheduler")?.Value.ToString() ?? "dpmpp_2m_sde_k";
 			int.TryParse(subCmd.Options.FirstOrDefault(o => o.Name == "steps")?.Value.ToString() ?? "35", out var steps);
 			string cfg = subCmd.Options.FirstOrDefault(o => o.Name == "cfg")?.Value.ToString() ?? "7";
-			bool.TryParse(subCmd.Options.FirstOrDefault(o => o.Name == "private")?.Value.ToString() ?? false.ToString(), out var isPrivate);
 
 			// Since everything relies on web requests, defer with code
 			return await cmdWrapper.DeferWithCode(async () =>
@@ -196,7 +190,7 @@ SUBCOMMANDS:
 				{
 					await cmdWrapper.Command.FollowupAsync($"ERROR: {ex.Message}");
 				}
-			}, ephermal: isPrivate);
+			});
 		}
 
 		public async Task<string> HandleGenerationButton(RestMessageComponent messageComponent)
@@ -223,33 +217,20 @@ SUBCOMMANDS:
 					return messageComponent.Respond(cancelResponse, ephemeral: true);
 
 				case ImageGeneration.CmdRequeue:
-
-					IUserMessage? requeueMessage = null;
-					try
-					{
-						// Send a new message
-						requeueMessage = await messageComponent.Channel.SendMessageAsync($"{messageComponent.User.Mention} is generating an image!");
-
-						// Requeue and modify message
-						var requeueData = await _imageGenerationProvider.RequeueImage(ID, requeueMessage, messageComponent.User);
-						var requeueMessageData = BuildMessageDetailsFromQueueItem(requeueData);
-						await requeueMessage.ModifyAsync(p =>
-						{
-							p.Embed = requeueMessageData.Key.Build();
-							p.Components = requeueMessageData.Value.Build();
-						});
-
-					}
-					catch (Exception ex)
-					{
-						if (requeueMessage != null)
-						{
-							await requeueMessage.ModifyAsync(p => { p.Content = $"Error requeueing image: {ex.Message}"; });
-						}
-					}
-
-					// Always silently defer the button interaction since we create a new message
-					return messageComponent.Defer();
+					// Just send a modal at this point (embed image ID in the custom ID). The actual requeue will come after the modal is submitted
+					string origDesc = messageComponent.Message.Embeds.First().Description;
+					string origPosPrompt = Regex.Match(origDesc, "^Prompt: (.+)$", RegexOptions.Multiline).Groups[1].Value;
+					string origNegPrompt = Regex.Match(origDesc, "^Negative Prompt: (.+)$", RegexOptions.Multiline).Groups[1].Value;
+					string origSeed = Regex.Match(origDesc, "^Seed: (\\d+)$", RegexOptions.Multiline).Groups[1].Value;
+					string origModel = Regex.Match(origDesc, "^Model: (.+)$", RegexOptions.Multiline).Groups[1].Value;
+					string origSteps = Regex.Match(origDesc, "^Steps: (.+)$", RegexOptions.Multiline).Groups[1].Value;
+					var modal = new ModalBuilder("Requeue Parameters", $"{MessageCommandNames.Modals.RequeueImage}|{ID}|{origSeed}");
+					modal.AddTextInput("Prompt", "pos-prompt", TextInputStyle.Paragraph, maxLength: 1000, required: true, value: origPosPrompt);
+					modal.AddTextInput("Negative Prompt", "neg-prompt", TextInputStyle.Paragraph, placeholder: "Optional", maxLength: 1000, required: false, value: origNegPrompt);
+					modal.AddTextInput("Seed", "seed", required: false, placeholder: "Leave blank for random, or -1 for the original seed.", maxLength: ulong.MaxValue.ToString().Length);
+					modal.AddTextInput("Model", "model", required: true, value: origModel);
+					modal.AddTextInput("Steps", "steps", minLength: 1, maxLength: 2, required: true, value: origSteps);
+					return messageComponent.RespondWithModal(modal.Build());
 
 				case ImageGeneration.CmdDelete:
 					// If successful, remove the original message
@@ -264,21 +245,96 @@ SUBCOMMANDS:
 			}
 		}
 
+		internal async Task<string> HandleRequeueModal(RestModal modal)
+		{
+			string[] titlePieces = modal.Data.CustomId.Split('|');
+			string ID = titlePieces[1];
+			string origSeed = titlePieces[2];
+
+			// Validate all of the fields
+			string? posPrompt = modal.Data.Components.First(c => c.CustomId == "pos-prompt").Value?.Trim();
+			string? negPrompt = modal.Data.Components.First(c => c.CustomId == "neg-prompt").Value?.Trim();
+			string? seedStr = modal.Data.Components.First(c => c.CustomId == "seed").Value?.Trim();
+			string? model = modal.Data.Components.First(c => c.CustomId == "model").Value?.Trim();
+			string? stepsStr = modal.Data.Components.First(c => c.CustomId == "steps").Value?.Trim();
+			var validationErrors = new List<string>();
+			if (string.IsNullOrWhiteSpace(posPrompt))
+			{
+				validationErrors.Add("* Prompt is required.");
+			}
+			if (!string.IsNullOrWhiteSpace(seedStr) && seedStr != "-1" && !Regex.IsMatch(seedStr, "^\\d+$"))
+			{
+				validationErrors.Add("* Invalid seed. You may leave it blank to use a random seed, or use -1 for the original seed.");
+			}
+			if (string.IsNullOrWhiteSpace(model))
+			{
+				validationErrors.Add("* Model is required.");
+			}
+			else
+			{
+				// Load models and validate the passed model exists
+				var allModels = _imageGenerationProvider.GetConfigValidModels();
+				model = allModels.FirstOrDefault(m => m.Value.Equals(model, StringComparison.OrdinalIgnoreCase)).Key;
+				if (string.IsNullOrWhiteSpace(model))
+				{
+					validationErrors.Add($"* Invalid model specified. Options:\n{string.Join("\n", allModels.Values.Select(m => $"  - {m}"))}");
+				}
+			}
+			if (!int.TryParse(stepsStr, out int steps) || steps < 1 || steps > 50)
+			{
+				validationErrors.Add("* Steps must be between 1 and 50.");
+			}
+			if (validationErrors.Any())
+			{
+				return modal.Respond($"Invalid parameters!\n\n{string.Join("\n", validationErrors)}");
+			}
+
+			IUserMessage? requeueMessage = null;
+			try
+			{
+				// Send a new message
+				requeueMessage = await modal.Channel.SendMessageAsync($"{modal.User.Mention} is generating an image!");
+
+				// Requeue and modify message
+				var requeueData = await _imageGenerationProvider.RequeueImage(ID, requeueMessage, modal.User, posPrompt!, negPrompt, seedStr == "-1" ? origSeed : seedStr, model!, steps);
+				var requeueMessageData = BuildMessageDetailsFromQueueItem(requeueData);
+				await requeueMessage.ModifyAsync(p =>
+				{
+					p.Embed = requeueMessageData.Key.Build();
+					p.Components = requeueMessageData.Value.Build();
+				});
+
+			}
+			catch (Exception ex)
+			{
+				if (requeueMessage != null)
+				{
+					await requeueMessage.ModifyAsync(p => { p.Content = $"Error requeueing image: {ex.Message}"; });
+				}
+
+				return modal.Respond("Error while requeing image!", ephemeral: true);
+			}
+
+			// Defer silently if we reach this point since we will have created a new message above
+			return modal.Defer();
+		}
+
 		private KeyValuePair<EmbedBuilder, ComponentBuilder> BuildMessageDetailsFromQueueItem(FriendlyEnqueueResult queueItem)
 		{
+			// Manually use \n instead of letting StringBuilder use Environment.Newline, since parsing \r\n with Regex complicates things
 			var descSB = new StringBuilder();
-			descSB.AppendLine($"Prompt: {queueItem.PositivePrompt}");
+			descSB.Append($"Prompt: {queueItem.PositivePrompt}\n");
 			if (!string.IsNullOrWhiteSpace(queueItem.NegativePrompt))
 			{
-				descSB.AppendLine($"Negative Prompt: {queueItem.NegativePrompt}");
+				descSB.Append($"Negative Prompt: {queueItem.NegativePrompt}\n");
 			}
-			descSB.AppendLine($"Seed: {queueItem.Seed}");
-			descSB.AppendLine($"Model: {queueItem.Model}");
-			descSB.AppendLine($"Steps: {queueItem.Steps}");
-			descSB.AppendLine($"CFG: {queueItem.CFG}");
+			descSB.Append($"Seed: {queueItem.Seed}\n");
+			descSB.Append($"Model: {queueItem.Model}\n");
+			descSB.Append($"Steps: {queueItem.Steps}\n");
+			descSB.Append($"CFG: {queueItem.CFG}");
 			var embedBuilder = new EmbedBuilder()
 			{
-				Color = new Color(0x7c0089),
+				Color = new Discord.Color(0x7c0089),
 				Title = $"Status: Queued ({(queueItem.LinePos > 1 ? $"#{queueItem.LinePos}" : "Next")} in line)",
 				Description = descSB.ToString()
 			};
