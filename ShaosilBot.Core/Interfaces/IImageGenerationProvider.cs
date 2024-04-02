@@ -9,7 +9,7 @@ namespace ShaosilBot.Core.Interfaces
 
 		Task<bool> IsOnline();
 		Dictionary<string, string> GetConfigValidModels();
-		Task<List<string>> GetModels();
+		Task<IEnumerable<ModelsRoot.Model>> GetModelsOfType(string type);
 		Task<FriendlyEnqueueResult> EnqueueBatchItem(IUserMessage message, IUser requestor, string posPrompt, string negPrompt, int width, int height, string? seedStr, string? model, string scheduler, int steps, string cfg);
 		Task<List<Board>> GetAllBoards();
 		Task<Board?> GetBoardByName(string boardName);

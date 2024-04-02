@@ -10,8 +10,7 @@ namespace ShaosilBot.Core.Models.InvokeAI
 		[property: JsonProperty("sdxl_denoise_latents")] BatchNodes.SdxlDenoiseLatentsNode SdxlDenoiseLatents,
 		[property: JsonProperty("latents_to_image")] BatchNodes.LatentsToImageNode LatentsToImage,
 		[property: JsonProperty("core_metadata")] BatchNodes.CoreMetadataNode CoreMetadata,
-		[property: JsonProperty("vae_loader")] BatchNodes.VaeLoaderNode VaeLoader,
-		[property: JsonProperty("linear_ui_output")] BatchNodes.LinearUiOutputNode LinearUiOutput
+		[property: JsonProperty("vae_loader")] BatchNodes.VaeLoaderNode VaeLoader
 	)
 	{
 		public record SdxlModelLoaderNode(
@@ -59,11 +58,14 @@ namespace ShaosilBot.Core.Models.InvokeAI
 			[property: JsonProperty("is_intermediate")] bool IsIntermediate
 		);
 
+		public enum eTest { test1, test2 }
+
 		public record LatentsToImageNode(
 			[property: JsonProperty("type")] string Type,
 			[property: JsonProperty("id")] string Id,
 			[property: JsonProperty("fp32")] bool Fp32,
 			[property: JsonProperty("is_intermediate")] bool IsIntermediate,
+			[property: JsonProperty("board")] Board Board,
 			[property: JsonProperty("use_cache")] bool UseCache
 		);
 
@@ -80,22 +82,17 @@ namespace ShaosilBot.Core.Models.InvokeAI
 			[property: JsonProperty("steps")] int Steps,
 			[property: JsonProperty("rand_device")] string RandDevice,
 			[property: JsonProperty("scheduler")] string Scheduler,
+			[property: JsonProperty("positive_style_prompt")] string PositiveStylePrompt,
 			[property: JsonProperty("negative_style_prompt")] string NegativeStylePrompt,
-			[property: JsonProperty("vae")] VaeModel Vae
-		);
-
-		public record LinearUiOutputNode(
-			[property: JsonProperty("id")] string Id,
-			[property: JsonProperty("type")] string Type,
-			[property: JsonProperty("is_intermediate")] bool IsIntermediate,
-			[property: JsonProperty("use_cache")] bool UseCache,
-			[property: JsonProperty("board")] Board Board
+			[property: JsonProperty("vae")] Model Vae
 		);
 
 		public record Model(
-			[property: JsonProperty("model_name")] string ModelName,
-			[property: JsonProperty("base_model")] string BaseModel,
-			[property: JsonProperty("model_type")] string ModelType
+			[property: JsonProperty("key")] string ModelKey,
+			[property: JsonProperty("hash")] string ModelHash,
+			[property: JsonProperty("name")] string ModelName,
+			[property: JsonProperty("base")] string BaseModel,
+			[property: JsonProperty("type")] string ModelType
 		);
 
 		public record Board(
@@ -106,12 +103,7 @@ namespace ShaosilBot.Core.Models.InvokeAI
 			[property: JsonProperty("type")] string Type,
 			[property: JsonProperty("id")] string Id,
 			[property: JsonProperty("is_intermediate")] bool IsIntermediate,
-			[property: JsonProperty("vae_model")] VaeModel VaeModel
-		);
-
-		public record VaeModel(
-			[property: JsonProperty("model_name")] string ModelName,
-			[property: JsonProperty("base_model")] string BaseModel
+			[property: JsonProperty("vae_model")] Model VaeModel
 		);
 	};
 }

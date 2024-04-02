@@ -70,7 +70,7 @@ namespace ShaosilBot.Core.Singletons
 				_waitSignal.Reset();
 
 				// Ping app/version and make sure our socket is listening
-				var response = await _httpClient.GetAsync("app/version");
+				var response = await _httpClient.GetAsync("v1/app/version");
 				if (response.IsSuccessStatusCode && !_socket.Connected)
 				{
 					// Handle reconnect attempts manually since it often decides to speed through the timeouts internally
@@ -106,24 +106,29 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		public async Task<List<string>> GetModels()
+		public async Task<IEnumerable<ModelsRoot.Model>> GetModelsOfType(string type)
 		{
 			_logger.LogInformation("Getting InvokeAI models");
 
-			var response = await _httpClient.GetAsync("models/?model_type=main");
+			var response = await _httpClient.GetAsync($"v2/models/?model_type={type}");
 			if (!response.IsSuccessStatusCode) throw new Exception($"ERROR: {response.StatusCode} Response. Reason: {response.ReasonPhrase}");
+			var models = JsonConvert.DeserializeObject<ModelsRoot>(await response.Content.ReadAsStringAsync())!;
 
-			// Show the first one as default
-			var body = JsonConvert.DeserializeObject<Model>(await response.Content.ReadAsStringAsync());
-			var validModels = GetConfigValidModels().Keys;
-			return validModels.Where(m => body?.Models?.Any(b => b.ModelName == m) ?? false).ToList() ?? [];
+			// If we requested main models, filter and order by our defined model list
+			if (type.Equals("main", StringComparison.OrdinalIgnoreCase))
+			{
+				var validModels = GetConfigValidModels().Keys.ToList();
+				return models.ModelList.Where(m => validModels.Any(vm => vm == m.ModelName)).OrderBy(m => validModels.IndexOf(m.ModelName)).ToList();
+			}
+
+			return models.ModelList;
 		}
 
 		public async Task<List<Board>> GetAllBoards()
 		{
 			_logger.LogInformation($"Getting all InvokeAI boards");
 
-			var response = await _httpClient.GetAsync("boards/?all=true");
+			var response = await _httpClient.GetAsync("v1/boards/?all=true");
 			if (!response.IsSuccessStatusCode) throw new Exception($"ERROR: {response.StatusCode} Response. Reason: {response.ReasonPhrase}");
 
 			return JsonConvert.DeserializeObject<List<Board>>(await response.Content.ReadAsStringAsync())!;
@@ -158,7 +163,7 @@ namespace ShaosilBot.Core.Singletons
 
 			_logger.LogInformation($"Creating new InvokeAI board with ID name {boardName}");
 
-			var response = await _httpClient.PostAsync($"boards/?board_name={boardName}", null);
+			var response = await _httpClient.PostAsync($"v1/boards/?board_name={boardName}", null);
 			if (!response.IsSuccessStatusCode) throw new Exception($"ERROR: {response.StatusCode} Response. Reason: {response.ReasonPhrase}");
 
 			return JsonConvert.DeserializeObject<Board>(await response.Content.ReadAsStringAsync())!;
@@ -168,7 +173,7 @@ namespace ShaosilBot.Core.Singletons
 		{
 			_logger.LogInformation("Getting current InvokeAI queue item");
 
-			var response = await _httpClient.GetAsync("queue/default/current");
+			var response = await _httpClient.GetAsync("v1/queue/default/current");
 			if (!response.IsSuccessStatusCode) throw new Exception($"ERROR: {response.StatusCode} Response. Reason: {response.ReasonPhrase}");
 
 			string? body = await response.Content.ReadAsStringAsync();
@@ -179,7 +184,7 @@ namespace ShaosilBot.Core.Singletons
 		{
 			_logger.LogInformation("Getting pending InvokeAI queue items");
 
-			var response = await _httpClient.GetAsync("queue/default/list?status=pending");
+			var response = await _httpClient.GetAsync("v1/queue/default/list?status=pending");
 			if (!response.IsSuccessStatusCode) throw new Exception($"ERROR: {response.StatusCode} Response. Reason: {response.ReasonPhrase}");
 
 			return JsonConvert.DeserializeObject<QueueItemCollection>(await response.Content.ReadAsStringAsync())!;
@@ -206,20 +211,18 @@ namespace ShaosilBot.Core.Singletons
 					seed = BitConverter.ToUInt32(uintBytes);
 				}
 
-				var allModels = await GetModels();
-				if (!allModels.Any(m => m.Equals(model, StringComparison.OrdinalIgnoreCase)))
-				{
-					model = allModels[0];
-				}
-				var modelName = GetConfigValidModels()[model!];
+				var allModels = await GetModelsOfType("main");
+				var vaeModel = (await GetModelsOfType("vae")).First(v => v.ModelName == "sdxl-vae-fp16-fix");
+				var targetModel = allModels.FirstOrDefault(m => m.ModelName.Equals(model, StringComparison.OrdinalIgnoreCase)) ?? allModels.First();
+				var modelName = GetConfigValidModels()[targetModel.ModelName];
 
 				// If this user does not already have a board, create one
 				string boardName = GetUserBoardName(requestor);
 				var userBoard = await GetBoardByName(boardName) ?? await CreateBoard(boardName);
 
 				// Create batch item based on passed parameters
-				var modelNode = new BatchNodes.Model(model!, "sdxl", "main");
-				var vaeNode = new BatchNodes.VaeModel("sdxl-1-0-vae-fix", "sdxl");
+				var modelNode = new BatchNodes.Model(targetModel.ModelKey, targetModel.ModelHash, targetModel.ModelName, targetModel.BaseModel, targetModel.ModelType);
+				var vaeNode = new BatchNodes.Model(vaeModel.ModelKey, vaeModel.ModelHash, vaeModel.ModelName, vaeModel.BaseModel, vaeModel.ModelType);
 
 				var newBatchItem = new BatchRoot
 				(
@@ -244,7 +247,7 @@ namespace ShaosilBot.Core.Singletons
 									Type: "sdxl_compel_prompt",
 									Id: "positive_conditioning",
 									Prompt: posPrompt,
-									Style: posPrompt,
+									Style: string.Empty,
 									IsIntermediate: true
 								),
 								NegativeConditioning: new BatchNodes.NegativeConditioningNode
@@ -282,7 +285,8 @@ namespace ShaosilBot.Core.Singletons
 									Type: "l2i",
 									Id: "latents_to_image",
 									Fp32: false,
-									IsIntermediate: true,
+									IsIntermediate: false,
+									Board: new BatchNodes.Board(userBoard.BoardId),
 									UseCache: false
 								),
 								CoreMetadata: new BatchNodes.CoreMetadataNode
@@ -299,7 +303,8 @@ namespace ShaosilBot.Core.Singletons
 									Steps: steps,
 									RandDevice: "cpu",
 									Scheduler: scheduler,
-									NegativeStylePrompt: negPrompt,
+									PositiveStylePrompt: string.Empty,
+									NegativeStylePrompt: string.Empty,
 									Vae: vaeNode
 								),
 								VaeLoader: new BatchNodes.VaeLoaderNode
@@ -308,14 +313,6 @@ namespace ShaosilBot.Core.Singletons
 									Id: "vae_loader",
 									IsIntermediate: true,
 									VaeModel: vaeNode
-								),
-								LinearUiOutput: new BatchNodes.LinearUiOutputNode
-								(
-									Type: "linear_ui_output",
-									Id: "linear_ui_output",
-									IsIntermediate: false,
-									UseCache: false,
-									Board: new BatchNodes.Board(userBoard.BoardId)
 								)
 							),
 							Edges:
@@ -332,8 +329,7 @@ namespace ShaosilBot.Core.Singletons
 								new BatchRoot.Edge(Source: new BatchRoot.EdgeItem("noise", "noise"), Destination: new BatchRoot.EdgeItem("sdxl_denoise_latents", "noise")),
 								new BatchRoot.Edge(Source: new BatchRoot.EdgeItem("sdxl_denoise_latents", "latents"), Destination: new BatchRoot.EdgeItem("latents_to_image", "latents")),
 								new BatchRoot.Edge(Source: new BatchRoot.EdgeItem("core_metadata", "metadata"), Destination: new BatchRoot.EdgeItem("latents_to_image", "metadata")),
-								new BatchRoot.Edge(Source: new BatchRoot.EdgeItem("vae_loader", "vae"), Destination: new BatchRoot.EdgeItem("latents_to_image", "vae")),
-								new BatchRoot.Edge(Source: new BatchRoot.EdgeItem("latents_to_image", "image"), Destination: new BatchRoot.EdgeItem("linear_ui_output", "image"))
+								new BatchRoot.Edge(Source: new BatchRoot.EdgeItem("vae_loader", "vae"), Destination: new BatchRoot.EdgeItem("latents_to_image", "vae"))
 							]
 						),
 						Runs: 1,
@@ -345,9 +341,9 @@ namespace ShaosilBot.Core.Singletons
 							],
 							[
 								new BatchRoot.Data("positive_conditioning", "prompt", [posPrompt]),
-								new BatchRoot.Data("positive_conditioning", "style", [posPrompt]),
+								new BatchRoot.Data("positive_conditioning", "style", [string.Empty]),
 								new BatchRoot.Data("core_metadata", "positive_prompt", [posPrompt]),
-								new BatchRoot.Data("core_metadata", "positive_style_prompt", [posPrompt]),
+								new BatchRoot.Data("core_metadata", "positive_style_prompt", [string.Empty]),
 							]
 						]
 					)
@@ -356,7 +352,7 @@ namespace ShaosilBot.Core.Singletons
 				// Deserialize response
 				_logger.LogInformation("Queueing new batch item");
 				var content = new StringContent(JsonConvert.SerializeObject(newBatchItem), MediaTypeHeaderValue.Parse("application/json"));
-				var response = await _httpClient.PostAsync("queue/default/enqueue_batch", content);
+				var response = await _httpClient.PostAsync("v1/queue/default/enqueue_batch", content);
 				string responseContent = await response.Content.ReadAsStringAsync();
 				if (response.IsSuccessStatusCode)
 				{
@@ -412,7 +408,7 @@ namespace ShaosilBot.Core.Singletons
 				{
 
 					var requestBody = JsonContent.Create(new { batch_ids = new string[] { ID } });
-					var result = _httpClient.PutAsync($"queue/default/cancel_by_batch_ids", requestBody).GetAwaiter().GetResult();
+					var result = _httpClient.PutAsync($"v1/queue/default/cancel_by_batch_ids", requestBody).GetAwaiter().GetResult();
 					if (result.IsSuccessStatusCode)
 					{
 						dynamic dType = new { canceled = false };
@@ -457,7 +453,7 @@ namespace ShaosilBot.Core.Singletons
 		{
 			_logger.LogInformation($"Getting InvokeAI image metadata for {imageName}");
 
-			var response = await _httpClient.GetAsync($"images/i/{imageName}/metadata");
+			var response = await _httpClient.GetAsync($"v1/images/i/{imageName}/metadata");
 			if (!response.IsSuccessStatusCode) return null;
 
 			return JsonConvert.DeserializeObject<ImageMetadata>(await response.Content.ReadAsStringAsync());
@@ -472,7 +468,7 @@ namespace ShaosilBot.Core.Singletons
 			var userBoard = GetBoardByName(GetUserBoardName(user)).GetAwaiter().GetResult();
 			if (userBoard != null)
 			{
-				var response = _httpClient.GetAsync($"boards/{userBoard.BoardId}/image_names").GetAwaiter().GetResult();
+				var response = _httpClient.GetAsync($"v1/boards/{userBoard.BoardId}/image_names").GetAwaiter().GetResult();
 				if (response.IsSuccessStatusCode)
 				{
 					var data = JsonConvert.DeserializeObject<string[]>(response.Content.ReadAsStringAsync().GetAwaiter().GetResult())!;
@@ -487,7 +483,7 @@ namespace ShaosilBot.Core.Singletons
 			else
 			{
 				// The server doesn't provide feedback as to whether the image existed or not in the first place, so just assume a successful response = success
-				var result = _httpClient.DeleteAsync($"images/i/{imageName}").GetAwaiter().GetResult();
+				var result = _httpClient.DeleteAsync($"v1/images/i/{imageName}").GetAwaiter().GetResult();
 				if (result.IsSuccessStatusCode)
 				{
 					deleteResponse = "Image successfully deleted.";
@@ -575,9 +571,9 @@ namespace ShaosilBot.Core.Singletons
 
 			try
 			{
-				// Deserialize and ensure it's of type "linear_ui_output"
+				// Deserialize and ensure it's of type "latents_to_image"
 				var data = JsonConvert.DeserializeObject<InvocationComplete[]>(response.ToString())![0];
-				if (data.SourceNodeID != "linear_ui_output")
+				if (data.SourceNodeID != "latents_to_image")
 				{
 					return;
 				}
@@ -631,7 +627,7 @@ namespace ShaosilBot.Core.Singletons
 								);
 
 								// Get full image
-								var imageResult = _httpClient.GetAsync($"images/i/{data.Result.Image.ImageName}/full").GetAwaiter().GetResult();
+								var imageResult = _httpClient.GetAsync($"v1/images/i/{data.Result.Image.ImageName}/full").GetAwaiter().GetResult();
 								using (var stream = imageResult.Content.ReadAsStream())
 								{
 									originalMessage.ModifyAsync(p =>

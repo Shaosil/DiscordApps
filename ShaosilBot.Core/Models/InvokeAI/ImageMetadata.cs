@@ -14,8 +14,8 @@ namespace ShaosilBot.Core.Models.InvokeAI
 		[property: JsonProperty("cfg_rescale_multiplier")] string CfgRescaleMultiplier,
 		[property: JsonProperty("steps")] int Steps,
 		[property: JsonProperty("scheduler")] string Scheduler,
-		[property: JsonProperty("model")] Model.Content Model,
-		[property: JsonProperty("vae")] Model.Content Vae,
+		[property: JsonProperty("model")] ModelsRoot.Model Model,
+		[property: JsonProperty("vae")] ModelsRoot.Model Vae,
 		[property: JsonProperty("positive_style_prompt")] string PositiveStylePrompt,
 		[property: JsonProperty("negative_style_prompt")] string NegativeStylePrompt
 	);

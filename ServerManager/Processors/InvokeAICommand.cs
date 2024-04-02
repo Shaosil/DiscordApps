@@ -120,7 +120,7 @@ namespace ServerManager.Processors
 
 					try
 					{
-						var versionResponse = await _httpClient.GetAsync("app/version");
+						var versionResponse = await _httpClient.GetAsync("v1/app/version");
 						startedSuccessfully = versionResponse.IsSuccessStatusCode;
 					}
 					catch (HttpRequestException)
