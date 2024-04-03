@@ -40,6 +40,7 @@ namespace ShaosilBot.Core.Providers
 				public const string ImageGenerate = "Image Generate";
 				public const string CmdCancel = "Cancel"; // By batch ID
 				public const string CmdRequeue = "Requeue"; // By image name
+				public const string CmdRemix = "Remix"; // By image name
 				public const string CmdDelete = "Delete"; // By image name
 			}
 		}

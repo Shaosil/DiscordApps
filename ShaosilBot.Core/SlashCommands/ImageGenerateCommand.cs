@@ -217,6 +217,22 @@ SUBCOMMANDS:
 					return messageComponent.Respond(cancelResponse, ephemeral: true);
 
 				case ImageGeneration.CmdRequeue:
+					// Immediately send a new message, then requeue the original image with a new seed
+					var requeueMessage = await messageComponent.Channel.SendMessageAsync($"{messageComponent.User.Mention} is generating an image!");
+
+					// Requeue and modify message
+					var requeueData = await _imageGenerationProvider.RequeueImage(ID, requeueMessage, messageComponent.User);
+					var requeueMessageData = BuildMessageDetailsFromQueueItem(requeueData);
+					await requeueMessage.ModifyAsync(p =>
+					{
+						p.Embed = requeueMessageData.Key.Build();
+						p.Components = requeueMessageData.Value.Build();
+					});
+
+					// Now just defer since we should have made a new message
+					return messageComponent.Defer();
+
+				case ImageGeneration.CmdRemix:
 					// Just send a modal at this point (embed image ID in the custom ID). The actual requeue will come after the modal is submitted
 					string origDesc = messageComponent.Message.Embeds.First().Description;
 					string origPosPrompt = Regex.Match(origDesc, "^Prompt: (.+)$", RegexOptions.Multiline).Groups[1].Value;
@@ -224,11 +240,11 @@ SUBCOMMANDS:
 					string origSeed = Regex.Match(origDesc, "^Seed: (\\d+)$", RegexOptions.Multiline).Groups[1].Value;
 					string origModel = Regex.Match(origDesc, "^Model: (.+)$", RegexOptions.Multiline).Groups[1].Value;
 					string origSteps = Regex.Match(origDesc, "^Steps: (.+)$", RegexOptions.Multiline).Groups[1].Value;
-					var modal = new ModalBuilder("Requeue Parameters", $"{MessageCommandNames.Modals.RequeueImage}|{ID}|{origSeed}");
+					var modal = new ModalBuilder("Remix Parameters", $"{MessageCommandNames.Modals.RequeueImage}|{ID}|{origSeed}");
 					modal.AddTextInput("Prompt", "pos-prompt", TextInputStyle.Paragraph, maxLength: 1000, required: true, value: origPosPrompt);
 					modal.AddTextInput("Negative Prompt", "neg-prompt", TextInputStyle.Paragraph, placeholder: "Optional", maxLength: 1000, required: false, value: origNegPrompt);
 					modal.AddTextInput("Seed", "seed", required: false, placeholder: "Leave blank for random, or -1 for the original seed.", maxLength: ulong.MaxValue.ToString().Length);
-					modal.AddTextInput("Model", "model", required: true, value: origModel);
+					modal.AddTextInput("Model", "model", required: true, value: origModel, placeholder: "Partial names work.");
 					modal.AddTextInput("Steps", "steps", minLength: 1, maxLength: 2, required: true, value: origSteps);
 					return messageComponent.RespondWithModal(modal.Build());
 
@@ -272,9 +288,9 @@ SUBCOMMANDS:
 			}
 			else
 			{
-				// Load models and validate the passed model exists
+				// Load models and validate the passed model exists using a partial match, case insensitive search
 				var allModels = _imageGenerationProvider.GetConfigValidModels();
-				model = allModels.FirstOrDefault(m => m.Value.Equals(model, StringComparison.OrdinalIgnoreCase)).Key;
+				model = allModels.FirstOrDefault(m => m.Value.ToLower().Contains(model.ToLower())).Key;
 				if (string.IsNullOrWhiteSpace(model))
 				{
 					validationErrors.Add($"* Invalid model specified. Options:\n{string.Join("\n", allModels.Values.Select(m => $"  - {m}"))}");

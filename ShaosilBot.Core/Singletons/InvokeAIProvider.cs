@@ -44,8 +44,8 @@ namespace ShaosilBot.Core.Singletons
 			_socket.OnConnected += async (_, _) => await _socket.EmitAsync("subscribe_queue", new { queue_id = "default" });
 			_socket.OnDisconnected += OnSocketDisconnect;
 			_socket.On("queue_item_status_changed", OnQueueItemStatusChanged);
-			_socket.On("invocation_complete", r => OnLinearUIOutputNodeComplete(r, false));
-			_socket.On("invocation_error", r => OnLinearUIOutputNodeComplete(r, true));
+			_socket.On("invocation_complete", r => OnQueueItemComplete(r, false));
+			_socket.On("invocation_error", r => OnQueueItemComplete(r, true));
 			_socket.On("generator_progress", OnGeneratorProgress);
 		}
 
@@ -440,13 +440,17 @@ namespace ShaosilBot.Core.Singletons
 			return false;
 		}
 
-		public async Task<FriendlyEnqueueResult> RequeueImage(string imageName, IUserMessage message, IUser requestor, string posPrompt, string? negPrompt, string? seedStr, string model, int steps)
+		public async Task<FriendlyEnqueueResult> RequeueImage(string imageName, IUserMessage message, IUser requestor, string? posPrompt = null, string? negPrompt = null, string? seedStr = null, string? model = null, int? steps = null)
 		{
-			// Fetch image first
+			// Fetch image first, and use old parameters if none are specified (except for seed, which is handled further down the pipe)
 			var imageData = (await GetImageMetadata(imageName))!;
+			string pPrompt = posPrompt ?? imageData.PositivePrompt;
+			string nPrompt = negPrompt ?? imageData.NegativePrompt;
+			string pModel = model ?? imageData.Model.ModelName;
+			int pSteps = steps ?? imageData.Steps;
 
 			// Requeue with a blank seed and updated parameters and return the result
-			return await EnqueueBatchItem(message, requestor, posPrompt, negPrompt ?? string.Empty, imageData.Width, imageData.Height, seedStr, model, imageData.Scheduler, steps, imageData.CfgScale);
+			return await EnqueueBatchItem(message, requestor, pPrompt, nPrompt, imageData.Width, imageData.Height, seedStr, pModel, imageData.Scheduler, pSteps, imageData.CfgScale);
 		}
 
 		private async Task<ImageMetadata?> GetImageMetadata(string imageName)
@@ -562,7 +566,7 @@ namespace ShaosilBot.Core.Singletons
 		/// <summary>
 		/// Updates all in progress queue messages, including the completed one that triggered this socket message
 		/// </summary>
-		private void OnLinearUIOutputNodeComplete(SocketIOResponse response, bool isError)
+		private void OnQueueItemComplete(SocketIOResponse response, bool isError)
 		{
 			if (!_trackedBatches.Any())
 			{
@@ -637,6 +641,7 @@ namespace ShaosilBot.Core.Singletons
 										p.Attachments = new List<FileAttachment>([new FileAttachment(stream, "completed.jpg")]);
 										var actionRow = new ActionRowBuilder()
 											.WithButton("Requeue", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdRequeue}-{data.Result.Image.ImageName}")
+											.WithButton("Remix", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdRemix}-{data.Result.Image.ImageName}")
 											.WithButton("Delete", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdDelete}-{data.Result.Image.ImageName}", style: ButtonStyle.Danger);
 										p.Components = new ComponentBuilder().AddRow(actionRow).Build();
 									}).GetAwaiter().GetResult();
