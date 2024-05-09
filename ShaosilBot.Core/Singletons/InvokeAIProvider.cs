@@ -106,7 +106,7 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		public async Task<IEnumerable<ModelsRoot.Model>> GetModelsOfType(string type)
+		public async Task<IEnumerable<ModelsRoot.Model>> GetModelsOfType(string type, bool unfiltered = false)
 		{
 			_logger.LogInformation("Getting InvokeAI models");
 
@@ -118,7 +118,7 @@ namespace ShaosilBot.Core.Singletons
 			if (type.Equals("main", StringComparison.OrdinalIgnoreCase))
 			{
 				var validModels = GetConfigValidModels().Keys.ToList();
-				return models.ModelList.Where(m => validModels.Any(vm => vm == m.ModelName)).OrderBy(m => validModels.IndexOf(m.ModelName)).ToList();
+				return models.ModelList.Where(m => unfiltered || validModels.Any(vm => vm == m.ModelName)).OrderBy(m => validModels.IndexOf(m.ModelName)).ToList();
 			}
 
 			return models.ModelList;
@@ -211,10 +211,12 @@ namespace ShaosilBot.Core.Singletons
 					seed = BitConverter.ToUInt32(uintBytes);
 				}
 
-				var allModels = await GetModelsOfType("main");
+				var allModels = await GetModelsOfType("main", true);
+				var validModels = GetConfigValidModels();
 				var vaeModel = (await GetModelsOfType("vae")).First(v => v.ModelName == "sdxl-vae-fp16-fix");
-				var targetModel = allModels.FirstOrDefault(m => m.ModelName.Equals(model, StringComparison.OrdinalIgnoreCase)) ?? allModels.First();
-				var modelName = GetConfigValidModels()[targetModel.ModelName];
+				var targetModel = allModels.FirstOrDefault(m => m.ModelName.Equals(model, StringComparison.OrdinalIgnoreCase))
+					?? allModels.FirstOrDefault(m => m.ModelName == validModels.Keys.First())
+					?? allModels.First();
 
 				// If this user does not already have a board, create one
 				string boardName = GetUserBoardName(requestor);
@@ -367,7 +369,7 @@ namespace ShaosilBot.Core.Singletons
 					int linePos = ourItem != null ? allPendingItems.Items.IndexOf(ourItem) + (curQueueItem == null ? 1 : 2) : 1;
 
 					// Return the queued information
-					return new FriendlyEnqueueResult(queueData.Batch.BatchID!, linePos, posPrompt, negPrompt, seed, modelName, steps, cfg);
+					return new FriendlyEnqueueResult(queueData.Batch.BatchID!, linePos, posPrompt, negPrompt, seed, validModels.GetValueOrDefault(targetModel.ModelName) ?? targetModel.ModelName, steps, cfg);
 				}
 				else
 				{

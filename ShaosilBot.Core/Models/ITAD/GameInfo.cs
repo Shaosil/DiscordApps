@@ -11,7 +11,7 @@ namespace ShaosilBot.Core.Models.ITAD
 		[property: JsonProperty("earlyAccess")] bool EarlyAccess,
 		[property: JsonProperty("achievements")] bool Achievements,
 		[property: JsonProperty("tradingCards")] bool TradingCards,
-		[property: JsonProperty("appid")] int Appid,
+		[property: JsonProperty("appid")] int? Appid,
 		[property: JsonProperty("tags")] IReadOnlyList<string> Tags,
 		[property: JsonProperty("releaseDate")] string ReleaseDate,
 		[property: JsonProperty("developers")] IReadOnlyList<GenericObj> Developers,

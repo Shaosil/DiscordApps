@@ -209,11 +209,14 @@ SUBCOMMANDS:
 			switch (command)
 			{
 				case ImageGeneration.CmdCancel:
-					// If successful, remove the original message
+					// If successful, remove the original message and silently defer
 					if (_imageGenerationProvider.TryCancelQueueItem(messageComponent.User, ID, out var cancelResponse))
 					{
 						await messageComponent.Message.DeleteAsync();
+						return messageComponent.Defer();
 					}
+
+					// Otherwise, respond with the error message
 					return messageComponent.Respond(cancelResponse, ephemeral: true);
 
 				case ImageGeneration.CmdRequeue:
@@ -249,11 +252,14 @@ SUBCOMMANDS:
 					return messageComponent.RespondWithModal(modal.Build());
 
 				case ImageGeneration.CmdDelete:
-					// If successful, remove the original message
+					// If successful, remove the original message and silently defer
 					if (_imageGenerationProvider.TryDeleteImage(messageComponent.User, ID, out var deleteResponse))
 					{
 						await messageComponent.Message.DeleteAsync();
+						return messageComponent.Defer();
 					}
+
+					// Otherwise, respond with the error message
 					return messageComponent.Respond(deleteResponse, ephemeral: true);
 
 				default:
@@ -289,11 +295,14 @@ SUBCOMMANDS:
 			else
 			{
 				// Load models and validate the passed model exists using a partial match, case insensitive search
-				var allModels = _imageGenerationProvider.GetConfigValidModels();
-				model = allModels.FirstOrDefault(m => m.Value.ToLower().Contains(model.ToLower())).Key;
+				var configModels = _imageGenerationProvider.GetConfigValidModels();
+				var allModels = await _imageGenerationProvider.GetModelsOfType("main", true);
+				int modelLen = model.Length;
+				model = configModels.FirstOrDefault(m => m.Value.ToLower().Contains(model.ToLower())).Key
+					?? (modelLen >= 4 ? allModels.FirstOrDefault(m => m.ModelName.ToLower().Contains(model.ToLower()))?.ModelName : null);
 				if (string.IsNullOrWhiteSpace(model))
 				{
-					validationErrors.Add($"* Invalid model specified. Options:\n{string.Join("\n", allModels.Values.Select(m => $"  - {m}"))}");
+					validationErrors.Add($"* Invalid model specified. Options:\n{string.Join("\n", configModels.Values.Select(m => $"  - {m}"))})");
 				}
 			}
 			if (!int.TryParse(stepsStr, out int steps) || steps < 1 || steps > 50)
