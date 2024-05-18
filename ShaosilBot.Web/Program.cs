@@ -3,7 +3,6 @@ using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.HttpLogging;
 using OpenAI.Extensions;
-using OpenAI.ObjectModels;
 using Quartz;
 using Quartz.AspNetCore;
 using Serilog;
@@ -61,7 +60,7 @@ builder.Services.AddOpenAIService(a =>
 {
 	a.ApiKey = builder.Configuration.GetValue<string>("OpenAIAPIKey") ?? string.Empty;
 	a.Organization = builder.Configuration.GetValue<string>("OpenAIOrganization") ?? string.Empty;
-	a.DefaultModelId = Models.Gpt_3_5_Turbo;
+	a.DefaultModelId = "gpt-4o"; // Models.Gpt_4o is not available as a const yet
 });
 
 builder.Services.AddQuartz(c =>

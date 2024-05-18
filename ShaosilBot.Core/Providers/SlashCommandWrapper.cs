@@ -9,7 +9,7 @@ namespace ShaosilBot.Core.Providers
 		private RestSlashCommand _slashCommand;
 		private readonly ILogger<SlashCommandWrapper> _logger;
 
-		public ISlashCommandInteraction Command => _slashCommand;
+		public virtual ISlashCommandInteraction Command => _slashCommand;
 
 		public SlashCommandWrapper(ILogger<SlashCommandWrapper> logger)
 		{
@@ -21,7 +21,7 @@ namespace ShaosilBot.Core.Providers
 			_slashCommand = slash;
 		}
 
-		public Task<string> DeferWithCode(Func<Task> code, bool ephermal = false)
+		public virtual Task<string> DeferWithCode(Func<Task> code, bool ephermal = false)
 		{
 			// Run the code asynchronously before returning a defer response to the client
 			Task.Factory.StartNew(() =>

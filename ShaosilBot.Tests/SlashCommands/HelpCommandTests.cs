@@ -1,5 +1,6 @@
 using Discord;
 using Microsoft.AspNetCore.Mvc;
+using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Models;
 
@@ -17,7 +18,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		[ClassInitialize]
 		public static new void ClassInitialize(TestContext context)
 		{
-			// Set up a fake service provider to return a
+			// Set up a fake service provider
 			_derivedTypes = typeof(BaseCommand).Assembly.GetTypes().Where(t => t.BaseType == typeof(BaseCommand) && t != typeof(HelpCommand)).ToList();
 			_mappedInstances = new Dictionary<string, BaseCommand>();
 			_mappedCommands = new Dictionary<string, SlashCommandProperties>();
@@ -25,8 +26,20 @@ namespace ShaosilBot.Tests.SlashCommands
 			{
 				// Get parameters for current type's constructor
 				var constructor = type.GetConstructors().First();
-				var constructorParams = constructor.GetParameters().Select(p => ((Mock)Activator.CreateInstance(typeof(Mock<>).MakeGenericType(p.ParameterType))!).Object).ToArray();
-				var instance = (BaseCommand)constructor.Invoke(constructorParams);
+				var constructorParams = constructor.GetParameters().Select(p => ((Mock)Activator.CreateInstance(typeof(Mock<>).MakeGenericType(p.ParameterType))!).Object).ToList();
+
+				// Give valid models a value since ImageGenerateCommand will try to refrence it
+				if (constructor.ReflectedType == typeof(ImageGenerateCommand))
+				{
+					var customImageProvider = new Mock<IImageGenerationProvider>();
+					customImageProvider.Setup(i => i.GetConfigValidModels()).Returns(new Dictionary<string, string>());
+					customImageProvider.Setup(i => i.ValidSchedulers).Returns([]);
+
+					int index = constructorParams.FindIndex(p => p is IImageGenerationProvider);
+					constructorParams[index] = customImageProvider.Object;
+				}
+
+				var instance = (BaseCommand)constructor.Invoke(constructorParams.ToArray());
 				_mappedInstances.Add(instance.CommandName, instance);
 				_mappedCommands.Add(instance.CommandName, instance.BuildCommand());
 			}
