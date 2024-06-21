@@ -6,6 +6,7 @@ using ShaosilBot.Core.Models.SQLite;
 using System.Collections;
 using System.ComponentModel;
 using System.Data;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 
@@ -237,7 +238,7 @@ namespace ShaosilBot.Core.Providers
 
 		#endregion
 
-		public List<T> GetAllDataRecords<T>() where T : ITable, new()
+		public List<T> GetDataRecords<T>(Expression<Func<T, bool>>? filterQuery) where T : ITable, new()
 		{
 			// If the table type is not yet cached, get all records
 			if (!_tableCache.ContainsKey(typeof(T)))
@@ -251,6 +252,13 @@ namespace ShaosilBot.Core.Providers
 				{
 					var cmd = conn.CreateCommand();
 					cmd.CommandText = $"SELECT * FROM {typeof(T).Name}s";
+
+					// Add a where clause if a filter query was provided
+					if (filterQuery != null)
+					{
+						cmd.CommandText += new FilterTranslator<T>().GetWhereClause(filterQuery);
+					}
+
 					conn.Open();
 
 					using (var reader = cmd.ExecuteReader())
@@ -462,8 +470,8 @@ namespace ShaosilBot.Core.Providers
 			{
 				if (isUpsert)
 				{
-					if (!_tableCache.ContainsKey(typeof(T))) _tableCache[typeof(T)] = new();
-					_tableCache[typeof(T)][pkCol.GetValue(child)!] = child;
+					// If this was an upsert, clear out this entire type so it can be reloaded on the next query since any auto incremented PKs will be 0
+					if (_tableCache.ContainsKey(typeof(T))) _tableCache.Remove(typeof(T));
 				}
 				else
 				{
@@ -508,6 +516,86 @@ namespace ShaosilBot.Core.Providers
 						}
 					}
 				}
+			}
+		}
+
+		private class FilterTranslator<T> : ExpressionVisitor
+		{
+			private StringBuilder _queryBuilder;
+
+			public string GetWhereClause(Expression expression)
+			{
+				_queryBuilder = new StringBuilder();
+
+				_queryBuilder.Append(" WHERE ");
+				Visit(expression);
+
+				return _queryBuilder.ToString();
+			}
+
+			protected override Expression VisitBinary(BinaryExpression node)
+			{
+				_queryBuilder.Append("(");
+				Visit(node.Left);
+				_queryBuilder.Append($" {GetSqlOperator(node.NodeType)} ");
+				Visit(node.Right);
+				_queryBuilder.AppendLine(")");
+
+				return node;
+			}
+
+			protected override Expression VisitUnary(UnaryExpression node)
+			{
+				_queryBuilder.Append($" {GetSqlOperator(node.NodeType)} ");
+				Visit(node.Operand);
+				return node;
+			}
+
+			protected override Expression VisitMember(MemberExpression node)
+			{
+				// If the reflected type is our current class's generic type, we want to use the word for the column name
+				if (typeof(T) == node.Member.ReflectedType)
+				{
+					_queryBuilder.Append($"[{node.Member.Name}]");
+				}
+				else
+				{
+					// Otherwise, get the actual requested value of this member
+					if (node.Expression is ParameterExpression pe && node.Type == typeof(bool)) _queryBuilder.Append(" = 1");
+					else _queryBuilder.Append(Expression.Lambda(node).Compile().DynamicInvoke());
+				}
+				return node;
+			}
+
+			protected override Expression VisitConstant(ConstantExpression node)
+			{
+				_queryBuilder.Append(AppendValue(node.Value));
+				return node;
+			}
+
+			private string AppendValue(object? val)
+			{
+				if (val == null) return "NULL";
+				else if (val is bool b) return b ? "1" : "0";
+				else return $"'{val}'";
+			}
+
+			private string GetSqlOperator(ExpressionType nodeType)
+			{
+				return nodeType switch
+				{
+					ExpressionType.Not => "NOT",
+					ExpressionType.And or ExpressionType.AndAlso => "AND",
+					ExpressionType.Or or ExpressionType.OrElse => "OR",
+					ExpressionType.Equal => "=",
+					ExpressionType.GreaterThanOrEqual => ">=",
+					ExpressionType.LessThanOrEqual => "<=",
+					ExpressionType.NotEqual => "!=",
+					ExpressionType.GreaterThan => ">",
+					ExpressionType.LessThan => "<",
+
+					_ => throw new NotImplementedException($"FilterTranslator does not support '{nodeType}' node types.")
+				};
 			}
 		}
 	}

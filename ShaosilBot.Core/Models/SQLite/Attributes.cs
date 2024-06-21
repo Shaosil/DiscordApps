@@ -21,7 +21,7 @@
 		public ForeignKeyAttribute(Type refTableType, string refColumn)
 		{
 			// Soft enforcement on ITable to save headaches with GetCustomAttribute
-			if (refTableType.IsAssignableFrom(typeof(ITable)))
+			if (!refTableType.IsAssignableTo(typeof(ITable)))
 			{
 				throw new Exception($"Foreign key reference table type must derive from {nameof(ITable)}!");
 			}

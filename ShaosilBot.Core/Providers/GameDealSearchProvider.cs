@@ -71,7 +71,7 @@ namespace ShaosilBot.Core.Providers
 				}
 
 				_logger.LogInformation($"Parsing complete. Loading existing DB records...");
-				var allExistingGames = _sqliteProvider.GetAllDataRecords<GameSale>();
+				var allExistingGames = _sqliteProvider.GetDataRecords<GameSale>();
 				var missingGames = allExistingGames.Where(ag => !foundGames.Any(fg => fg.ID == ag.ID)).ToArray();
 				var differentPriceGames = foundGames.Where(fg => allExistingGames.Any(ag => ag.ID == fg.ID)
 					&& allExistingGames.First(ag => ag.ID == fg.ID).BestPrice != fg.BestPrice).ToArray();
