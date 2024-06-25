@@ -21,17 +21,20 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string HelpSummary => "Starts or continues a game of wordle.";
 
-		public override string HelpDetails => $@"/{CommandName} (play (string guess, [bool new-game]) || (stats)
+		public override string HelpDetails => $@"/{CommandName} (play (string guess) || (remind) || (reset-game) || (stats ([User user, bool reset]))
 
 SUBCOMMANDS:
-* play (guess, [new-game])
-    Starts or continues a game of Wordle. Play automatically continues if you have an active game unless you force 'new-game' to true.
+* play (guess)
+    Starts or continues a game of Wordle. Play automatically continues if you have an active game.
 
 * remind
 	Displays your current active game and its guesses, if any.
 
-* stats ([detailed])
-	Displays your overall Wordle statistics, optionally displaying count details.";
+* reset-game
+	Clears any active game guesses you may be working on and starts a new game next time you use /{CommandName} play.
+
+* stats ([user, reset])
+	Displays a user's (defaults to yours) or resets (only your own) overall Wordle statistics with count details.";
 
 		public override SlashCommandProperties BuildCommand()
 		{
@@ -55,13 +58,6 @@ SUBCOMMANDS:
 								IsRequired = true,
 								MinLength = 5,
 								MaxLength = 5
-							},
-							new SlashCommandOptionBuilder
-							{
-								Name = "new-game",
-								Description = "Forces a new game to start",
-								Type = ApplicationCommandOptionType.Boolean,
-								IsRequired = false
 							}
 						}
 					},
@@ -75,6 +71,13 @@ SUBCOMMANDS:
 
 					new SlashCommandOptionBuilder
 					{
+						Name = "reset-game",
+						Description = "Clears any active game guesses and word you may be working on.",
+						Type = ApplicationCommandOptionType.SubCommand
+					},
+
+					new SlashCommandOptionBuilder
+					{
 						Name = "stats",
 						Description = "Displays your running Wordle statistics.",
 						Type = ApplicationCommandOptionType.SubCommand,
@@ -82,8 +85,15 @@ SUBCOMMANDS:
 						{
 							new SlashCommandOptionBuilder
 							{
-								Name = "detailed",
-								Description = "Shows extra details in your stats.",
+								Name = "user",
+								Description = "An optional other user to display.",
+								Type = ApplicationCommandOptionType.User,
+								IsRequired = false
+							},
+							new SlashCommandOptionBuilder
+							{
+								Name = "reset",
+								Description = "Wipes all your Wordle gameplay statistics.",
 								Type = ApplicationCommandOptionType.Boolean,
 								IsRequired = false
 							}
@@ -102,37 +112,57 @@ SUBCOMMANDS:
 			var subcmd = cmdWrapper.Command.Data.Options.First();
 			if (subcmd.Name == "stats")
 			{
-				var allStats = _sqliteProvider.GetDataRecords<WordleStat>(s => s.UserID == cmdWrapper.Command.User.Id);
+				IUser statsUser = (IUser?)subcmd.Options.FirstOrDefault(o => o.Name == "user")?.Value ?? cmdWrapper.Command.User;
+
+				var allStats = _sqliteProvider.GetDataRecords<WordleStat>(s => s.UserID == statsUser.Id);
+				var wonGames = allStats.Where(s => s.Solved).ToList();
 				if (allStats.Count == 0)
 				{
-					return Task.FromResult(cmdWrapper.Respond("You have no Wordle stats yet! Go ahead and play a few games and come back when you're older.", ephemeral: true));
+					return Task.FromResult(cmdWrapper.Respond($"{statsUser.Username} has no Wordle stats yet.", ephemeral: true));
 				}
 
-				int wonGames = allStats.Count(s => s.Solved);
+				if ((bool?)subcmd.Options.FirstOrDefault(o => o.Name == "reset")?.Value ?? false)
+				{
+					if (statsUser == cmdWrapper.Command.User)
+					{
+						int numDeleted = allStats.Count;
+						bool isPlural = numDeleted > 1;
+						_sqliteProvider.DeleteDataRecords(allStats.ToArray());
+						return Task.FromResult(cmdWrapper.Respond($"Your {numDeleted} Wordle statistic{(isPlural ? "s" : "")} {(isPlural ? "have" : "has")} been reset!", ephemeral: true));
+					}
+					else
+					{
+						return Task.FromResult(cmdWrapper.Respond($"Um excuse you, only {statsUser.Username} can reset their own stats.", ephemeral: true));
+					}
+				}
 
-				sb.AppendLine($"{cmdWrapper.Command.User.Mention}'s Wordle Stats:");
+				sb.AppendLine($"{statsUser.Mention}'s Wordle Stats:");
 				sb.AppendLine();
 				sb.AppendLine("```");
 				sb.AppendLine($"GAMES PLAYED: {allStats.Count}");
-				sb.AppendLine($"GAMES WON: {wonGames} ({(int)Math.Round(((float)wonGames / allStats.Count) * 100)}%)");
-				sb.AppendLine($"AVG ATTEMPTS: {Math.Round((float)allStats.Sum(s => s.NumGuesses) / allStats.Count, 2)}");
-				sb.AppendLine("```");
-
-				if (((bool?)subcmd.Options.FirstOrDefault(o => o.Name == "detailed")?.Value) ?? false)
+				sb.AppendLine($"GAMES WON: {wonGames.Count} ({(int)Math.Round(((float)wonGames.Count / allStats.Count) * 100)}%)");
+				if (wonGames.Any())
 				{
+					sb.AppendLine($"AVG ATTEMPTS: {Math.Round((float)wonGames.Sum(s => s.NumGuesses) / wonGames.Count, 2)}");
+				}
+
+				if (wonGames.Any())
+				{
+					int numMax = wonGames.Count(g => g.NumGuesses == wonGames.Max(w => w.NumGuesses));
+
+					sb.AppendLine();
 					sb.AppendLine("Guess Distribution:");
 					sb.AppendLine();
-					sb.AppendLine("```");
 					for (int i = 1; i <= 6; i++)
 					{
-						int num = allStats.Count(s => s.NumGuesses == i);
-						int pct = (int)Math.Round((float)num / allStats.Count);
-						int numBarChars = 20;
+						float wonWithThisNumCount = wonGames.Count(s => s.NumGuesses == i);
+						float pctOfMax = wonWithThisNumCount / numMax; ;
+						int numBarChars = (int)Math.Round(20 * pctOfMax);
 
-						sb.AppendLine($"{i}: {num} {new string('=', numBarChars * pct)} ({pct * 100}%)");
+						sb.AppendLine($"{i}: {wonWithThisNumCount} {new string('=', numBarChars)} ({Math.Round((wonWithThisNumCount / wonGames.Count) * 100, 2)}%)");
 					}
-					sb.AppendLine("```");
 				}
+				sb.AppendLine("```");
 
 				return Task.FromResult(cmdWrapper.Respond(sb.ToString()));
 			}
@@ -142,7 +172,7 @@ SUBCOMMANDS:
 				var allWords = _sqliteProvider.GetDataRecords<WordleWord>();
 				var validSolutionWords = allWords.Where(w => w.CanBeSolution).ToList();
 				var existingGuesses = _sqliteProvider.GetDataRecords<WordleGuess>(g => g.UserID == cmdWrapper.Command.User.Id);
-				bool isNewGame = ((bool?)subcmd.Options.FirstOrDefault(o => o.Name == "new-game")?.Value ?? false) || !existingGuesses.Any();
+				bool isNewGame = !existingGuesses.Any();
 				var activeWord = (isNewGame ? validSolutionWords[Random.Shared.Next(validSolutionWords.Count)].Word : existingGuesses[0].WordID).ToUpper();
 
 				// Validate the guess
@@ -222,6 +252,27 @@ SUBCOMMANDS:
 					sb.AppendLine($"Use `/{CommandName} play` to guess again.");
 
 					return Task.FromResult(cmdWrapper.Respond(sb.ToString(), ephemeral: true));
+				}
+			}
+			else if (subcmd.Name == "reset-game")
+			{
+				var existingGuesses = _sqliteProvider.GetDataRecords<WordleGuess>(g => g.UserID == cmdWrapper.Command.User.Id);
+				if (!existingGuesses.Any())
+				{
+					return Task.FromResult(cmdWrapper.Respond("You have no active Wordle game. Go ahead and start a new one!", ephemeral: true));
+				}
+				else
+				{
+					// Count this as a loss and delete guesses
+					_sqliteProvider.UpsertDataRecords(new WordleStat
+					{
+						UserID = cmdWrapper.Command.User.Id,
+						WordID = existingGuesses.First().WordID,
+						Solved = false,
+						NumGuesses = existingGuesses.Count
+					});
+					_sqliteProvider.DeleteDataRecords(existingGuesses.ToArray());
+					return Task.FromResult(cmdWrapper.Respond("Existing game cleared and counted as a loss. Playing again will generate a new word.", ephemeral: true));
 				}
 			}
 			else
