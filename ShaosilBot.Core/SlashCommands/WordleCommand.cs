@@ -286,51 +286,51 @@ SUBCOMMANDS:
 			var sb = new StringBuilder();
 
 			sb.AppendLine("```");
-			sb.AppendLine($"Guess 1: {BuildColorSquaresFromGuess(answer, guesses[0].Guess)}");
-			sb.AppendLine($"Guess 2: {BuildColorSquaresFromGuess(answer, guesses.ElementAtOrDefault(1)?.Guess)}");
-			sb.AppendLine($"Guess 3: {BuildColorSquaresFromGuess(answer, guesses.ElementAtOrDefault(2)?.Guess)}");
-			sb.AppendLine($"Guess 4: {BuildColorSquaresFromGuess(answer, guesses.ElementAtOrDefault(3)?.Guess)}");
-			sb.AppendLine($"Guess 5: {BuildColorSquaresFromGuess(answer, guesses.ElementAtOrDefault(4)?.Guess)}");
-			sb.AppendLine($"Guess 6: {BuildColorSquaresFromGuess(answer, guesses.ElementAtOrDefault(5)?.Guess)}");
+			for (int i = 0; i < 6; i++)
+			{
+				sb.Append($"Guess {i + 1}: ");
+
+				var guess = guesses.ElementAtOrDefault(i)?.Guess;
+				if (string.IsNullOrWhiteSpace(guess))
+				{
+					sb.Append("⬛⬛⬛⬛⬛");
+				}
+				else
+				{
+					// Track the number of yellow letters (exist but not exact)
+					var correctLetterCount = guess.Distinct().Select(g => new KeyValuePair<char, int>(g, answer.Select((a, ai) => a == g && a != guess[ai] ? 1 : 0).Sum()))
+						.ToDictionary(k => k.Key, v => v.Value);
+
+					for (int c = 0; c < 5; c++)
+					{
+						// If the answer contains the current letter, show green or yellow squares
+						if (answer[c] == guess[c])
+						{
+							sb.Append("🟩"); // Green
+						}
+						else if (correctLetterCount[guess[c]] > 0)
+						{
+							sb.Append("🟨"); // Yellow
+
+							// Decrement so we can show the correct amount of yellow squares if there is more than one
+							correctLetterCount[guess[c]]--;
+						}
+						else
+						{
+							sb.Append("🟥"); // Red
+						}
+					}
+
+					sb.Append($" ({guess})");
+				}
+
+				sb.AppendLine();
+			}
+
 			sb.AppendLine();
 			var invalidLetters = guesses.SelectMany(g => g.Guess).Distinct().Where(g => !answer.Any(w => w == g)).Order();
 			sb.AppendLine($"OUT: {string.Join(',', invalidLetters)}");
 			sb.AppendLine("```");
-
-			return sb.ToString();
-		}
-
-		private string BuildColorSquaresFromGuess(string answer, string? guess)
-		{
-			if (string.IsNullOrWhiteSpace(guess)) return "⬛⬛⬛⬛⬛";
-
-			var sb = new StringBuilder();
-			var correctLetterCount = new Dictionary<char, int>();
-			for (int i = 0; i < 5; i++)
-			{
-				int curCorrectLettercount = correctLetterCount.GetValueOrDefault(guess[i]);
-
-				// If the answer contains the current letter and we have not yet tracked it, show green or yellow squares
-				if (answer[i] == guess[i] || answer.Count(w => w == guess[i]) > curCorrectLettercount)
-				{
-					if (answer[i] == guess[i])
-					{
-						sb.Append("🟩"); // Green
-					}
-					else
-					{
-						sb.Append("🟨"); // Yellow
-					}
-
-					correctLetterCount[guess[i]] = curCorrectLettercount + 1;
-				}
-				else
-				{
-					sb.Append("🟥"); // Red
-				}
-			}
-
-			sb.Append($" ({guess})");
 
 			return sb.ToString();
 		}
