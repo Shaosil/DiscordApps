@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Microsoft.Extensions.Logging;
+using PuppeteerSharp;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models.SQLite;
 using ShaosilBot.Core.Providers;
@@ -106,8 +107,6 @@ SUBCOMMANDS:
 
 		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			var sb = new StringBuilder();
-
 			// Just return stats if that is what was requested
 			var subcmd = cmdWrapper.Command.Data.Options.First();
 			if (subcmd.Name == "stats")
@@ -136,6 +135,7 @@ SUBCOMMANDS:
 					}
 				}
 
+				var sb = new StringBuilder();
 				sb.AppendLine($"{statsUser.Mention}'s Wordle Stats:");
 				sb.AppendLine();
 				sb.AppendLine("```");
@@ -190,50 +190,65 @@ SUBCOMMANDS:
 					return Task.FromResult(cmdWrapper.Respond("You already tried that word. No action taken.", ephemeral: true));
 				}
 
-				if (isNewGame)
+				// Defer so we can properly send an attachment and take time to do Puppetteer stuff
+				return cmdWrapper.DeferWithCode(async () =>
 				{
-					// Clear any old guesses
-					_sqliteProvider.DeleteDataRecords(existingGuesses.ToArray());
+					// Start the embed
+					var embedBuilder = new EmbedBuilder()
+					{
+						Color = new Color(0x7c0089),
+						ImageUrl = "attachment://wordle.jpg"
+					};
 
-					sb.AppendLine("Starting a new Wordle game!");
-				}
-				else
-				{
-					sb.AppendLine("Continuing your current Wordle game.");
-				}
-				sb.AppendLine();
+					if (isNewGame)
+					{
+						// Clear any old guesses
+						_sqliteProvider.DeleteDataRecords(existingGuesses.ToArray());
 
-				// Insert the new guess
-				var newGuess = new WordleGuess
-				{
-					UserID = cmdWrapper.Command.User.Id,
-					WordID = activeWord,
-					Guess = guess
-				};
-				_sqliteProvider.UpsertDataRecords(newGuess);
-				existingGuesses = _sqliteProvider.GetDataRecords<WordleGuess>(g => g.UserID == cmdWrapper.Command.User.Id);
+						embedBuilder.Title = "Starting a new Wordle game!";
+					}
+					else
+					{
+						embedBuilder.Title = "Continuing your current Wordle game.";
+					}
 
-				// Build the return message
-				sb.Append(BuildGuessTable(activeWord, existingGuesses));
-
-				// Check for game end
-				bool won = guess.Equals(activeWord, StringComparison.OrdinalIgnoreCase);
-				if (won || existingGuesses.Count >= 6)
-				{
-					sb.AppendLine($"{(won ? "Correct!" : "Game over!")} The solution is '{activeWord.ToUpper()}'.");
-
-					// Add a stat and delete guesses
-					_sqliteProvider.UpsertDataRecords(new WordleStat
+					// Insert the new guess
+					var newGuess = new WordleGuess
 					{
 						UserID = cmdWrapper.Command.User.Id,
 						WordID = activeWord,
-						Solved = won,
-						NumGuesses = existingGuesses.Count
-					});
-					_sqliteProvider.DeleteDataRecords(existingGuesses.ToArray());
-				}
+						Guess = guess
+					};
+					_sqliteProvider.UpsertDataRecords(newGuess);
+					existingGuesses = _sqliteProvider.GetDataRecords<WordleGuess>(g => g.UserID == cmdWrapper.Command.User.Id);
 
-				return Task.FromResult(cmdWrapper.Respond(sb.ToString(), ephemeral: true));
+					// Check for game end
+					bool won = guess.Equals(activeWord, StringComparison.OrdinalIgnoreCase);
+					if (won || existingGuesses.Count >= 6)
+					{
+						embedBuilder.Footer = new EmbedFooterBuilder { Text = $"{(won ? "Correct!" : "Game over!")} The solution is '{activeWord.ToUpper()}'." };
+
+						// Add a stat and delete guesses
+						_sqliteProvider.UpsertDataRecords(new WordleStat
+						{
+							UserID = cmdWrapper.Command.User.Id,
+							WordID = activeWord,
+							Solved = won,
+							NumGuesses = existingGuesses.Count
+						});
+						_sqliteProvider.DeleteDataRecords(existingGuesses.ToArray());
+					}
+
+					// Generate the HTML image stream
+					using (var stream = await GenerateGuessTableImage(activeWord, existingGuesses))
+					{
+						// Load the original message to make sure it exists
+						await cmdWrapper.GetOriginalMessage();
+
+						// Add the attachment and embed to the followup message
+						await cmdWrapper.Command.FollowupWithFileAsync(new FileAttachment(stream, "wordle.jpg"), embed: embedBuilder.Build());
+					}
+				}, true);
 			}
 			else if (subcmd.Name == "remind")
 			{
@@ -244,14 +259,23 @@ SUBCOMMANDS:
 				}
 				else
 				{
-					string activeWord = existingGuesses.First().WordID;
-					sb.AppendLine($"Your current Wordle game is {existingGuesses.Count} guesses in:");
-					sb.AppendLine();
-					sb.Append(BuildGuessTable(activeWord, existingGuesses));
-					sb.AppendLine();
-					sb.AppendLine($"Use `/{CommandName} play` to guess again.");
+					// Start the embed
+					var embedBuilder = new EmbedBuilder()
+					{
+						Title = $"Your current Wordle game is {existingGuesses.Count} guesses in:",
+						Color = new Color(0x7c0089),
+						ImageUrl = "attachment://wordle.jpg",
+						Footer = new EmbedFooterBuilder { Text = $"Use `/{CommandName} play` to guess again." }
+					};
 
-					return Task.FromResult(cmdWrapper.Respond(sb.ToString(), ephemeral: true));
+					return cmdWrapper.DeferWithCode(async () =>
+					{
+						string activeWord = existingGuesses.First().WordID;
+						using (var stream = await GenerateGuessTableImage(activeWord, existingGuesses))
+						{
+							await cmdWrapper.Command.FollowupWithFileAsync(new FileAttachment(stream, "wordle.jpg"), embed: embedBuilder.Build());
+						}
+					}, true);
 				}
 			}
 			else if (subcmd.Name == "reset-game")
@@ -281,58 +305,69 @@ SUBCOMMANDS:
 			}
 		}
 
-		private string BuildGuessTable(string answer, List<WordleGuess> guesses)
+		private async Task<Stream> GenerateGuessTableImage(string answer, List<WordleGuess> guesses)
 		{
-			var sb = new StringBuilder();
+			// Make sure puppeteer browser is downloaded (this could cause an interaction timeout the first time it is run)
+			_ = await new BrowserFetcher().DownloadAsync();
 
-			sb.AppendLine("```");
-			for (int i = 0; i < 6; i++)
+			HashSet<char> outChars = new HashSet<char>(), presentChars = new HashSet<char>(), correctChars = new HashSet<char>();
+			using (var page = await (await Puppeteer.LaunchAsync(new LaunchOptions { Headless = true })).NewPageAsync())
 			{
-				sb.Append($"Guess {i + 1}: ");
+				await page.SetViewportAsync(new ViewPortOptions { Width = 345, Height = 575 });
+				await page.GoToAsync(@$"file:///{Path.Combine(AppContext.BaseDirectory, "Files/Wordle.html")}");
 
-				var guess = guesses.ElementAtOrDefault(i)?.Guess;
-				if (string.IsNullOrWhiteSpace(guess))
+				// Update guesses and styling
+				var scriptSB = new StringBuilder();
+				for (int i = 0; i < guesses.Count; i++)
 				{
-					sb.Append("⬛⬛⬛⬛⬛");
-				}
-				else
-				{
+					var guess = guesses[i].Guess;
+
+					scriptSB.AppendLine($"var guess{i + 1} = document.getElementById('guess{i + 1}');");
+
 					// Track the number of yellow letters (exist but not exact)
 					var correctLetterCount = guess.Distinct().Select(g => new KeyValuePair<char, int>(g, answer.Select((a, ai) => a == g && a != guess[ai] ? 1 : 0).Sum()))
 						.ToDictionary(k => k.Key, v => v.Value);
 
 					for (int c = 0; c < 5; c++)
 					{
+						// Set current letter in HTML and remove the empty class from this tile
+						scriptSB.AppendLine($"guess{i + 1}.children[{c}].innerText = '{guess[c]}';");
+						scriptSB.AppendLine($"guess{i + 1}.children[{c}].classList.remove('empty');");
+
 						// If the answer contains the current letter, show green or yellow squares
 						if (answer[c] == guess[c])
 						{
-							sb.Append("🟩"); // Green
+							scriptSB.AppendLine($"guess{i + 1}.children[{c}].classList.add('correct');"); // Green
+							correctChars.Add(guess[c]);
 						}
 						else if (correctLetterCount[guess[c]] > 0)
 						{
-							sb.Append("🟨"); // Yellow
+							scriptSB.AppendLine($"guess{i + 1}.children[{c}].classList.add('present');"); // Yellow
+							presentChars.Add(guess[c]);
 
 							// Decrement so we can show the correct amount of yellow squares if there is more than one
 							correctLetterCount[guess[c]]--;
 						}
 						else
 						{
-							sb.Append("🟥"); // Red
+							scriptSB.AppendLine($"guess{i + 1}.children[{c}].classList.add('absent');"); // Grey
+							outChars.Add(guess[c]);
 						}
 					}
 
-					sb.Append($" ({guess})");
+					// Now set the styling of the keyboard letters
+					scriptSB.AppendLine();
+					foreach (var c in outChars) scriptSB.AppendLine($"document.getElementById('key{c}').classList.add('absent');");
+					foreach (var c in presentChars) scriptSB.AppendLine($"document.getElementById('key{c}').classList.add('present');");
+					foreach (var c in correctChars) scriptSB.AppendLine($"document.getElementById('key{c}').classList.add('correct');");
 				}
 
-				sb.AppendLine();
+				// Run the script
+				await page.EvaluateExpressionAsync(scriptSB.ToString());
+
+				// Take a screenshot and return the stream
+				return await page.ScreenshotStreamAsync();
 			}
-
-			sb.AppendLine();
-			var invalidLetters = guesses.SelectMany(g => g.Guess).Distinct().Where(g => !answer.Any(w => w == g)).Order();
-			sb.AppendLine($"OUT: {string.Join(',', invalidLetters)}");
-			sb.AppendLine("```");
-
-			return sb.ToString();
 		}
 	}
 }

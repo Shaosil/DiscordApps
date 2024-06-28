@@ -60,7 +60,7 @@ builder.Services.AddOpenAIService(a =>
 {
 	a.ApiKey = builder.Configuration.GetValue<string>("OpenAIAPIKey") ?? string.Empty;
 	a.Organization = builder.Configuration.GetValue<string>("OpenAIOrganization") ?? string.Empty;
-	a.DefaultModelId = "gpt-4o"; // Models.Gpt_4o is not available as a const yet
+	a.DefaultModelId = OpenAI.ObjectModels.Models.Gpt_4o;
 });
 
 builder.Services.AddQuartz(c =>

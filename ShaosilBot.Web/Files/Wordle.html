@@ -1,0 +1,138 @@
+<html>
+    <head>
+        <style>
+            body {
+                background-color: #121213;
+                color: #d7dadc;
+                margin: 0;
+                font-family: system-ui;
+                
+                .board-container {
+                    display: grid;
+                    justify-content: start;
+
+                    .board {
+                        width: 350px;
+                        height: 420px;
+                        display: grid;
+                        grid-template-rows: repeat(6, 1fr);
+                        grid-gap: 5px;
+                        padding: 10px;
+                        box-sizing: border-box;
+                        align-self: end;
+                        scale: 90%;
+
+                        .row {
+                            display: grid;
+                            grid-template-columns: repeat(5, 1fr);
+                            grid-gap: 5px;
+
+                            .game-tile {
+                                width: 100%;
+                                display: inline-flex;
+                                justify-content: center;
+                                align-items: center;
+                                font-size: 2rem;
+                                line-height: 2rem;
+                                font-weight: bold;
+                                vertical-align: middle;
+                                box-sizing: border-box;
+                            }
+                        }
+                    }
+
+                    .keyboard {
+                        align-self: start;
+                        margin: 0 8px;
+
+                        .row {
+                            display: flex;
+                            width: 100%;
+                            margin: 0 auto 8px;
+
+                            .key {
+                                font-family: inherit;
+                                font-weight: bold;
+                                border: 0;
+                                padding: 0;
+                                margin: 0 6px 0 0;
+                                height: 40px;
+                                border-radius: 4px;
+                                background-color: #818384;
+                                color: #d7dadc;
+                                flex: 1;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                                text-transform: uppercase;
+                            }
+                        }
+                    }
+                    
+                    .empty {
+                        border: 2px solid #3a3a3c;
+                    }
+                    .absent {
+                        background-color: #3a3a3c !important;
+                    }
+                    .present {
+                        background-color: #b59f3b !important;
+                    }
+                    .correct {
+                        background-color: #538d4e !important;
+                    }
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="board-container">
+            <div class="board">
+                <div id="guess1" class="row"><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div></div>
+                <div id="guess2" class="row"><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div></div>
+                <div id="guess3" class="row"><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div></div>
+                <div id="guess4" class="row"><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div></div>
+                <div id="guess5" class="row"><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div></div>
+                <div id="guess6" class="row"><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div><div class="game-tile empty"></div></div>
+            </div>
+
+            <div class="keyboard">
+                <div class="row">
+                    <div id="keyQ" class="key">Q</div>
+                    <div id="keyW" class="key">W</div>
+                    <div id="keyE" class="key">E</div>
+                    <div id="keyR" class="key">R</div>
+                    <div id="keyT" class="key">T</div>
+                    <div id="keyY" class="key">Y</div>
+                    <div id="keyU" class="key">U</div>
+                    <div id="keyI" class="key">I</div>
+                    <div id="keyO" class="key">O</div>
+                    <div id="keyP" class="key">P</div>
+                </div>
+    
+                <div class="row" style="width: 92%;">
+                    <div id="keyA" class="key">A</div>
+                    <div id="keyS" class="key">S</div>
+                    <div id="keyD" class="key">D</div>
+                    <div id="keyF" class="key">F</div>
+                    <div id="keyG" class="key">G</div>
+                    <div id="keyH" class="key">H</div>
+                    <div id="keyJ" class="key">J</div>
+                    <div id="keyK" class="key">K</div>
+                    <div id="keyL" class="key">L</div>
+                </div>
+                
+                <div class="row" style="width: 75%">
+                    <div id="keyZ" class="key">Z</div>
+                    <div id="keyX" class="key">X</div>
+                    <div id="keyC" class="key">C</div>
+                    <div id="keyV" class="key">V</div>
+                    <div id="keyB" class="key">B</div>
+                    <div id="keyN" class="key">N</div>
+                    <div id="keyM" class="key">M</div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

@@ -629,7 +629,7 @@ namespace ShaosilBot.Core.Singletons
 								(
 									newTitle: $"Status: Complete",
 									newThumbnailURL: string.Empty,
-									newImgURL: $"attachment://completed.jpg"
+									newImgURL: "attachment://completed.jpg"
 								);
 
 								// Get full image
