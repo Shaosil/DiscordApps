@@ -9,7 +9,7 @@
 		public bool CanBeSolution { get; set; }
 	}
 
-	public class WordleGuess : ITable
+	public class WordleGame : ITable
 	{
 		[PrimaryKey(true)]
 		public int ID { get; set; }
@@ -20,8 +20,30 @@
 		[ForeignKey(typeof(WordleWord), nameof(WordleWord.Word))]
 		public string WordID { get; set; }
 
+		public DateTimeOffset StartedTimestamp { get; set; }
+
+		public DateTimeOffset? RemindedTimestamp { get; set; } // Active games over 2H since a guess will do a remind instead
+
+		public List<WordleGuess> Guesses { get; set; }
+	}
+
+	public class WordleGuess : ITable
+	{
+		[PrimaryKey(true)]
+		public int ID { get; set; }
+
+		[Required]
+		public ulong UserID { get; set; }
+
+		[ForeignKey(typeof(WordleGame), nameof(WordleGame.ID))]
+		public int WordleGameID { get; set; }
+
 		[Required]
 		public string Guess { get; set; }
+
+		public DateTimeOffset GuessTimestamp { get; set; }
+
+		public WordleGame WordleGame { get; set; }
 	}
 
 	public class WordleStat : ITable
@@ -40,5 +62,7 @@
 
 		[Required]
 		public int NumGuesses { get; set; }
+
+		public DateTimeOffset? EndedTimestamp { get; set; }
 	}
 }

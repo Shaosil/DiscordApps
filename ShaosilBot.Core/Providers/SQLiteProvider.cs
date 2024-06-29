@@ -386,22 +386,25 @@ namespace ShaosilBot.Core.Providers
 
 		public void UpsertDataRecords<T>(params T[] records) where T : ITable, new()
 		{
-			// Exclude autoincrement PKs from upsert
+			// Make sure unset autoincrement PKs are not included (only check the value of the first record and assume the rest are the same)
 			var propColumns = GetColumnProperties(typeof(T));
-			var nonPkColumns = propColumns.Where(p => !(p.GetCustomAttribute<PrimaryKeyAttribute>()?.AutoIncrement ?? false)).ToList();
+			var pkCol = propColumns.First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null);
+			var nonDefaultAutoIncCols = propColumns.Where(p => !(p.GetCustomAttribute<PrimaryKeyAttribute>()?.AutoIncrement ?? false)
+				|| !p.GetValue(records[0])!.Equals(p.PropertyType.IsValueType ? Activator.CreateInstance(p.PropertyType) : null)).ToList();
+			var nonPkCols = propColumns.Where(p => p != pkCol).ToList();
 
 			var upsertBuilder = new StringBuilder();
-			upsertBuilder.AppendLine($"INSERT INTO {typeof(T).Name}s ({string.Join(", ", nonPkColumns.Select(c => $"[{c.Name}]"))}) VALUES");
-			var recordVals = records.Select((r, i) => $"({string.Join(", ", nonPkColumns.Select(p => $"@{p.Name}_{i}"))})");
+			upsertBuilder.AppendLine($"INSERT INTO {typeof(T).Name}s ({string.Join(", ", nonDefaultAutoIncCols.Select(c => $"[{c.Name}]"))}) VALUES");
+			var recordVals = records.Select((r, i) => $"({string.Join(", ", nonDefaultAutoIncCols.Select(p => $"@{p.Name}_{i}"))})");
 			upsertBuilder.AppendLine(string.Join($",{Environment.NewLine}", recordVals));
-			upsertBuilder.AppendLine("ON CONFLICT DO UPDATE SET");
-			upsertBuilder.AppendLine(string.Join($",{Environment.NewLine}", nonPkColumns.Select(c => $"[{c.Name}] = excluded.[{c.Name}]")));
+			upsertBuilder.AppendLine($"ON CONFLICT([{pkCol.Name}]) DO UPDATE SET");
+			upsertBuilder.AppendLine(string.Join($",{Environment.NewLine}", nonPkCols.Select(c => $"[{c.Name}] = excluded.[{c.Name}]")));
 
 			using (var conn = new SqliteConnection(ConnectionString))
 			{
 				var cmd = conn.CreateCommand();
 				cmd.CommandText = upsertBuilder.ToString();
-				foreach (var col in nonPkColumns)
+				foreach (var col in nonDefaultAutoIncCols)
 				{
 					for (int i = 0; i < records.Length; i++)
 					{
@@ -414,7 +417,7 @@ namespace ShaosilBot.Core.Providers
 
 			// Set any parent FK single properties in this class
 			var iTableProps = typeof(T).GetProperties().Where(p => p.PropertyType.IsAssignableTo(typeof(ITable))).ToList();
-			var fkColumns = nonPkColumns.Where(p => p.GetCustomAttribute<ForeignKeyAttribute>() != null).ToList();
+			var fkColumns = nonDefaultAutoIncCols.Where(p => p.GetCustomAttribute<ForeignKeyAttribute>() != null).ToList();
 			foreach (var fkColumn in fkColumns)
 			{
 				// Get the matching FK type
