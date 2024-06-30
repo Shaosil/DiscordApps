@@ -219,6 +219,8 @@ SUBCOMMANDS:
 							StartedTimestamp = DateTimeOffset.Now
 						});
 						activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id).FirstOrDefault();
+
+						embedBuilder.Title = "Starting a new Wordle game!";
 					}
 					else
 					{
@@ -226,11 +228,10 @@ SUBCOMMANDS:
 						List<DateTimeOffset> recentActivities = activeGame.Guesses.Select(g => g.GuessTimestamp).OrderDescending().Take(1).ToList();
 						if (activeGame.RemindedTimestamp.HasValue) recentActivities.Add(activeGame.RemindedTimestamp.Value);
 						justReminding = DateTimeOffset.Now - recentActivities.OrderDescending().First() > TimeSpan.FromHours(1);
-					}
 
-					embedBuilder.Title = activeGame == null ? "Starting a new Wordle game!"
-						: justReminding ? "It's been a while since your last guess, so your guess was not taken this time. Here's your active game."
-						: "Continuing your current Wordle game.";
+						embedBuilder.Title = justReminding ? "It's been a while since your last guess, so your guess was not taken this time. Here's your active game."
+						 : "Continuing your current Wordle game.";
+					}
 
 					if (justReminding)
 					{
@@ -254,7 +255,7 @@ SUBCOMMANDS:
 						bool won = guess.Equals(activeWord, StringComparison.OrdinalIgnoreCase);
 						if (won || (activeGame != null && activeGame.Guesses.Count >= 6))
 						{
-							embedBuilder.Footer = new EmbedFooterBuilder { Text = $"{(won ? "Correct!" : "Game over!")} The solution is '{activeWord.ToUpper()}'." };
+							embedBuilder.Title = $"{(won ? "Correct!" : "Game over!")} The solution is '{activeWord.ToUpper()}'.";
 
 							// Add a stat and delete active game (cascades to guesses)
 							_sqliteProvider.UpsertDataRecords(new WordleStat
@@ -295,8 +296,7 @@ SUBCOMMANDS:
 					{
 						Title = $"Your current Wordle game is {activeGame.Guesses.Count} guess{(activeGame.Guesses.Count > 1 ? "es" : "")} in:",
 						Color = new Color(0x7c0089),
-						ImageUrl = "attachment://wordle.jpg",
-						Footer = new EmbedFooterBuilder { Text = $"Use `/{CommandName} play` to guess again." }
+						ImageUrl = "attachment://wordle.jpg"
 					};
 
 					// Update the reminded timestamp
