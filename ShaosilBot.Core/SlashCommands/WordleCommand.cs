@@ -117,7 +117,6 @@ SUBCOMMANDS:
 				IUser statsUser = (IUser?)subcmd.Options.FirstOrDefault(o => o.Name == "user")?.Value ?? cmdWrapper.Command.User;
 
 				var allStats = _sqliteProvider.GetDataRecords<WordleStat>(s => s.UserID == statsUser.Id);
-				var wonGames = allStats.Where(s => s.Solved).ToList();
 				if (allStats.Count == 0)
 				{
 					return Task.FromResult(cmdWrapper.Respond($"{statsUser.Username} has no Wordle stats yet.", ephemeral: true));
@@ -138,36 +137,20 @@ SUBCOMMANDS:
 					}
 				}
 
-				var sb = new StringBuilder();
-				sb.AppendLine($"{statsUser.Mention}'s Wordle Stats:");
-				sb.AppendLine();
-				sb.AppendLine("```");
-				sb.AppendLine($"GAMES PLAYED: {allStats.Count}");
-				sb.AppendLine($"GAMES WON: {wonGames.Count} ({(int)Math.Round(((float)wonGames.Count / allStats.Count) * 100)}%)");
-				if (wonGames.Any())
+				// Defer so we can properly send an attachment and take time to do Puppetteer stuff
+				return cmdWrapper.DeferWithCode(async () =>
 				{
-					sb.AppendLine($"AVG ATTEMPTS: {Math.Round((float)wonGames.Sum(s => s.NumGuesses) / wonGames.Count, 2)}");
-				}
-
-				if (wonGames.Any())
-				{
-					int numMostGuesses = wonGames.GroupBy(w => w.NumGuesses).OrderByDescending(g => g.Count()).First().Count();
-
-					sb.AppendLine();
-					sb.AppendLine("Guess Distribution:");
-					sb.AppendLine();
-					for (int i = 1; i <= 6; i++)
+					// Generate the HTML image stream (FileAttachment will dispose it automatically)
+					var imageStream = await GenerateStatsImage(statsUser, allStats);
+					using (var attachment = new FileAttachment(imageStream, "wordlestats.jpg"))
 					{
-						float wonWithThisNumCount = wonGames.Count(s => s.NumGuesses == i);
-						float pctOfMax = wonWithThisNumCount / numMostGuesses;
-						int numBarChars = (int)Math.Round(20 * pctOfMax);
+						// Load the original message to make sure it exists
+						await cmdWrapper.GetOriginalMessage();
 
-						sb.AppendLine($"{i}: {wonWithThisNumCount} {new string('=', numBarChars)} ({Math.Round((wonWithThisNumCount / wonGames.Count) * 100, 2)}%)");
+						// Add the attachment and embed to the followup message
+						await cmdWrapper.Command.FollowupWithFileAsync(attachment, $"{statsUser.Mention}'s Wordle Stats:");
 					}
-				}
-				sb.AppendLine("```");
-
-				return Task.FromResult(cmdWrapper.Respond(sb.ToString()));
+				});
 			}
 			else if (subcmd.Name == "play")
 			{
@@ -270,7 +253,7 @@ SUBCOMMANDS:
 						}
 					}
 
-					// Generate the HTML image stream (FileAttachment will dispose it automatically
+					// Generate the HTML image stream (FileAttachment will dispose it automatically)
 					var imageStream = await GenerateGuessTableImage(activeWord, activeGame!.Guesses);
 					using (var attachment = new FileAttachment(imageStream, "wordle.jpg"))
 					{
@@ -345,7 +328,7 @@ SUBCOMMANDS:
 		{
 			HashSet<char> outChars = new HashSet<char>(), presentChars = new HashSet<char>(), correctChars = new HashSet<char>();
 
-			// Make sure puppeteer browser is downloaded (this could cause an interaction timeout the first time it is run)
+			// Make sure puppeteer browser is downloaded
 			var installedBrowser = await new BrowserFetcher(new BrowserFetcherOptions { Path = _configuration.GetValue<string>("FilesBasePath") }).DownloadAsync();
 			using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions { ExecutablePath = installedBrowser.GetExecutablePath(), Headless = true }))
 			{
@@ -398,6 +381,51 @@ SUBCOMMANDS:
 						foreach (var c in outChars) scriptSB.AppendLine($"document.getElementById('key{c}').classList.add('absent');");
 						foreach (var c in presentChars) scriptSB.AppendLine($"document.getElementById('key{c}').classList.add('present');");
 						foreach (var c in correctChars) scriptSB.AppendLine($"document.getElementById('key{c}').classList.add('correct');");
+					}
+
+					// Run the script
+					await page.EvaluateExpressionAsync(scriptSB.ToString());
+
+					// Take a screenshot and return the stream
+					return await page.ScreenshotStreamAsync();
+				}
+			}
+		}
+
+		private async Task<Stream> GenerateStatsImage(IUser user, List<WordleStat> stats)
+		{
+
+			// Make sure puppeteer browser is downloaded
+			var installedBrowser = await new BrowserFetcher(new BrowserFetcherOptions { Path = _configuration.GetValue<string>("FilesBasePath") }).DownloadAsync();
+			using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions { ExecutablePath = installedBrowser.GetExecutablePath(), Headless = true }))
+			{
+				using (var page = await browser.NewPageAsync())
+				{
+					await page.SetViewportAsync(new ViewPortOptions { Width = 500, Height = 335 });
+					await page.GoToAsync(@$"file:///{Path.Combine(AppContext.BaseDirectory, "Files/WordleStats.html")}");
+
+					// Set stats
+					var scriptSB = new StringBuilder();
+					var wonGames = stats.Where(s => s.Solved).ToList();
+					scriptSB.AppendLine($"document.getElementById('stats-title').innerText = '{user.Username}\\'s Wordle Statistics';");
+					scriptSB.AppendLine($"document.getElementById('stat-played').innerText = '{stats.Count}';");
+					scriptSB.AppendLine($"document.getElementById('stat-win-pct').innerText = '{wonGames.Count} ({Math.Round(((float)wonGames.Count / stats.Count) * 100)}%)';");
+
+					// Set avg guess cound and bar widths
+					if (wonGames.Any())
+					{
+						scriptSB.AppendLine($"document.getElementById('stat-avg-guesses').innerText = '{Math.Round((float)wonGames.Sum(s => s.NumGuesses) / wonGames.Count, 1)}';");
+
+						int numMostGuesses = wonGames.GroupBy(w => w.NumGuesses).OrderByDescending(g => g.Count()).First().Count();
+						for (int i = 1; i <= 6; i++)
+						{
+							float wonWithThisNumCount = wonGames.Count(s => s.NumGuesses == i);
+							float pctOfMax = wonWithThisNumCount / numMostGuesses;
+							int numBarChars = (int)Math.Round(20 * pctOfMax);
+
+							scriptSB.AppendLine($"document.getElementById('guess-{i}-bar').style.width = '{Math.Max(4, Math.Round(pctOfMax * 100))}% ';");
+							scriptSB.AppendLine($"document.getElementById('guess-{i}-text').innerText = '{wonWithThisNumCount}';");
+						}
 					}
 
 					// Run the script

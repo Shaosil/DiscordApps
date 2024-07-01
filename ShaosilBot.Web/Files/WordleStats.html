@@ -1,0 +1,167 @@
+<html>
+    <head>
+        <style>
+            body {
+                color: #d7dadc;
+                background-color: #121213;
+                font-family: system-ui;
+                margin: 0;
+            }
+
+            .container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 8px 0;
+                width: 500px;
+            }
+
+            h1 {
+                font-weight: 700;
+                font-size: 16px;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+                text-align: center;
+                margin-bottom: 10px;
+            }
+
+            #statistics {
+                display: flex;
+                gap: 50px;
+                padding-bottom: 10px;
+            }
+
+            .statistic-container {
+                .statistic {
+                    font-size: 36px;
+                    font-weight: 400;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    text-align: center;
+                    letter-spacing: 0.05em;
+                    font-variant-numeric: proportional-nums;
+                }
+
+                .label {
+                    font-size: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    text-align: center;
+                }
+            }
+
+            #guess-distribution {
+                width: 80%;
+
+                .graph-container {
+                    width: 100%;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    padding-bottom: 4px;
+                    font-size: 14px;
+                    line-height: 20px;
+
+                    .graph {
+                        width: 100%;
+                        height: 100%;
+                        padding-left: 4px;
+                        font-weight: bold;
+
+                        .graph-bar {
+                            height: 100%;
+                            width: 0%;
+                            position: relative;
+                            background-color: #538d4e;
+                            display: flex;
+                            justify-content: flex-end;
+                            padding-right: 8px;
+                        }
+                    }
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="container">
+            <h1 id="stats-title">Statistics</h1>
+            <div id="statistics">
+                <div class="statistic-container">
+                    <div id="stat-played" class="statistic">XX</div>
+                    <div class="label">Played</div>
+                </div>
+        
+                <div class="statistic-container">
+                    <div id="stat-win-pct" class="statistic">XXX</div>
+                    <div class="label">Won</div>
+                </div>
+        
+                <div class="statistic-container">
+                    <div id="stat-avg-guesses" class="statistic">0.0</div>
+                    <div class="label">Avg Guesses</div>
+                </div>
+            </div>
+            
+            <h1>Guess Distribution</h1>
+            <div id="guess-distribution">
+                <div class="graph-container">
+                    <div class="guess">1</div>
+                    <div class="graph">
+                        <div id="guess-1-bar" class="graph-bar" style="width: 4%;">
+                            <div id="guess-1-text" class="num-guesses">0</div>
+                        </div>
+                    </div>
+                </div>
+        
+                <div class="graph-container">
+                    <div class="guess">2</div>
+                    <div class="graph">
+                        <div id="guess-2-bar" class="graph-bar" style="width: 4%;">
+                            <div id="guess-2-text" class="num-guesses">0</div>
+                        </div>
+                    </div>
+                </div>
+        
+                <div class="graph-container">
+                    <div class="guess">3</div>
+                    <div class="graph">
+                        <div id="guess-3-bar" class="graph-bar" style="width: 4%;">
+                            <div id="guess-3-text" class="num-guesses">0</div>
+                        </div>
+                    </div>
+                </div>
+        
+                <div class="graph-container">
+                    <div class="guess">4</div>
+                    <div class="graph">
+                        <div id="guess-4-bar" class="graph-bar" style="width: 4%;">
+                            <div id="guess-4-text" class="num-guesses">0</div>
+                        </div>
+                    </div>
+                </div>
+        
+                <div class="graph-container">
+                    <div class="guess">5</div>
+                    <div class="graph">
+                        <div id="guess-5-bar" class="graph-bar" style="width: 4%;">
+                            <div id="guess-5-text" class="num-guesses">0</div>
+                        </div>
+                    </div>
+                </div>
+        
+                <div class="graph-container">
+                    <div class="guess">6</div>
+                    <div class="graph">
+                        <div id="guess-6-bar" class="graph-bar" style="width: 4%;">
+                            <div id="guess-6-text" class="num-guesses">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
