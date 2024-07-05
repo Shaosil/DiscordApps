@@ -120,21 +120,25 @@ SUBCOMMANDS:
 					// Show stats
 					statsBuilder.AppendLine($"Chat usage since {DateTime.Now:M/1/yyyy}:");
 					statsBuilder.AppendLine();
-					statsBuilder.AppendLine($"```* Chats sent:         {ourInfo.TokensUsed.Count():N0}");
-					statsBuilder.AppendLine($"* Used tokens:        {ourInfo.TokensUsed.Sum(t => t.Value):N0}");
-					statsBuilder.AppendLine($"* Remaining tokens:   {ourInfo.AvailableTokens:N0}");
-					statsBuilder.AppendLine($"* Borrowed tokens:    {allUsers.SelectMany(u => u.Value.LentTokens.Where(t => t.Key == cmdWrapper.Command.User.Id)).Sum(t => t.Value):N0}");
-					statsBuilder.AppendLine($"* Lent tokens:        {ourInfo.LentTokens.Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"```* Chats sent:              {ourInfo.InputTokensUsed.Count():N0}");
+					statsBuilder.AppendLine($"* Used input tokens:       {ourInfo.InputTokensUsed.Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Used output tokens:      {ourInfo.OutputTokensUsed.Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Remaining input tokens:  {ourInfo.AvailableInputTokens:N0}");
+					statsBuilder.AppendLine($"* Remaining output tokens: {ourInfo.AvailableOutputTokens:N0}");
+					statsBuilder.AppendLine($"* Borrowed input tokens:   {allUsers.SelectMany(u => u.Value.LentInputTokens.Where(t => t.Key == cmdWrapper.Command.User.Id)).Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Borrowed output tokens:  {allUsers.SelectMany(u => u.Value.LentOutputTokens.Where(t => t.Key == cmdWrapper.Command.User.Id)).Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Lent input tokens:       {ourInfo.LentInputTokens.Sum(t => t.Value):N0}");
+					statsBuilder.AppendLine($"* Lent output tokens:      {ourInfo.LentOutputTokens.Sum(t => t.Value):N0}");
 					statsBuilder.AppendLine();
-					statsBuilder.AppendLine($"* Custom user prompt: {ourInfo.CustomUserPrompt ?? "(none)"}```");
-					statsBuilder.AppendLine($"* Custom asst prompt: {ourInfo.CustomAssistantPrompt ?? "(none)"}```");
+					statsBuilder.AppendLine($"* Custom user prompt:      {ourInfo.CustomUserPrompt ?? "(none)"}");
+					statsBuilder.AppendLine($"* Custom asst prompt:      {ourInfo.CustomAssistantPrompt ?? "(none)"}```");
 				}
 				else
 				{
 					statsBuilder.AppendLine($"Top user token usage since {DateTime.Now:M/1/yyyy}:");
 					statsBuilder.AppendLine();
 
-					var topUsers = allUsers.Where(u => u.Value.TokensUsed.Any()).OrderBy(u => u.Value.AvailableTokens).Take(10).ToList();
+					var topUsers = allUsers.Where(u => u.Value.TotalTokensUsed > 0).OrderBy(u => u.Value.TotalAvailableTokens).Take(10).ToList();
 					if (!topUsers.Any())
 					{
 						statsBuilder.AppendLine("No current usage for this month. Let's get chatting folks!");
@@ -142,15 +146,14 @@ SUBCOMMANDS:
 					else
 					{
 						// TODO: List current starting tokens per user?
-
 						for (int i = 0; i < topUsers.Count; i++)
 						{
-							statsBuilder.AppendLine($"{i + 1,2}) <@{topUsers[i].Key}>: {topUsers[i].Value.TokensUsed.Sum(t => t.Value):N0} ({topUsers[i].Value.TokensUsed.Count:N0} chats)");
+							statsBuilder.AppendLine($"{i + 1,2}) <@{topUsers[i].Key}>: {topUsers[i].Value.TotalTokensUsed:N0} ({topUsers[i].Value.InputTokensUsed.Count:N0} chats)");
 						}
 
 						// TODO: Progress bar towards max limit?
 						statsBuilder.AppendLine();
-						statsBuilder.AppendLine($"TOTAL: {topUsers.Sum(u => u.Value.TokensUsed.Sum(t => t.Value)):N0} tokens and {topUsers.Sum(u => u.Value.TokensUsed.Count):N0} chats.");
+						statsBuilder.AppendLine($"TOTAL: {topUsers.Sum(u => u.Value.TotalTokensUsed):N0} tokens and {topUsers.Sum(u => u.Value.InputTokensUsed.Count):N0} chats.");
 
 
 					}

@@ -4,17 +4,28 @@ namespace ShaosilBot.Core.Models
 {
 	public class ChatGPTUser
 	{
-		public int AvailableTokens { get; set; } // Refilled each billing cycle, and when the number of users in the server changes. May be borrowed by other users
+		// Refilled each billing cycle, and when the number of users in the server changes. May be borrowed by other users
+		public int AvailableInputTokens { get; set; }
+		public int AvailableOutputTokens { get; set; }
 
-		public Dictionary<ulong, int> LentTokens { get; set; } = new Dictionary<ulong, int>(); // The amount of tokens that have been lent to others. Overlaps with AvailableTokens.
-
-		[JsonIgnore]
-		public int BorrowableTokens => AvailableTokens - LentTokens.Sum(t => t.Value); // Helper calculation - The amount of tokens that may still yet be borrowed by others
-
+		// Custom user and bot prompts
 		public string? CustomUserPrompt { get; set; }
-
 		public string? CustomAssistantPrompt { get; set; }
 
-		public Dictionary<DateTime, int> TokensUsed { get; set; } = new Dictionary<DateTime, int>();
+		// Keeps track of input and output tokens used
+		public Dictionary<DateTime, int> InputTokensUsed { get; set; } = new Dictionary<DateTime, int>();
+		public Dictionary<DateTime, int> OutputTokensUsed { get; set; } = new Dictionary<DateTime, int>();
+
+		// The amount of tokens that have been lent to others. Overlaps with AvailableTokens.
+		public Dictionary<ulong, int> LentInputTokens { get; set; } = new Dictionary<ulong, int>();
+		public Dictionary<ulong, int> LentOutputTokens { get; set; } = new Dictionary<ulong, int>();
+
+		// Helper calculations
+		[JsonIgnore]
+		public int TotalAvailableTokens => (AvailableInputTokens + AvailableOutputTokens);
+		[JsonIgnore]
+		public int TotalTokensUsed => InputTokensUsed.Sum(i => i.Value) + OutputTokensUsed.Sum(o => o.Value);
+		[JsonIgnore]
+		public int BorrowableTokens => TotalAvailableTokens - (LentInputTokens.Sum(t => t.Value) + LentOutputTokens.Sum(t => t.Value));
 	}
 }

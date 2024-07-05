@@ -45,7 +45,7 @@ namespace ShaosilBot.Tests
 			_sutMessage = new Mock<IMessage> { DefaultValue = DefaultValue.Mock };
 			_sutMessage.SetupGet(m => m.Content).Returns("!c Test message content");
 			_sutMessage.SetupGet(m => m.Author).Returns(_fakeMessageAuthor.Object);
-			_sutUser = new ChatGPTUser { AvailableTokens = 1000 };
+			_sutUser = new ChatGPTUser { AvailableInputTokens = 1000, AvailableOutputTokens = 500 };
 			_fakeUsers = new() { { 0, _sutUser } };
 			_fakeHistoryList = new();
 			_fileAccessHelperMock.Setup(m => m.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTProvider.ChatGPTUsersFile, false)).Returns(() => _fakeUsers);
@@ -56,12 +56,13 @@ namespace ShaosilBot.Tests
 		}
 
 		[TestMethod]
-		[DataRow(100000)]
-		[DataRow(987654321)]
-		public async Task ResetBuckets_CalculatesCorrectlyAsync(int allowedMonthlyTokens)
+		[DataRow(1000000, 333333)]
+		[DataRow(987654321, 1234567)]
+		public async Task ResetBuckets_CalculatesCorrectlyAsync(int allowedMonthlyInputTokens, int allowedMonthlyOutputTokens)
 		{
 			// Arrange - Create a fake guild and 10 users
-			Configuration["ChatGPTMonthlyTokenLimit"] = $"{allowedMonthlyTokens}";
+			Configuration["ChatGPTMonthlyTokenInputLimit"] = $"{allowedMonthlyInputTokens}";
+			Configuration["ChatGPTMonthlyTokenOutputLimit"] = $"{allowedMonthlyOutputTokens}";
 			var mockChannel = new Mock<ITextChannel>();
 			var mockGuild = new Mock<IGuild>();
 			var mockUsers = new List<IGuildUser>();
@@ -85,15 +86,18 @@ namespace ShaosilBot.Tests
 
 			// Assert - User buckets should have been filled evenly with our allowed tokens (rounded up)
 			Assert.IsTrue(capturedContent.Count >= 10);
-			int calculatedTokens = (int)Math.Ceiling((float)allowedMonthlyTokens / mockUsers.Count);
-			Assert.IsTrue(capturedContent.All(c => c.Value.AvailableTokens == calculatedTokens));
+			int calculatedInputTokens = (int)Math.Ceiling((float)allowedMonthlyInputTokens / mockUsers.Count);
+			int calculatedOutputTokens = (int)Math.Ceiling((float)allowedMonthlyOutputTokens / mockUsers.Count);
+			Assert.IsTrue(capturedContent.All(c => c.Value.AvailableInputTokens == calculatedInputTokens));
+			Assert.IsTrue(capturedContent.All(c => c.Value.AvailableOutputTokens == calculatedOutputTokens));
 		}
 
 		[TestMethod]
 		public async Task ChatRequest_BlocksUsersWithNoTokens()
 		{
 			// Arrange - Make sure our sut user who has no tokens
-			_sutUser.AvailableTokens = 0;
+			_sutUser.AvailableInputTokens = 0;
+			_sutUser.AvailableOutputTokens = 0;
 
 			// Act - Call chat
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
@@ -232,79 +236,91 @@ namespace ShaosilBot.Tests
 		}
 
 		[TestMethod]
-		[DataRow(250)]
-		[DataRow(500)]
-		public async Task ChatRequest_DeductsUserTokensWhenAvailable(int responseTokenCost)
+		[DataRow(250, 100)]
+		[DataRow(500, 250)]
+		public async Task ChatRequest_DeductsUserTokensWhenAvailable(int responseInputTokenCost, int responseOutputTokenCost)
 		{
 			// Arrange - Store starting available and tell response to cost passed amount
-			int startingTokens = _sutUser.AvailableTokens;
-			_fakeChatResponse.Usage = new() { TotalTokens = responseTokenCost };
+			int startingInputTokens = _sutUser.AvailableInputTokens;
+			int startingOutputTokens = _sutUser.AvailableOutputTokens;
+			_fakeChatResponse.Usage = new() { PromptTokens = responseInputTokenCost, CompletionTokens = responseOutputTokenCost, TotalTokens = responseInputTokenCost + responseOutputTokenCost };
 
 			// Act - Call chat
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Arrange - Make sure the SUT user's tokens have been adjusted
-			Assert.AreEqual(startingTokens - responseTokenCost, _sutUser.AvailableTokens);
+			Assert.AreEqual(startingInputTokens - responseInputTokenCost, _sutUser.AvailableInputTokens);
+			Assert.AreEqual(startingOutputTokens - responseOutputTokenCost, _sutUser.AvailableOutputTokens);
 			_fileAccessHelperMock.Verify(m => m.SaveFileJSON(ChatGPTProvider.ChatGPTUsersFile, It.IsAny<Dictionary<ulong, ChatGPTUser>>(), It.IsAny<bool>()), Times.Once);
 		}
 
 		[TestMethod]
-		[DataRow(333)]
-		[DataRow(500)]
-		[DataRow(1000)]
-		public async Task ChatRequest_BorrowsTokensFromInactiveUsers(int responseTokenCost)
+		[DataRow(333, 100)]
+		[DataRow(500, 200)]
+		[DataRow(1000, 500)]
+		public async Task ChatRequest_BorrowsTokensFromInactiveUsers(int responseInputTokenCost, int responseOutputTokenCost)
 		{
-			// Arrange - Start with only 100 tokens, and set up other users (active and inactive)
-			_sutUser.AvailableTokens = 100;
+			// Arrange - Start with only 100/200 tokens, and set up other users (active and inactive)
+			_sutUser.AvailableInputTokens = 100;
+			_sutUser.AvailableOutputTokens = 50;
 			List<ChatGPTUser> activeUsers = new();
 			List<ChatGPTUser> inactiveUsers = new();
 			for (int i = 0; i < 5; i++)
 			{
-				activeUsers.Add(new() { AvailableTokens = Random.Shared.Next(500, 1000) });
+				activeUsers.Add(new() { AvailableInputTokens = Random.Shared.Next(500, 1000), AvailableOutputTokens = Random.Shared.Next(200, 500) });
 				_fakeUsers.Add(Random.Shared.NextULong(), activeUsers.Last());
 			}
 			for (int i = 0; i < 5; i++)
 			{
-				inactiveUsers.Add(new() { AvailableTokens = Random.Shared.Next(2000, 3000) });
+				inactiveUsers.Add(new() { AvailableInputTokens = Random.Shared.Next(2000, 3000), AvailableOutputTokens = Random.Shared.Next(1000, 2000) });
 				_fakeUsers.Add(Random.Shared.NextULong(), inactiveUsers.Last());
 			}
-			_fakeChatResponse.Usage = new() { TotalTokens = responseTokenCost };
+			_fakeChatResponse.Usage = new() { PromptTokens = responseInputTokenCost, CompletionTokens = responseOutputTokenCost, TotalTokens = responseInputTokenCost + responseOutputTokenCost };
 
 			// Act - Call chat
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - Ensure we have 0 tokens left, the active users' tokens were untouched, and the inactive users tokens were evenly borrowed
-			Assert.AreEqual(0, _sutUser.AvailableTokens);
-			int totalBorrowedTokens = _fakeUsers.Sum(u => u.Value.LentTokens.Sum(t => t.Value));
-			Assert.AreEqual(responseTokenCost - 100, totalBorrowedTokens);
+			Assert.AreEqual(0, _sutUser.AvailableInputTokens);
+			Assert.AreEqual(0, _sutUser.AvailableOutputTokens);
+			int totalBorrowedInputTokens = _fakeUsers.Sum(u => u.Value.LentInputTokens.Sum(t => t.Value));
+			int totalBorrowedOutputTokens = _fakeUsers.Sum(u => u.Value.LentOutputTokens.Sum(t => t.Value));
+			Assert.AreEqual(responseInputTokenCost - 100, totalBorrowedInputTokens);
+			Assert.AreEqual(responseOutputTokenCost - 50, totalBorrowedOutputTokens);
 			foreach (var activeUser in activeUsers)
 			{
-				Assert.IsTrue(activeUser.AvailableTokens >= 500);
-				Assert.AreEqual(0, activeUser.LentTokens.Count);
+				Assert.IsTrue(activeUser.AvailableInputTokens >= 500);
+				Assert.IsTrue(activeUser.AvailableOutputTokens >= 200);
+				Assert.AreEqual(0, activeUser.LentInputTokens.Count);
+				Assert.AreEqual(0, activeUser.LentOutputTokens.Count);
 			}
-			int dividedTokens = (int)Math.Floor((responseTokenCost - 100f) / inactiveUsers.Count);
+			int dividedInputTokens = (int)Math.Floor((responseInputTokenCost - 100f) / inactiveUsers.Count);
+			int dividedOutputTokens = (int)Math.Floor((responseOutputTokenCost - 200f) / inactiveUsers.Count);
 			foreach (var inactiveUser in inactiveUsers)
 			{
-				Assert.IsTrue(Math.Abs(inactiveUser.AvailableTokens - dividedTokens - inactiveUser.BorrowableTokens) < 2);
-				Assert.AreEqual(1, inactiveUser.LentTokens.Count);
+				Assert.AreNotEqual(inactiveUser.BorrowableTokens, inactiveUser.TotalAvailableTokens);
+				Assert.AreEqual(1, inactiveUser.LentInputTokens.Count);
+				Assert.AreEqual(1, inactiveUser.LentOutputTokens.Count);
 			}
 		}
 
 		[TestMethod]
-		[DataRow(100000, true)]
-		[DataRow(100000, false)]
-		[DataRow(123456, true)]
-		[DataRow(123456, false)]
-		public void AdjustBuckets_AddOrRemoveUserCalculatesCorrectly(int monthlyTokenLimit, bool userAdded)
+		[DataRow(1000000, 333333, true)]
+		[DataRow(1000000, 333333, false)]
+		[DataRow(123456, 1234, true)]
+		[DataRow(123456, 1234, false)]
+		public void AdjustBuckets_AddOrRemoveUserCalculatesCorrectly(int monthlyInputTokenLimit, int monthlyOutputTokenLimit, bool userAdded)
 		{
 			// Arrange - Set monthly limit, create 9 more users, and set everyone's initial tokens to some random amount
-			Configuration["ChatGPTMonthlyTokenLimit"] = monthlyTokenLimit.ToString();
+			Configuration["ChatGPTMonthlyTokenInputLimit"] = monthlyInputTokenLimit.ToString();
+			Configuration["ChatGPTMonthlyTokenOutputLimit"] = monthlyOutputTokenLimit.ToString();
 			for (int i = 0; i < 9; i++) _fakeUsers.Add(Random.Shared.NextULong(), new());
-			Dictionary<ulong, int> startingTokens = new();
+			Dictionary<ulong, KeyValuePair<int, int>> startingTokens = new();
 			foreach (var user in _fakeUsers)
 			{
-				user.Value.AvailableTokens = Random.Shared.Next(10000, 100000);
-				startingTokens[user.Key] = user.Value.AvailableTokens;
+				user.Value.AvailableInputTokens = Random.Shared.Next(10000, 100000);
+				user.Value.AvailableOutputTokens = Random.Shared.Next(5000, 7000);
+				startingTokens[user.Key] = new KeyValuePair<int, int>(user.Value.AvailableInputTokens, user.Value.AvailableOutputTokens);
 			}
 
 			// Act - Update buckets and capture save
@@ -319,16 +335,21 @@ namespace ShaosilBot.Tests
 			SUT.UpdateAllUserBuckets(newUserID, userAdded);
 
 			// Assert - Ensure everyone's tokens were adjusted, the new user has the starting amount, and the file was saved
-			float oldDividedTokens = monthlyTokenLimit / (userAdded ? 10f : 11f);
-			float newDividedTokens = monthlyTokenLimit / (userAdded ? 11f : 10f);
-			int diff = (int)Math.Ceiling(oldDividedTokens - newDividedTokens);
+			float oldDividedInputTokens = monthlyInputTokenLimit / (userAdded ? 10f : 11f);
+			float newDividedInputTokens = monthlyInputTokenLimit / (userAdded ? 11f : 10f);
+			float oldDividedOutputTokens = monthlyOutputTokenLimit / (userAdded ? 10f : 11f);
+			float newDividedOutputTokens = monthlyOutputTokenLimit / (userAdded ? 11f : 10f);
+			int inputDiff = (int)Math.Ceiling(oldDividedInputTokens - newDividedInputTokens);
+			int outputDiff = (int)Math.Ceiling(oldDividedOutputTokens - newDividedOutputTokens);
 			if (userAdded)
 			{
-				Assert.AreEqual(Math.Ceiling(newDividedTokens), capturedUsers[newUserID].AvailableTokens);
+				Assert.AreEqual(Math.Ceiling(newDividedInputTokens), capturedUsers[newUserID].AvailableInputTokens);
+				Assert.AreEqual(Math.Ceiling(newDividedOutputTokens), capturedUsers[newUserID].AvailableOutputTokens);
 			}
 			foreach (var user in capturedUsers.Where(u => u.Key != newUserID))
 			{
-				Assert.AreEqual(startingTokens[user.Key] - diff, user.Value.AvailableTokens);
+				Assert.AreEqual(startingTokens[user.Key].Key - inputDiff, user.Value.AvailableInputTokens);
+				Assert.AreEqual(startingTokens[user.Key].Value - outputDiff, user.Value.AvailableOutputTokens);
 			}
 		}
 	}

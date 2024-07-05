@@ -52,7 +52,7 @@ namespace ShaosilBot.Core.Singletons
 
 			// Load all users and make sure the author hasn't surpassed the token limit
 			var allUsers = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTUsersFile);
-			bool userHasTokens = allUsers[message.Author.Id].AvailableTokens >= 100 || allUsers.Where(u => u.Key != message.Author.Id).Sum(u => u.Value!.BorrowableTokens) > 1000;
+			bool userHasTokens = allUsers[message.Author.Id].TotalAvailableTokens >= 100 || allUsers.Where(u => u.Key != message.Author.Id).Sum(u => u.Value!.BorrowableTokens) > 1000;
 			if (!userHasTokens)
 			{
 				// If a user has at least 100 tokens OR the total amount of unborrowed tokens > 1000
@@ -102,9 +102,9 @@ namespace ShaosilBot.Core.Singletons
 				// Send request
 				int messageTokenLimit = _configuration.GetValue<int>("ChatGPTMessageTokenLimit");
 				var messages = new List<ChatMessage>
-					((string.IsNullOrWhiteSpace(systemMessage) ? new ChatMessage[0] : new[] { ChatMessage.FromSystem($"{systemMessage} Current Channel: #{message.Channel.Name}") }) // System message
-					.Concat(channelHistory.Select(h => h.UserID != _restClientProvider.BotUser.Id ? ChatMessage.FromUser(h.Message) : ChatMessage.FromAssistant(h.Message)))            // Historical messages
-					.Concat(new[] { ChatMessage.FromUser(customUserPrompt), ChatMessage.FromAssistant(customAssistantPrompt), ChatMessage.FromUser(sanitizedMessage) })                 // Customized prompts
+					((string.IsNullOrWhiteSpace(systemMessage) ? [] : new[] { ChatMessage.FromSystem($"{systemMessage} Current Channel: #{message.Channel.Name}") })            // System message
+					.Concat(channelHistory.Select(h => h.UserID != _restClientProvider.BotUser.Id ? ChatMessage.FromUser(h.Message) : ChatMessage.FromAssistant(h.Message)))    // Historical messages
+					.Concat([ChatMessage.FromUser(customUserPrompt), ChatMessage.FromAssistant(customAssistantPrompt), ChatMessage.FromUser(sanitizedMessage)])                 // Customized prompts
 					.Where(m => !string.IsNullOrWhiteSpace(m.Content)));
 				_logger.LogInformation($"Preparing to send messages:\n\t{string.Join("\n\t", messages.Select(m => $"{m.Role}: {m.Content}"))}");
 				var response = await _openAIService.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
@@ -114,7 +114,7 @@ namespace ShaosilBot.Core.Singletons
 				});
 
 				// Deduct user tokens if any were used
-				if ((response.Usage?.TotalTokens ?? 0) > 0) DeductUserTokens(allUsers, message.Author.Id, response.Usage!.TotalTokens);
+				if ((response.Usage?.TotalTokens ?? 0) > 0) DeductUserTokens(allUsers, message.Author.Id, response.Usage!.PromptTokens, response.Usage!.CompletionTokens ?? 0);
 
 				// Validate the response is within limits
 				_logger.LogInformation(response.ToString());
@@ -223,18 +223,16 @@ namespace ShaosilBot.Core.Singletons
 			var guild = _restClientProvider.Guilds.First(); // TODO: Support multiple guilds?
 			var guildUsers = (await guild.GetUsersAsync()).Where(u => !u.IsBot).ToList();
 
-			// Calculate how many tokes each user should have (round up)
-			int totalMonthlyTokensPerUser = (int)Math.Ceiling(_configuration.GetValue<float>("ChatGPTMonthlyTokenLimit") / guildUsers.Count);
+			// Calculate how many input and output tokens each user should have (round up)
+			int monthlyInputTokensPerUser = (int)Math.Ceiling(_configuration.GetValue<float>("ChatGPTMonthlyTokenInputLimit") / guildUsers.Count);
+			int monthlyOutputTokensPerUser = (int)Math.Ceiling(_configuration.GetValue<float>("ChatGPTMonthlyTokenOutputLimit") / guildUsers.Count);
 			var serialized = guildUsers.ToDictionary(u => u.Id, u => new ChatGPTUser
 			{
-				AvailableTokens = totalMonthlyTokensPerUser,
+				AvailableInputTokens = monthlyInputTokensPerUser,
+				AvailableOutputTokens = monthlyOutputTokensPerUser,
 				CustomUserPrompt = existingUsers.FirstOrDefault(e => e.Key == u.Id).Value?.CustomUserPrompt // Preserve system prompts
 			});
 			_fileAccessHelper.SaveFileJSON(ChatGPTUsersFile, serialized, false);
-
-			// Let everyone know it's a new month
-			var generalChannel = await guild.GetChannelAsync(_configuration.GetValue<ulong>("MainChannel")) as ITextChannel;
-			await LogAndSendChannelMessage(generalChannel!, $"It's a brand new month, and as a result, my chatting usage has been reset and everyone has a fresh new bucket of {totalMonthlyTokensPerUser:N0} tokens! Happy `!c`hatting everyone. :blush:");
 		}
 
 		public void UpdateAllUserBuckets(ulong changedUserID, bool userAdded)
@@ -242,22 +240,33 @@ namespace ShaosilBot.Core.Singletons
 			lock (_userFileLock)
 			{
 				var allUsers = _fileAccessHelper.LoadFileJSON<Dictionary<ulong, ChatGPTUser>>(ChatGPTUsersFile);
-				float monthlyLimit = _configuration.GetValue<float>("ChatGPTMonthlyTokenLimit");
-				float curMonthlyTokenLimitPerUser = monthlyLimit / allUsers.Count;
-				float newMonthlyTokenLimitPerUser = monthlyLimit / (allUsers.Count + (userAdded ? 1 : -1));
-				int diff = (int)Math.Ceiling(curMonthlyTokenLimitPerUser - newMonthlyTokenLimitPerUser);
+				float monthlyInputLimit = _configuration.GetValue<float>("ChatGPTMonthlyTokenInputLimit");
+				float monthlyOuptutLimit = _configuration.GetValue<float>("ChatGPTMonthlyTokenOutputLimit");
+				float curMonthlyInputTokenLimitPerUser = monthlyInputLimit / allUsers.Count;
+				float curMonthlyOutputTokenLimitPerUser = monthlyOuptutLimit / allUsers.Count;
+				float newMonthlyInputTokenLimitPerUser = monthlyInputLimit / (allUsers.Count + (userAdded ? 1 : -1));
+				float newMonthlyOutputTokenLimitPerUser = monthlyOuptutLimit / (allUsers.Count + (userAdded ? 1 : -1));
+				int inputDiff = (int)Math.Ceiling(curMonthlyInputTokenLimitPerUser - newMonthlyInputTokenLimitPerUser);
+				int outputDiff = (int)Math.Ceiling(curMonthlyOutputTokenLimitPerUser - newMonthlyOutputTokenLimitPerUser);
 
 				// Add or subtract the difference in tokens from all current users
 				foreach (var user in allUsers.Values)
 				{
-					user.AvailableTokens -= diff;
-					if (user.AvailableTokens < 0) user.AvailableTokens = 0;
+					user.AvailableInputTokens -= inputDiff;
+					if (user.AvailableInputTokens < 0) user.AvailableInputTokens = 0;
+
+					user.AvailableOutputTokens -= outputDiff;
+					if (user.AvailableOutputTokens < 0) user.AvailableOutputTokens = 0;
 				}
 
-				// If user was added, add them with their full monthly limit. Otherwise, remove them
+				// If user was added, add them with their full monthly limits. Otherwise, remove them
 				if (userAdded)
 				{
-					allUsers[changedUserID] = new ChatGPTUser { AvailableTokens = (int)Math.Ceiling(newMonthlyTokenLimitPerUser) };
+					allUsers[changedUserID] = new ChatGPTUser
+					{
+						AvailableInputTokens = (int)Math.Ceiling(newMonthlyInputTokenLimitPerUser),
+						AvailableOutputTokens = (int)Math.Ceiling(newMonthlyOutputTokenLimitPerUser)
+					};
 				}
 				else
 				{
@@ -269,47 +278,64 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		private void DeductUserTokens(Dictionary<ulong, ChatGPTUser> allUsers, ulong id, int tokens)
+		private void DeductUserTokens(Dictionary<ulong, ChatGPTUser> allUsers, ulong id, int inputTokens, int outputTokens)
 		{
 			// Ensure only one thread at a time can make changes to our dictionary values' properties
 			lock (_userFileLock)
 			{
 				// First, log the usage
-				allUsers[id].TokensUsed.Add(DateTime.Now, tokens);
+				allUsers[id].InputTokensUsed.Add(DateTime.Now, inputTokens);
+				allUsers[id].OutputTokensUsed.Add(DateTime.Now, outputTokens);
 
-				// If they have enough available, deduct from that.
-				if (allUsers[id].AvailableTokens >= tokens)
+				// For both input and output tokens, deduct full amount from their available if possible, else call borrow method
+				if (allUsers[id].AvailableInputTokens >= inputTokens)
 				{
-					allUsers[id].AvailableTokens -= tokens;
+					allUsers[id].AvailableInputTokens -= inputTokens;
 				}
-				// If not, deduct what we can and borrow the rest
 				else
 				{
-					tokens -= allUsers[id].AvailableTokens;
-					allUsers[id].AvailableTokens = 0;
-
-					// Borrow from ALL least active users with borrowable tokens. Group and sort by rounding AvailableTokens down to the nearest 1,000.
-					var borroweeGroup = allUsers
-						.Where(u => u.Key != id && u.Value.BorrowableTokens > 0)
-						.GroupBy(u => Math.Floor(u.Value.AvailableTokens / 1000f))
-						.OrderByDescending(g => g.Key).First().ToList();
-
-					// Borrow the floor of the divided amount from each user, then distribute the remainder 1 by 1 at random
-					int dividedAmtFloor = (int)Math.Floor((float)tokens / borroweeGroup.Count);
-					borroweeGroup.ForEach(b =>
-					{
-						if (!b.Value.LentTokens.ContainsKey(id)) b.Value.LentTokens[id] = 0;
-						b.Value.LentTokens[id] += dividedAmtFloor;
-					});
-					borroweeGroup.Sort((_, _) => Random.Shared.Next(2) == 0 ? -1 : 1);
-					for (int remainder = tokens - (dividedAmtFloor * borroweeGroup.Count); remainder > 0; remainder--)
-					{
-						borroweeGroup[remainder].Value.LentTokens[id] += 1;
-					}
+					BorrowTokens(id, allUsers, true, inputTokens);
+				}
+				if (allUsers[id].AvailableOutputTokens >= outputTokens)
+				{
+					allUsers[id].AvailableOutputTokens -= outputTokens;
+				}
+				else
+				{
+					BorrowTokens(id, allUsers, false, outputTokens);
 				}
 
 				// Finally, save the file
 				_fileAccessHelper.SaveFileJSON(ChatGPTUsersFile, allUsers);
+			}
+		}
+
+		private void BorrowTokens(ulong borrowerID, Dictionary<ulong, ChatGPTUser> allUsers, bool isInputTokens, int numTokensToBorrow)
+		{
+			numTokensToBorrow -= isInputTokens ? allUsers[borrowerID].AvailableInputTokens : allUsers[borrowerID].AvailableOutputTokens;
+			if (isInputTokens) allUsers[borrowerID].AvailableInputTokens = 0;
+			else allUsers[borrowerID].AvailableOutputTokens = 0;
+
+			// Borrow from ALL least active users with borrowable tokens. Group and sort by rounding AvailableTokens down to the nearest 1,000.
+			var borroweeGroup = allUsers
+				.Where(u => u.Key != borrowerID && u.Value.BorrowableTokens > 0)
+				.GroupBy(u => Math.Floor((isInputTokens ? u.Value.AvailableInputTokens : u.Value.AvailableOutputTokens) / 1000f))
+				.OrderByDescending(g => g.Key).First().ToList();
+
+			// Borrow the floor of the divided amount from each user, then distribute the remainder 1 by 1 at random
+			int dividedAmtFloor = (int)Math.Floor((float)numTokensToBorrow / borroweeGroup.Count);
+			borroweeGroup.ForEach(b =>
+			{
+				var lentTokens = isInputTokens ? b.Value.LentInputTokens : b.Value.LentOutputTokens;
+
+				if (!lentTokens.ContainsKey(borrowerID)) lentTokens[borrowerID] = 0;
+				lentTokens[borrowerID] += dividedAmtFloor;
+			});
+			borroweeGroup.Sort((_, _) => Random.Shared.Next(2) == 0 ? -1 : 1);
+			for (int remainder = numTokensToBorrow - (dividedAmtFloor * borroweeGroup.Count); remainder > 0; remainder--)
+			{
+				if (isInputTokens) borroweeGroup[remainder].Value.LentInputTokens[borrowerID] += 1;
+				else borroweeGroup[remainder].Value.LentOutputTokens[borrowerID] += 1;
 			}
 		}
 	}
