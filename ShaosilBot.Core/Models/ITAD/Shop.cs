@@ -2,8 +2,8 @@
 
 namespace ShaosilBot.Core.Models.ITAD
 {
-	public record GenericObj(
+	public record Shop(
 		[property: JsonProperty("id")] int ID,
-		[property: JsonProperty("name")] string Name
+		[property: JsonProperty("title")] string Name
 	);
 }

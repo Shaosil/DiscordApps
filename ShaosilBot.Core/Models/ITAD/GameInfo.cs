@@ -3,7 +3,7 @@
 namespace ShaosilBot.Core.Models.ITAD
 {
 	public record GameInfoResponse(
-		[property: JsonProperty("id")] string Id,
+		[property: JsonProperty("id")] Guid Id,
 		[property: JsonProperty("slug")] string Slug,
 		[property: JsonProperty("title")] string Title,
 		[property: JsonProperty("type")] string Type,

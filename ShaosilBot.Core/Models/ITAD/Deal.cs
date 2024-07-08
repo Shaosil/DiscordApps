@@ -13,17 +13,17 @@ namespace ShaosilBot.Core.Models.ITAD
 			[property: JsonProperty("slug")] string Slug,
 			[property: JsonProperty("title")] string Title,
 			[property: JsonProperty("type")] string Type,
-			[property: JsonProperty("deal")] DealOverview.DealDetails Deal
+			[property: JsonProperty("deal")] DealOverview.DealDetails? Deal
 		)
 		{
 			public record DealDetails(
-				[property: JsonProperty("shop")] GenericObj Shop,
-				[property: JsonProperty("price")] Price Price,
-				[property: JsonProperty("regular")] Price Regular,
+				[property: JsonProperty("shop")] GenericObj? Shop,
+				[property: JsonProperty("price")] Price? Price,
+				[property: JsonProperty("regular")] Price? Regular,
 				[property: JsonProperty("cut")] int Cut,
 				[property: JsonProperty("voucher")] string Voucher,
-				[property: JsonProperty("storeLow")] Price StoreLow,
-				[property: JsonProperty("historyLow")] Price HistoryLow,
+				[property: JsonProperty("storeLow")] Price? StoreLow,
+				[property: JsonProperty("historyLow")] Price? HistoryLow,
 				[property: JsonProperty("flag")] string Flag,
 				[property: JsonProperty("drm")] IReadOnlyList<GenericObj> DRMs,
 				[property: JsonProperty("platforms")] IReadOnlyList<GenericObj> Platforms,

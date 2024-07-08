@@ -11,6 +11,7 @@ namespace ShaosilBot.Tests
 		private ISQLiteProvider _sqliteProvider;
 		private Mock<IDiscordRestClientProvider> _restClientProvider;
 		private SqliteConnection _activeSqliteConnection;
+		private IHttpClientFactory _httpClientFactory;
 
 		[TestInitialize]
 		public void TestInitialize()
@@ -26,7 +27,8 @@ namespace ShaosilBot.Tests
 			_sqliteProvider.UpdateSchema();
 
 			_restClientProvider = new Mock<IDiscordRestClientProvider>();
-			SUT = new GameDealSearchProvider(Logger, Configuration, _restClientProvider.Object, _sqliteProvider, new HttpClientFactoryHelper());
+			_httpClientFactory = new HttpClientFactoryHelper();
+			SUT = new GameDealSearchProvider(Logger, Configuration, _restClientProvider.Object, _sqliteProvider, _httpClientFactory);
 		}
 
 		[TestCleanup]
