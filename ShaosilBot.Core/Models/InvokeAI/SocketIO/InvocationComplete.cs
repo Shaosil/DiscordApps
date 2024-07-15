@@ -4,10 +4,9 @@ namespace ShaosilBot.Core.Models.InvokeAI.SocketIO
 {
 	public record InvocationComplete(
 		[property: JsonProperty("queue_id")] string QueueID,
-		[property: JsonProperty("queue_item_id")] int QueueItemID,
-		[property: JsonProperty("queue_batch_id")] string QueueBatchID,
-		[property: JsonProperty("graph_execution_state_id")] string GraphExecutionStateID,
-		[property: JsonProperty("source_node_id")] string SourceNodeID,
+		[property: JsonProperty("item_id")] int QueueItemID,
+		[property: JsonProperty("batch_id")] Guid QueueBatchID,
+		[property: JsonProperty("invocation_source_id")] string SourceNodeID,
 		[property: JsonProperty("result")] InvocationComplete.ResultRecord Result
 	)
 	{

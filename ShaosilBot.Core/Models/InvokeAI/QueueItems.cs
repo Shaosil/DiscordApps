@@ -12,7 +12,7 @@ namespace ShaosilBot.Core.Models.InvokeAI
 			[property: JsonProperty("item_id")] int ItemID,
 			[property: JsonProperty("status")] string Status,
 			[property: JsonProperty("priority")] int Priority,
-			[property: JsonProperty("batch_id")] string BatchID,
+			[property: JsonProperty("batch_id")] Guid BatchID,
 			[property: JsonProperty("session_id")] string SessionID
 		);
 	};

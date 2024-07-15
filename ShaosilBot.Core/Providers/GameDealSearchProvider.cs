@@ -81,7 +81,7 @@ namespace ShaosilBot.Core.Providers
 						foundGame.Slug = dealRoot.Slug;
 						foundGame.Title = dealRoot.Title;
 						foundGame.IsThereAnyDealLink = $"https://isthereanydeal.com/game/{dealRoot.Slug}/info/";
-						foundGame.BestPrice = dealRoot.Deal?.Price.Amount ?? 0;
+						foundGame.BestPrice = dealRoot.Deal?.Price?.Amount ?? 0;
 						foundGame.BestPercentOff = dealRoot.Deal?.Cut ?? 100;
 						foundGame.BestPercentStore = dealRoot.Deal?.Shop?.Name;
 						foundGame.BestPercentStoreRegularPrice = dealRoot.Deal?.Regular?.Amount;
@@ -253,9 +253,11 @@ namespace ShaosilBot.Core.Providers
 
 				// Filter to non expired giveaways from our specified stores
 				var filterStoreIDs = _configuration.GetValue<string>("IsThereAnyDealGiveawayStores")!.Split(',').Select(s => int.Parse(s)).ToArray();
+				var matchingGiveaways = data.Items.Where(i => (!i.Expiry.HasValue || i.Expiry.Value > DateTimeOffset.Now) && filterStoreIDs.Any(s => s == i.ShopID)).ToList();
+				_logger.LogInformation($"Success! Found {matchingGiveaways.Count} matching giveaways.");
 
 				// Set the store and deal URL for every game
-				foreach (var giveaway in data.Items.Where(i => (!i.Expiry.HasValue || i.Expiry.Value > DateTimeOffset.Now) && filterStoreIDs.Any(s => s == i.ShopID)))
+				foreach (var giveaway in matchingGiveaways)
 				{
 					var matchingShop = _allShops.FirstOrDefault(s => s.ID == giveaway.ShopID);
 

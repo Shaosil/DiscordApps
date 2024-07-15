@@ -23,7 +23,7 @@ namespace ShaosilBot.Core.Singletons
 		// Tracked items
 		private float _generatorUpdateInterval = 3; // In seconds
 		private DateTime? _generatorLastUpdate = null;
-		private readonly Dictionary<string, KeyValuePair<IUserMessage, IUser>> _trackedBatches = new Dictionary<string, KeyValuePair<IUserMessage, IUser>>();
+		private readonly Dictionary<Guid, KeyValuePair<IUserMessage, IUser>> _trackedBatches = new Dictionary<Guid, KeyValuePair<IUserMessage, IUser>>();
 
 		public IReadOnlyCollection<string> ValidSchedulers { get; private set; } = ["ddim", "ddpm", "deis", "lms", "lms_k", "pndm", "heun", "heun_k", "euler", "euler_k", "euler_a",
 			"kdpm_2", "kdpm_2_a", "dpmpp_2s", "dpmpp_2s_k", "dpmpp_2m", "dpmpp_2m_k", "dpmpp_2m_sde", "dpmpp_2m_sde_k", "dpmpp_sde", "dpmpp_sde_k", "unipc", "lcm"];
@@ -39,14 +39,22 @@ namespace ShaosilBot.Core.Singletons
 			_httpClient.Timeout = TimeSpan.FromSeconds(2); // None of the endpoints should take more than a second or two to be called
 
 			// Subscribe to socket.io events
+			string addr = $"http://{_httpClient.BaseAddress.Host}:{_httpClient.BaseAddress.Port}";
 			var socketOptions = new SocketIOOptions { Path = "/ws/socket.io", ConnectionTimeout = TimeSpan.FromSeconds(3), ReconnectionAttempts = 0 };
-			_socket = new SocketIOClient.SocketIO($"http://{_httpClient.BaseAddress.Host}:{_httpClient.BaseAddress.Port}", socketOptions);
-			_socket.OnConnected += async (_, _) => await _socket.EmitAsync("subscribe_queue", new { queue_id = "default" });
+			_socket = new SocketIOClient.SocketIO(addr, socketOptions);
+			_logger.LogInformation($"Connecting to InvokeAI. ({addr})..");
+			_socket.OnConnected += async (_, _) =>
+			{
+				_logger.LogInformation("Connected to InvokeAI! Emitting subscribe event.");
+				await _socket.EmitAsync("subscribe_queue", new { queue_id = "default" });
+			};
+			_socket.OnError += (e, s) => _logger.LogError($"Error with socket: {s}");
 			_socket.OnDisconnected += OnSocketDisconnect;
 			_socket.On("queue_item_status_changed", OnQueueItemStatusChanged);
 			_socket.On("invocation_complete", r => OnQueueItemComplete(r, false));
 			_socket.On("invocation_error", r => OnQueueItemComplete(r, true));
-			_socket.On("generator_progress", OnGeneratorProgress);
+			_socket.On("invocation_denoise_progress", OnGeneratorProgress);
+			_socket.ConnectAsync().GetAwaiter().GetResult();
 		}
 
 		/// <summary>
@@ -359,7 +367,7 @@ namespace ShaosilBot.Core.Singletons
 				if (response.IsSuccessStatusCode)
 				{
 					var queueData = JsonConvert.DeserializeObject<BatchRoot>(responseContent)!;
-					_trackedBatches[queueData.Batch.BatchID!] = new KeyValuePair<IUserMessage, IUser>(message, requestor);
+					_trackedBatches[queueData.Batch.BatchID!.Value] = new KeyValuePair<IUserMessage, IUser>(message, requestor);
 					_logger.LogInformation($"Queued new item with batch ID {queueData.Batch.BatchID}");
 
 					// Get pending items to check if we were added to the queue or are next in line
@@ -369,7 +377,7 @@ namespace ShaosilBot.Core.Singletons
 					int linePos = ourItem != null ? allPendingItems.Items.IndexOf(ourItem) + (curQueueItem == null ? 1 : 2) : 1;
 
 					// Return the queued information
-					return new FriendlyEnqueueResult(queueData.Batch.BatchID!, linePos, posPrompt, negPrompt, seed, validModels.GetValueOrDefault(targetModel.ModelName) ?? targetModel.ModelName, steps, cfg);
+					return new FriendlyEnqueueResult(queueData.Batch.BatchID!.Value, linePos, posPrompt, negPrompt, seed, validModels.GetValueOrDefault(targetModel.ModelName) ?? targetModel.ModelName, steps, cfg);
 				}
 				else
 				{
@@ -392,7 +400,7 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		public bool TryCancelQueueItem(IUser user, string ID, out string response)
+		public bool TryCancelQueueItem(IUser user, Guid ID, out string response)
 		{
 			_logger.LogInformation($"User {user.Id} is attempting to cancel queue item by batch ID {ID}");
 
@@ -409,7 +417,7 @@ namespace ShaosilBot.Core.Singletons
 				try
 				{
 
-					var requestBody = JsonContent.Create(new { batch_ids = new string[] { ID } });
+					var requestBody = JsonContent.Create(new { batch_ids = new Guid[] { ID } });
 					var result = _httpClient.PutAsync($"v1/queue/default/cancel_by_batch_ids", requestBody).GetAwaiter().GetResult();
 					if (result.IsSuccessStatusCode)
 					{
@@ -525,9 +533,9 @@ namespace ShaosilBot.Core.Singletons
 					// Deserialize and check if this is for a tracked item
 					var data = JsonConvert.DeserializeObject<QueueStatus[]>(response.ToString())![0];
 
-					if (data.QueueItem.Status == "in_progress" && _trackedBatches.ContainsKey(data.QueueItem.BatchId))
+					if (data.Status == "in_progress" && _trackedBatches.ContainsKey(data.BatchId))
 					{
-						_logger.LogInformation($"Item {data.QueueItem.ItemId} marked as {data.QueueItem.Status}");
+						_logger.LogInformation($"Item {data.ItemId} marked as {data.Status}");
 
 						// Get current pending queue items
 						var allPendingItems = GetPendingQueueItems().GetAwaiter().GetResult();

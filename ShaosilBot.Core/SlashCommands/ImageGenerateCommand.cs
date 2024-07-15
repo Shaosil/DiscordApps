@@ -201,7 +201,7 @@ SUBCOMMANDS:
 				return messageComponent.Respond($"The image generation service is not running. Ask an admin to start it for you.", ephemeral: true);
 			}
 
-			// Custom ID is always in format (main ID)-(command)-(GUID)
+			// Custom ID is always in format (main ID)-(command)-(item ID)
 			string[] msgIDs = Regex.Match(messageComponent.Data.CustomId, ".+?-(.+?)-(.+)").Groups.Cast<Group>().Skip(1).Select(g => g.Value).ToArray();
 			string command = msgIDs[0];
 			string ID = msgIDs[1];
@@ -210,7 +210,7 @@ SUBCOMMANDS:
 			{
 				case ImageGeneration.CmdCancel:
 					// If successful, remove the original message and silently defer
-					if (_imageGenerationProvider.TryCancelQueueItem(messageComponent.User, ID, out var cancelResponse))
+					if (_imageGenerationProvider.TryCancelQueueItem(messageComponent.User, Guid.Parse(ID), out var cancelResponse))
 					{
 						await messageComponent.Message.DeleteAsync();
 						return messageComponent.Defer();
