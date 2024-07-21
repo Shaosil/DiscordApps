@@ -54,7 +54,7 @@ namespace ShaosilBot.Core.Singletons
 			_socket.On("invocation_complete", r => OnQueueItemComplete(r, false));
 			_socket.On("invocation_error", r => OnQueueItemComplete(r, true));
 			_socket.On("invocation_denoise_progress", OnGeneratorProgress);
-			_socket.ConnectAsync().GetAwaiter().GetResult();
+			Task.Run(() => _socket.ConnectAsync()); // Run this on a new thread so it doesn't block or throw exceptions during spin up
 		}
 
 		/// <summary>
