@@ -378,7 +378,7 @@ namespace ShaosilBot.Core.Providers
 				foreach (string sid in stringIDs)
 				{
 					var converter = TypeDescriptor.GetConverter(fkIDProp.PropertyType);
-					loadedEntities.Add(curMethod.Invoke(this, new[] { converter.ConvertFrom(sid) }));
+					loadedEntities.Add(curMethod.Invoke(this, [converter.ConvertFrom(sid)]));
 				}
 				multiEntity.SetValue(item, loadedEntities);
 			}
@@ -386,6 +386,8 @@ namespace ShaosilBot.Core.Providers
 
 		public void UpsertDataRecords<T>(params T[] records) where T : ITable, new()
 		{
+			if (records.Length == 0) return;
+
 			// Make sure unset autoincrement PKs are not included (only check the value of the first record and assume the rest are the same)
 			var propColumns = GetColumnProperties(typeof(T));
 			var pkCol = propColumns.First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null);
@@ -393,12 +395,18 @@ namespace ShaosilBot.Core.Providers
 				|| !p.GetValue(records[0])!.Equals(p.PropertyType.IsValueType ? Activator.CreateInstance(p.PropertyType) : null)).ToList();
 			var nonPkCols = propColumns.Where(p => p != pkCol).ToList();
 
+			// Build insert
 			var upsertBuilder = new StringBuilder();
 			upsertBuilder.AppendLine($"INSERT INTO {typeof(T).Name}s ({string.Join(", ", nonDefaultAutoIncCols.Select(c => $"[{c.Name}]"))}) VALUES");
 			var recordVals = records.Select((r, i) => $"({string.Join(", ", nonDefaultAutoIncCols.Select(p => $"@{p.Name}_{i}"))})");
 			upsertBuilder.AppendLine(string.Join($",{Environment.NewLine}", recordVals));
+
+			// Upsert clause
 			upsertBuilder.AppendLine($"ON CONFLICT([{pkCol.Name}]) DO UPDATE SET");
 			upsertBuilder.AppendLine(string.Join($",{Environment.NewLine}", nonPkCols.Select(c => $"[{c.Name}] = excluded.[{c.Name}]")));
+
+			// Returning clause
+			upsertBuilder.AppendLine($"RETURNING [{pkCol.Name}];");
 
 			using (var conn = new SqliteConnection(ConnectionString))
 			{
@@ -412,7 +420,23 @@ namespace ShaosilBot.Core.Providers
 					}
 				}
 				conn.Open();
-				cmd.ExecuteNonQuery();
+
+				// Make sure we have a cached table of this type in prep for the next part
+				if (!_tableCache.ContainsKey(typeof(T))) _tableCache[typeof(T)] = new Dictionary<object, ITable>();
+
+				// Read the returned PKs and make sure our objects reflect that, in case of autoincremented columns
+				using (var reader = cmd.ExecuteReader())
+				{
+					foreach (var record in records)
+					{
+						reader.Read();
+						var pkVal = TypeDescriptor.GetConverter(pkCol.PropertyType).ConvertFrom(reader.GetString(0))!;
+						pkCol.SetValue(record, pkVal);
+
+						// Update the cache
+						_tableCache[typeof(T)][pkVal] = record;
+					}
+				}
 			}
 
 			// Set any parent FK single properties in this class
@@ -429,9 +453,23 @@ namespace ShaosilBot.Core.Providers
 
 				foreach (var record in records)
 				{
-					// Load the value from cache
-					var parentVal = _tableCache[matchingFKProp.PropertyType][fkColumn.GetValue(record)!];
-					matchingFKProp.SetValue(record, parentVal);
+					var fkey = fkColumn.GetValue(record);
+					if (fkey != null)
+					{
+						ITable? parentVal = null;
+						if (_tableCache.ContainsKey(matchingFKProp.PropertyType) && _tableCache[matchingFKProp.PropertyType].ContainsKey(fkey))
+						{
+							// Load the value from cache if it exists
+							parentVal = _tableCache[matchingFKProp.PropertyType][fkey];
+						}
+						else
+						{
+							// Otherwise load it from the DB. This will ensure everything is freshly cached, including autoincremented properties
+							var genDataMethod = GetType().GetMethod(nameof(GetDataRecord))!.MakeGenericMethod(matchingFKProp.PropertyType, fkey.GetType());
+							parentVal = (ITable?)genDataMethod.Invoke(this, [fkey]);
+						}
+						matchingFKProp.SetValue(record, parentVal);
+					}
 				}
 			}
 
@@ -441,6 +479,8 @@ namespace ShaosilBot.Core.Providers
 
 		public void DeleteDataRecords<T>(params T[] records) where T : ITable
 		{
+			if (records.Length == 0) return;
+
 			// Get the PK column of this type and remove all matching records
 			var pkColumn = GetColumnProperties(typeof(T)).First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null);
 
@@ -468,15 +508,12 @@ namespace ShaosilBot.Core.Providers
 		{
 			// Remove from or update cache
 			var propColumns = GetColumnProperties(typeof(T));
-			var pkCol = propColumns.First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null);
-			foreach (var child in childEntities)
+			if (!isUpsert)
 			{
-				if (isUpsert)
-				{
-					// If this was an upsert, clear out this entire type so it can be reloaded on the next query since any auto incremented PKs will be 0
-					if (_tableCache.ContainsKey(typeof(T))) _tableCache.Remove(typeof(T));
-				}
-				else
+				var pkCol = propColumns.First(p => p.GetCustomAttribute<PrimaryKeyAttribute>() != null);
+
+				// If this was not an upsert, remove each entry from the cache if it existsw
+				foreach (var child in childEntities)
 				{
 					var pkVal = pkCol.GetValue(child)!;
 					if (_tableCache.ContainsKey(typeof(T)) && _tableCache[typeof(T)].ContainsKey(pkVal))
@@ -486,25 +523,26 @@ namespace ShaosilBot.Core.Providers
 				}
 			}
 
-			var parentRecordProps = typeof(T).GetProperties().Where(p => p.PropertyType.IsAssignableTo(typeof(ITable))).ToList();
-			foreach (var parentRecord in parentRecordProps)
+			// If the current type has a parent reference, find that parent's list of the current (child) type. If it exists, populate it with our records
+			var parentRecordProp = typeof(T).GetProperties().FirstOrDefault(p => p.PropertyType.IsAssignableTo(typeof(ITable)));
+			if (parentRecordProp != null)
 			{
-				var listsOfUs = parentRecord.PropertyType.GetProperties().Where(p => p.PropertyType.IsAssignableTo(typeof(IEnumerable<T>))).ToList();
-				foreach (var theListOfUs in listsOfUs)
+				var theListOfUs = parentRecordProp.PropertyType.GetProperties().FirstOrDefault(p => p.PropertyType.IsAssignableTo(typeof(IEnumerable<T>)));
+				if (theListOfUs != null)
 				{
+					// Get the FK column of this type for the current parent
+					var fkIdProp = propColumns.FirstOrDefault(p => p.GetCustomAttribute<ForeignKeyAttribute>()?.ReferenceTable == parentRecordProp.PropertyType);
+					if (fkIdProp == null) return;
+
+					// Load parent object from cache. All children should have the same parent, so just grab the first
+					var parentVal = _tableCache[parentRecordProp.PropertyType][fkIdProp.GetValue(childEntities.First())!];
+					var listVal = (List<T>)theListOfUs.GetValue(parentVal)!;
+
 					foreach (var child in childEntities)
 					{
-						// Get the FK column of this type for the current parent
-						var fkIdProp = propColumns.FirstOrDefault(p => p.GetCustomAttribute<ForeignKeyAttribute>()?.ReferenceTable == parentRecord.PropertyType);
-						if (fkIdProp == null) continue;
-
-						// Load parent object from cache
-						var parentVal = _tableCache[parentRecord.PropertyType][fkIdProp.GetValue(child)!];
-
 						if (isUpsert)
 						{
 							// Upsert
-							var listVal = (List<T>)theListOfUs.GetValue(parentVal)!;
 							var matchingRecord = listVal.FirstOrDefault(r => r.Equals(child));
 							if (matchingRecord == null)
 							{
@@ -514,7 +552,6 @@ namespace ShaosilBot.Core.Providers
 						else
 						{
 							// Delete
-							var listVal = (List<T>)theListOfUs.GetValue(parentVal)!;
 							listVal.Remove(child);
 						}
 					}
