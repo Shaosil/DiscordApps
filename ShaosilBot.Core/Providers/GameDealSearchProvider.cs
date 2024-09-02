@@ -1,4 +1,8 @@
-﻿using Discord;
+﻿using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.RegularExpressions;
+using Discord;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -6,10 +10,6 @@ using PuppeteerSharp;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models.ITAD;
 using ShaosilBot.Core.Models.SQLite;
-using System.Net;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.RegularExpressions;
 using static ShaosilBot.Core.Models.ITAD.DealResponse;
 
 namespace ShaosilBot.Core.Providers
@@ -270,7 +270,7 @@ namespace ShaosilBot.Core.Providers
 							(
 								Shop: matchingShop != null ? new GenericObj(matchingShop!.ID, matchingShop!.Name) : null,
 								null, null, 0, string.Empty, null, null, string.Empty, [], [], DateTime.Now, null, // Useless props
-								URL: giveaway.URL
+								URL: giveaway.ShopID == 35 ? "https://www.gog.com/en/#giveaway" : giveaway.URL // Custom URL for GOG, pass others (Not yet implemented)
 							)
 						};
 
