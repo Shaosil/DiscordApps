@@ -162,23 +162,5 @@ namespace ShaosilBot.Core.Providers
 			// Upsert
 			_scheduler.ScheduleJob(job, new[] { trigger }, true);
 		}
-
-		public void SchedulePollEnd(ulong channelID, ulong responseMessageID, DateTimeOffset targetTime)
-		{
-			// Do not do this in develop
-			if (_isDevelopment) return;
-
-			var key = new JobKey($"PollEnd-{responseMessageID}");
-			var dataMap = new JobDataMap(new Dictionary<string, string>
-			{
-				{ PollEndJob.DataMapKeys.ChannelID, $"{channelID}" },
-				{ PollEndJob.DataMapKeys.MessageID, $"{responseMessageID}" }
-			});
-
-			var job = JobBuilder.Create<PollEndJob>().WithIdentity(key).UsingJobData(dataMap).Build();
-			var trigger = TriggerBuilder.Create().WithIdentity(key.Name).StartAt(targetTime).Build();
-
-			_scheduler.ScheduleJob(job, trigger);
-		}
 	}
 }

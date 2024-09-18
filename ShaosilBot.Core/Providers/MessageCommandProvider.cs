@@ -1,11 +1,11 @@
-﻿using Discord;
+﻿using System.Text;
+using System.Text.RegularExpressions;
+using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using ShaosilBot.Core.SlashCommands;
-using System.Text;
-using System.Text.RegularExpressions;
 using static ShaosilBot.Core.Providers.MessageCommandProvider.MessageComponentNames;
 
 namespace ShaosilBot.Core.Providers
@@ -17,7 +17,6 @@ namespace ShaosilBot.Core.Providers
 		private readonly ILogger<SlashCommandProvider> _logger;
 		private readonly RemindMeCommand _remindMeCommand;
 		private readonly ImageGenerateCommand _imageGenerateCommand;
-		private readonly PollCommand _pollCommand;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IDiscordRestClientProvider _restClientProvider;
 
@@ -48,14 +47,12 @@ namespace ShaosilBot.Core.Providers
 		public MessageCommandProvider(ILogger<SlashCommandProvider> logger,
 			RemindMeCommand remindMeCommand,
 			ImageGenerateCommand imageGenerateCommand,
-			PollCommand pollCommand,
 			IFileAccessHelper fileAccessHelper,
 			IDiscordRestClientProvider restClientProvider)
 		{
 			_logger = logger;
 			_remindMeCommand = remindMeCommand;
 			_imageGenerateCommand = imageGenerateCommand;
-			_pollCommand = pollCommand;
 			_fileAccessHelper = fileAccessHelper;
 			_restClientProvider = restClientProvider;
 		}
@@ -102,11 +99,7 @@ namespace ShaosilBot.Core.Providers
 					}
 
 				case ComponentType.SelectMenu:
-					if (customButtonId == PollCommand.SelectMenuID)
-					{
-						return _pollCommand.HandleVote(messageComponent);
-					}
-					else if (customButtonId == ChannelVisibility.SelectMenuID)
+					if (customButtonId == ChannelVisibility.SelectMenuID)
 					{
 						await UpdateChannelVisibilities(messageComponent);
 						return messageComponent.Defer(true);
