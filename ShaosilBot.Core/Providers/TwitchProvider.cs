@@ -1,13 +1,13 @@
-﻿using Discord;
+﻿using System.Net.Http.Headers;
+using System.Net.Mime;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models.Twitch;
-using System.Net.Http.Headers;
-using System.Net.Mime;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace ShaosilBot.Core.Providers
 {
@@ -39,7 +39,8 @@ namespace ShaosilBot.Core.Providers
 			_logger.LogInformation($"Received twitch payload type '{payload.subscription.type}' for streamer '{payload.event_type.broadcaster_user_login}'.");
 
 			// Prep some variables
-			var discordChannel = await _restClientProvider.GetChannelAsync(786668753407705160);
+			ulong targetChannel = payload?.event_type?.broadcaster_user_login == "shaosil" ? 786668753407705160u : 1012811798191292480u; // #twitch-golives for me, #streams for everyone else
+			var discordChannel = await _restClientProvider.GetChannelAsync(targetChannel);
 			RestUserMessage? lastMessage = null;
 			string twitchLink = $"https://twitch.tv/{payload.event_type.broadcaster_user_login}";
 			var embed = new EmbedBuilder
@@ -124,8 +125,7 @@ namespace ShaosilBot.Core.Providers
 
 				// Send a message to the #twitch-golives channel (hardcoded but... meh)
 				_logger.LogInformation("Sending new announcement message");
-				string? shaosilLivePing = payload.event_type.broadcaster_user_login == "shaosil" ? "<@&1018601398839037992>" : null;
-				await discordChannel.SendMessageAsync(shaosilLivePing, components: component, embed: embed.Build());
+				await discordChannel.SendMessageAsync(components: component, embed: embed.Build());
 			}
 			// Update any existing one within an hour unless this is a channel update without a live channel message
 			else if (lastMessage != null && (!isChannelUpdateEvent || (embed.Title?.Contains("[LIVE]") ?? false)))
