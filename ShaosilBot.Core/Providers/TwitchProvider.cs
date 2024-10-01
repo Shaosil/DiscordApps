@@ -74,7 +74,7 @@ namespace ShaosilBot.Core.Providers
 			// Load last live message for this Twitch user
 			_logger.LogInformation("Attempting to find last announcement message for this streamer.");
 			var messages = (await discordChannel.GetMessagesAsync(25).FlattenAsync()).OrderByDescending(m => m.Timestamp).ToList();
-			lastMessage = messages.FirstOrDefault(m => m.Author.Username == "ShaosilBot" && new Regex($"^(🔴 \\[LIVE\\] )?{payload.event_type.broadcaster_user_name} ").IsMatch(m.Embeds.First().Title)) as RestUserMessage;
+			lastMessage = messages.FirstOrDefault(m => m.Author.Username == "ShaosilBot" && new Regex($"^(🔴 \\[LIVE\\] )?{payload.event_type.broadcaster_user_name} ").IsMatch(m.Embeds.FirstOrDefault()?.Title ?? "")) as RestUserMessage;
 			double hoursSinceLastMessage = lastMessage != null ? (DateTimeOffset.UtcNow - (lastMessage.EditedTimestamp ?? lastMessage.Timestamp).UtcDateTime).TotalHours : double.MaxValue;
 			string originalStartTime = lastMessage != null ? Regex.Match(lastMessage.Embeds.First().Title, "<t:(\\d+):R>").Groups[1].Value : string.Empty;
 
