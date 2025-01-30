@@ -2,7 +2,6 @@ using Discord;
 using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.HttpLogging;
-using OpenAI.Extensions;
 using Quartz;
 using Quartz.AspNetCore;
 using Serilog;
@@ -55,13 +54,6 @@ foreach (var commandType in derivedCommandTypes)
 {
 	builder.Services.AddScoped(commandType);
 }
-
-builder.Services.AddOpenAIService(a =>
-{
-	a.ApiKey = builder.Configuration.GetValue<string>("OpenAIAPIKey") ?? string.Empty;
-	a.Organization = builder.Configuration.GetValue<string>("OpenAIOrganization") ?? string.Empty;
-	a.DefaultModelId = OpenAI.ObjectModels.Models.Gpt_4o;
-});
 
 builder.Services.AddQuartz(c =>
 {

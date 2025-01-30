@@ -1,9 +1,4 @@
 ﻿using Discord;
-using OpenAI.Interfaces;
-using OpenAI.ObjectModels;
-using OpenAI.ObjectModels.RequestModels;
-using OpenAI.ObjectModels.ResponseModels;
-using OpenAI.ObjectModels.SharedModels;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using ShaosilBot.Core.Singletons;
@@ -15,7 +10,6 @@ namespace ShaosilBot.Tests
 	{
 		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
 		private Mock<IFileAccessHelper> _fileAccessHelperMock;
-		private Mock<IChatCompletionService> _openAIChatCompletionServiceMock;
 
 		private ChatGPTUser _sutUser;
 		private Mock<IMessage> _sutMessage;
@@ -31,7 +25,6 @@ namespace ShaosilBot.Tests
 			_fileAccessHelperMock = new Mock<IFileAccessHelper>();
 
 			// Prepare our mocked openAI calls
-			var openAIServiceMock = new Mock<IOpenAIService>();
 			_fakeChatResponse = new() { Choices = new() };
 			_fakeChatResponse.Choices.Add(new ChatChoiceResponse { Message = new ChatMessage(StaticValues.ChatMessageRoles.Assistant, "This is a test response message") });
 			_openAIChatCompletionServiceMock = new Mock<IChatCompletionService>();
@@ -52,7 +45,7 @@ namespace ShaosilBot.Tests
 			_fileAccessHelperMock.Setup(m => m.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatGPTProvider.ChatLogFile, false))
 				.Returns(() => new Dictionary<ulong, Queue<ChatGPTChannelMessage>> { { 0, new Queue<ChatGPTChannelMessage>(_fakeHistoryList) } });
 
-			SUT = new ChatGPTProvider(Logger, _restClientProviderMock.Object, _fileAccessHelperMock.Object, Configuration, openAIServiceMock.Object);
+			SUT = new ChatGPTProvider(Logger, _restClientProviderMock.Object, _fileAccessHelperMock.Object, Configuration);
 		}
 
 		[TestMethod]

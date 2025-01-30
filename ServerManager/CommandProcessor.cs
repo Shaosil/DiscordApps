@@ -13,7 +13,7 @@ namespace ServerManager
 		private readonly ILogger<CommandProcessor> _logger;
 		private readonly ConnectionFactory _factory;
 		private IConnection? _connection;
-		private IModel _channel;
+		private IChannel _channel;
 		private Dictionary<eCommandType, IServerManagerCommand> _commandProcessors = new Dictionary<eCommandType, IServerManagerCommand>();
 
 		public CommandProcessor(ILogger<CommandProcessor> logger, IServiceProvider serviceProvider)
@@ -36,7 +36,7 @@ namespace ServerManager
 				_logger.LogInformation("Creating connection from ConnectionFactory...");
 				try
 				{
-					_connection = _factory.CreateConnection();
+					_connection = await _factory.CreateConnectionAsync();
 				}
 				catch
 				{
@@ -55,19 +55,19 @@ namespace ServerManager
 			}
 
 			// Open a channel and declare both queues
-			_channel = _connection.CreateModel();
+			_channel = await _connection.CreateChannelAsync();
 			var ttlArgs = new Dictionary<string, object> { { "x-message-ttl", 10000 } };
-			_channel.QueueDeclare(queue: QueueNames.COMMAND_QUEUE, durable: false, exclusive: false, autoDelete: false, arguments: ttlArgs);
+			await _channel.QueueDeclareAsync(queue: QueueNames.COMMAND_QUEUE, durable: false, exclusive: false, autoDelete: false, arguments: ttlArgs);
 
-			var consumer = new EventingBasicConsumer(_channel);
-			consumer.Received += ProcessQueueMessage;
+			var consumer = new AsyncEventingBasicConsumer(_channel);
+			consumer.ReceivedAsync += ProcessQueueMessage;
 
 			// Start basic consume on the main queue
-			_channel.BasicConsume(queue: QueueNames.COMMAND_QUEUE, autoAck: true, consumer: consumer);
+			await _channel.BasicConsumeAsync(queue: QueueNames.COMMAND_QUEUE, autoAck: true, consumer: consumer);
 			_logger.LogInformation($"Listening for messages on '{QueueNames.COMMAND_QUEUE}' queue...");
 		}
 
-		private void ProcessQueueMessage(object? sender, BasicDeliverEventArgs eventArgs)
+		private async Task ProcessQueueMessage(object? sender, BasicDeliverEventArgs eventArgs)
 		{
 			// Deserialize the incoming message
 			var message = QueueMessage.Deserialize(eventArgs.Body.ToArray());
@@ -79,8 +79,7 @@ namespace ServerManager
 			if (!_commandProcessors.ContainsKey(message.CommandType))
 			{
 				_logger.LogError($"No matching Processor for command type: {commandType}!");
-				ReplyToMessageIfRequested(eventArgs, new QueueMessageResponse($"ERROR: No matching processor found for command type '{commandType}'!"));
-				return;
+				await ReplyToMessageIfRequested(eventArgs, new QueueMessageResponse($"ERROR: No matching processor found for command type '{commandType}'!"));
 			}
 
 			// Process message synchronously
@@ -89,17 +88,16 @@ namespace ServerManager
 			var response = processor.Process(message).GetAwaiter().GetResult();
 
 			// Send a response back over the callback pipeline if requested
-			ReplyToMessageIfRequested(eventArgs, response);
+			await ReplyToMessageIfRequested(eventArgs, response);
 		}
 
-		private void ReplyToMessageIfRequested(BasicDeliverEventArgs eventArgs, QueueMessageResponse response)
+		private async Task ReplyToMessageIfRequested(BasicDeliverEventArgs eventArgs, QueueMessageResponse response)
 		{
 			if (eventArgs.BasicProperties.IsReplyToPresent())
 			{
 				_logger.LogInformation($"Sending response to {eventArgs.BasicProperties.ReplyTo} queue...");
-				var replyProps = _channel.CreateBasicProperties();
-				replyProps.CorrelationId = eventArgs.BasicProperties.CorrelationId; // Sync correlation IDs
-				_channel.BasicPublish(exchange: string.Empty, routingKey: eventArgs.BasicProperties.ReplyTo, basicProperties: replyProps, body: response.Serialize());
+				var replyProps = new BasicProperties { CorrelationId = eventArgs.BasicProperties.CorrelationId }; // Sync correlation IDs
+				await _channel.BasicPublishAsync(exchange: string.Empty, routingKey: eventArgs.BasicProperties.ReplyTo!, true, basicProperties: replyProps, body: response.Serialize());
 			}
 		}
 
@@ -109,9 +107,9 @@ namespace ServerManager
 			var shutdownMessage = new QueueMessage { Instructions = SupportedCommands.BDS.Shutdown, Arguments = [true] };
 			_commandProcessors[eCommandType.BDS].Process(shutdownMessage).GetAwaiter().GetResult();
 
-			_channel?.Close();
+			_channel?.CloseAsync().GetAwaiter().GetResult();
 			_channel?.Dispose();
-			_connection?.Close();
+			_connection?.CloseAsync().GetAwaiter().GetResult();
 			_connection?.Dispose();
 			base.Dispose();
 		}

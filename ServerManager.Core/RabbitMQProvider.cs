@@ -12,7 +12,7 @@ namespace ServerManager.Core
 		private readonly ILogger<RabbitMQProvider> _logger;
 		private readonly ConnectionFactory _factory;
 		private IConnection? _connection;
-		private IModel _channel;
+		private IChannel _channel;
 		private Dictionary<string, TaskCompletionSource<QueueMessageResponse>> _correlationTasks;
 
 		public RabbitMQProvider(ILogger<RabbitMQProvider> logger)
@@ -22,7 +22,7 @@ namespace ServerManager.Core
 			_correlationTasks = new Dictionary<string, TaskCompletionSource<QueueMessageResponse>>();
 		}
 
-		private bool EnsureConnected()
+		private async Task<bool> EnsureConnected()
 		{
 			try
 			{
@@ -30,8 +30,8 @@ namespace ServerManager.Core
 				if (_connection == null)
 				{
 					_logger.LogInformation("Creating new connection to RabbitMQ.");
-					_connection = _factory.CreateConnection();
-					_channel = _connection.CreateModel();
+					_connection = await _factory.CreateConnectionAsync();
+					_channel = await _connection.CreateChannelAsync();
 				}
 
 				return true;
@@ -43,10 +43,10 @@ namespace ServerManager.Core
 			}
 		}
 
-		public Task<QueueMessageResponse> SendCommand(eCommandType commandType, string instructions, object[] args)
+		public async Task<QueueMessageResponse> SendCommand(eCommandType commandType, string instructions, object[] args)
 		{
 			// Lazy load connection
-			if (!EnsureConnected()) return Task.FromResult(new QueueMessageResponse("ERROR OPENING CONNECTION TO RABBITMQ"));
+			if (!(await EnsureConnected())) return new QueueMessageResponse("ERROR OPENING CONNECTION TO RABBITMQ");
 
 			// Generate a new correlation ID and add it to our pending tasks
 			string correlationID = $"{Guid.NewGuid()}";
@@ -54,10 +54,10 @@ namespace ServerManager.Core
 			_correlationTasks.Add(correlationID, tcs);
 
 			// First, create a temporary queue for the callback
-			var consumer = new EventingBasicConsumer(_channel);
-			consumer.Received += HandleResponsePipeline;
-			var tempQueue = _channel.QueueDeclare();
-			_channel.BasicConsume(queue: tempQueue.QueueName, false, consumer: consumer);
+			var consumer = new AsyncEventingBasicConsumer(_channel);
+			consumer.ReceivedAsync += HandleResponsePipeline;
+			var tempQueue = await _channel.QueueDeclareAsync();
+			await _channel.BasicConsumeAsync(queue: tempQueue.QueueName, false, consumer: consumer);
 
 			// Then send the command over the typical pipeline, with a new correlation ID
 			QueueMessage message = new QueueMessage
@@ -66,24 +66,21 @@ namespace ServerManager.Core
 				Instructions = instructions,
 				Arguments = args
 			};
-			var props = _channel.CreateBasicProperties();
-			props.CorrelationId = correlationID;
-			props.ReplyTo = tempQueue.QueueName;
+			var props = new BasicProperties { CorrelationId = correlationID, ReplyTo = tempQueue.QueueName };
 			_logger.LogInformation($"Sending message {props.CorrelationId} to {QueueNames.COMMAND_QUEUE}...");
-			_channel.BasicPublish(exchange: string.Empty, QueueNames.COMMAND_QUEUE, mandatory: true, basicProperties: props, body: message.Serialize());
+			await _channel.BasicPublishAsync(exchange: string.Empty, QueueNames.COMMAND_QUEUE, mandatory: true, basicProperties: props, body: message.Serialize());
 
 			// Return the new task - will be given a result in the response pipeline handler
-			return tcs.Task;
+			return await tcs.Task;
 		}
 
-		private void HandleResponsePipeline(object? sender, BasicDeliverEventArgs eventArgs)
+		private async Task HandleResponsePipeline(object? sender, BasicDeliverEventArgs eventArgs)
 		{
-			string correlationID = eventArgs.BasicProperties.CorrelationId;
+			string correlationID = eventArgs.BasicProperties.CorrelationId!;
 			if (!_correlationTasks.ContainsKey(correlationID))
 			{
 				_logger.LogError($"Received a response message without a matching task correlation! Correlation ID: {correlationID}");
-				_channel.BasicReject(eventArgs.DeliveryTag, false);
-				return;
+				await _channel.BasicRejectAsync(eventArgs.DeliveryTag, false);
 			}
 
 			// Retrieve the corresponding task and set its completion status
@@ -92,7 +89,7 @@ namespace ServerManager.Core
 			var result = QueueMessageResponse.Deserialize(eventArgs.Body.ToArray());
 			tcs.SetResult(result);
 
-			_channel.BasicAck(eventArgs.DeliveryTag, false);
+			await _channel.BasicAckAsync(eventArgs.DeliveryTag, false);
 		}
 	}
 }

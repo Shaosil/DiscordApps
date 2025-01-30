@@ -46,8 +46,8 @@ First of all, I assume you plan on using this code for your own bot, because run
     "IsThereAnyDealChannel": "<The channel in which to announce game deals>",
 
     "OpenAIAPIKey": "<Only needed if integrating with ChatGPT>",
-    "OpenAIOrganization": "<Only needed if integrating with ChatGPT>",
     "ChatGPTEnabled": "false (Unless you are integrating with ChatGPT)",
+    "ChatGPTModel": "(Your preferred ChatGPT model)",
     "ChatGPTSystemMessage": "<The setup prompt used in each ChatGPT request - Only needed if integrating with ChatGPT>",
     "ChatGPTMessageTokenLimit": "<A hard limit on ChatGPT's response length - Only needed if integrating with ChatGPT>",
     "ChatGPTMonthlyTokenLimit": "<The max amount of tokens your bot should use in a month. Used for rate limiting calculations per hour>",
