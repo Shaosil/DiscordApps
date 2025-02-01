@@ -43,6 +43,7 @@ builder.Services.AddSingleton<IQuartzProvider, QuartzProvider>();
 builder.Services.AddSingleton<IImageGenerationProvider, InvokeAIProvider>();
 
 // Add scoped services, including all derivitives of BaseCommand
+builder.Services.AddScoped<IChatGPTConnection, ChatGPTConnection>();
 builder.Services.AddScoped<ISQLiteProvider, SQLiteProvider>();
 builder.Services.AddScoped<IMessageCommandProvider, MessageCommandProvider>();
 builder.Services.AddScoped<IHttpUtilities, HttpUtilities>();

@@ -16,6 +16,7 @@ namespace ShaosilBot.Core.Singletons
 		public const string ChatLogFile = "ChatGPTLog.json";
 
 		private readonly ILogger<ChatGPTProvider> _logger;
+		private readonly IChatGPTConnection _chatGPTConnection;
 		private readonly IDiscordRestClientProvider _restClientProvider;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IConfiguration _configuration;
@@ -24,9 +25,10 @@ namespace ShaosilBot.Core.Singletons
 		private Dictionary<ulong, TypingState> _typingInstances = new Dictionary<ulong, TypingState>();
 		private int _maxWaitTimeMs = 100000; // At least as long as the HTTP timeout
 
-		public ChatGPTProvider(ILogger<ChatGPTProvider> logger, IDiscordRestClientProvider restClientProvider, IFileAccessHelper fileAccessHelper, IConfiguration configuration)
+		public ChatGPTProvider(ILogger<ChatGPTProvider> logger, IChatGPTConnection chatGPTConnection, IDiscordRestClientProvider restClientProvider, IFileAccessHelper fileAccessHelper, IConfiguration configuration)
 		{
 			_logger = logger;
+			_chatGPTConnection = chatGPTConnection;
 			_restClientProvider = restClientProvider;
 			_fileAccessHelper = fileAccessHelper;
 			_configuration = configuration;
@@ -97,36 +99,34 @@ namespace ShaosilBot.Core.Singletons
 				sanitizedMessage = $"[{DateTime.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"))} - {message.Author.Username}]: {sanitizedMessage}";
 
 				// Build chat content
-				int messageTokenLimit = _configuration.GetValue<int>("ChatGPTMessageTokenLimit");
 				var messages = new List<ChatMessage>
 					((string.IsNullOrWhiteSpace(systemMessage) ? [] : new[] { ChatMessage.CreateSystemMessage($"{systemMessage} Current Channel: #{message.Channel.Name}") })               // System message
 					.Concat(channelHistory.Select(h =>                                                                                                                                      // Historical messages
 						h.UserID != _restClientProvider.BotUser.Id ? (ChatMessage)ChatMessage.CreateUserMessage(h.Message)                                                                  // ^
 						: ChatMessage.CreateAssistantMessage(h.Message)))                                                                                                                   // ^
 					.Concat([ChatMessage.CreateUserMessage(customUserPrompt), ChatMessage.CreateAssistantMessage(customAssistantPrompt), ChatMessage.CreateUserMessage(sanitizedMessage)])  // Customized prompts
-					.Where(m => m.Content?.Count > 0));
-				_logger.LogInformation($"Preparing to send messages:\n\t{string.Join("\n\t", messages.Select(m => $"{m.Content?.FirstOrDefault()?.Text}"))}");
+					.Where(m => m.Content?.Count > 0 && m.Content.Any(c => !string.IsNullOrWhiteSpace(c.Text))));
+				_logger.LogInformation($"Preparing to send messages:\n\t{string.Join("\n\t", messages.Select(m => $"{m.GetType().Name}: {m.Content?.FirstOrDefault()?.Text}"))}");
 
 				// Send request
-				var chatClient = new ChatClient(_configuration["ChatGPTModel"]!, _configuration["OpenAIAPIKey"]!);
-				var response = chatClient.CompleteChat(messages, new ChatCompletionOptions { MaxOutputTokenCount = messageTokenLimit > 0 ? messageTokenLimit : null });
+				var response = _chatGPTConnection.SendMessages(messages);
 
 				// Deduct user tokens if any were used
-				if ((response.Value!.Usage?.TotalTokenCount ?? 0) > 0)
+				if ((response.Usage?.TotalTokenCount ?? 0) > 0)
 				{
-					DeductUserTokens(allUsers, message.Author.Id, response.Value.Usage!.InputTokenCount, response.Value.Usage!.OutputTokenCount);
+					DeductUserTokens(allUsers, message.Author.Id, response.Usage!.InputTokenCount, response.Usage!.OutputTokenCount);
 				}
 
 				// Validate the response is within limits
-				_logger.LogInformation($"Finish reason: {response.Value?.FinishReason}");
+				_logger.LogInformation($"Finish reason: {response?.FinishReason}");
 				var reference = new MessageReference(message.Id);
-				string? content = response.Value!.Content?.FirstOrDefault()?.Text ?? string.Empty;
-				if (response.Value!.FinishReason == ChatFinishReason.Length) content += "...\n\n[Message token limit reached]";
+				string? content = response!.Content?.FirstOrDefault()?.Text ?? string.Empty;
+				if (response!.FinishReason == ChatFinishReason.Length) content += "...\n\n[Message token limit reached]";
 				if (content.Length > 1997) content = $"{content!.Substring(0, 1997)}..."; // Discord limits responses to 2000 characters.
 
 				// Handle error or empty responses and send the response, suprressing embeds
 				var sendMsg = async (string msg) => await LogAndSendChannelMessage(message.Channel, msg, reference);
-				if (!string.IsNullOrWhiteSpace(response.Value!.Refusal)) await sendMsg($"Refusal from Chat API: {response.Value.Refusal}");
+				if (!string.IsNullOrWhiteSpace(response!.Refusal)) await sendMsg($"Refusal from Chat API: {response.Refusal}");
 				else if (content == null) await sendMsg("Error: No message content received from Chat API.");
 				else if (string.IsNullOrWhiteSpace(content)) await sendMsg("[Empty response message received]");
 				else
@@ -169,14 +169,13 @@ namespace ShaosilBot.Core.Singletons
 		{
 			SetTypingLock(true, channel);
 
-			var chatClient = new ChatClient(_configuration["ChatGPTModel"]!, _configuration["OpenAIAPIKey"]!);
-			var response = chatClient.CompleteChat(new List<ChatMessage>
+			var response = _chatGPTConnection.SendMessages(new List<ChatMessage>
 				{
 					ChatMessage.CreateSystemMessage(_configuration.GetValue<string>("ChatGPTSystemMessage")!),
 					ChatMessage.CreateUserMessage($"Internal instructions from Shaosil (other users cannot see this prompt):\n\n{prompt}")
 				});
 
-			await LogAndSendChannelMessage(channel, response.Value!.Content!.First().Text);
+			await LogAndSendChannelMessage(channel, response!.Content!.First().Text);
 
 			SetTypingLock(false, channel);
 		}

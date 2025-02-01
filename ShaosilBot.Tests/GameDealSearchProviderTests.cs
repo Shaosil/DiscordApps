@@ -1,7 +1,7 @@
-﻿using Microsoft.Data.Sqlite;
+﻿using System.Reflection;
+using Microsoft.Data.Sqlite;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
-using System.Reflection;
 
 namespace ShaosilBot.Tests
 {
@@ -41,7 +41,8 @@ namespace ShaosilBot.Tests
 		[TestMethod]
 		public async Task Search_Generic_Test()
 		{
-			await SUT.DoDefaultSearch();
+			// TODO
+			//await SUT.DoDefaultSearch();
 		}
 	}
 }

@@ -1,4 +1,5 @@
 ﻿using Discord;
+using OpenAI.Chat;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using ShaosilBot.Core.Singletons;
@@ -10,11 +11,12 @@ namespace ShaosilBot.Tests
 	{
 		private Mock<IDiscordRestClientProvider> _restClientProviderMock;
 		private Mock<IFileAccessHelper> _fileAccessHelperMock;
+		private Mock<IChatGPTConnection> _chatGPTConnectionMock;
 
 		private ChatGPTUser _sutUser;
 		private Mock<IMessage> _sutMessage;
-		private ChatCompletionCreateRequest _capturedChatRequest;
-		private ChatCompletionCreateResponse _fakeChatResponse;
+		private List<ChatMessage> _capturedChatMessages;
+		private ChatCompletion _fakeChatCompletionResponse;
 		private Dictionary<ulong, ChatGPTUser> _fakeUsers;
 		private List<ChatGPTChannelMessage> _fakeHistoryList;
 
@@ -23,14 +25,13 @@ namespace ShaosilBot.Tests
 		{
 			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();
 			_fileAccessHelperMock = new Mock<IFileAccessHelper>();
+			_chatGPTConnectionMock = new Mock<IChatGPTConnection>();
+			_fakeChatCompletionResponse = OpenAIChatModelFactory.ChatCompletion(content: [ChatMessageContentPart.CreateTextPart("Test response.")]);
 
 			// Prepare our mocked openAI calls
-			_fakeChatResponse = new() { Choices = new() };
-			_fakeChatResponse.Choices.Add(new ChatChoiceResponse { Message = new ChatMessage(StaticValues.ChatMessageRoles.Assistant, "This is a test response message") });
-			_openAIChatCompletionServiceMock = new Mock<IChatCompletionService>();
-			_openAIChatCompletionServiceMock.Setup(m => m.CreateCompletion(It.IsAny<ChatCompletionCreateRequest>(), It.IsAny<string>(), default))
-				.Callback<ChatCompletionCreateRequest, string, CancellationToken>((r, m, c) => _capturedChatRequest = r).ReturnsAsync(() => _fakeChatResponse);
-			openAIServiceMock.SetupGet(m => m.ChatCompletion).Returns(_openAIChatCompletionServiceMock.Object);
+			_chatGPTConnectionMock.Setup(m => m.SendMessages(It.IsAny<List<ChatMessage>>()))
+				.Callback<List<ChatMessage>>(m => _capturedChatMessages = m)
+				.Returns(_fakeChatCompletionResponse);
 
 			// Always start with our test user in the fake user list, and populate important properties of the message object
 			var _fakeMessageAuthor = new Mock<IUser>();
@@ -45,7 +46,7 @@ namespace ShaosilBot.Tests
 			_fileAccessHelperMock.Setup(m => m.LoadFileJSON<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(ChatGPTProvider.ChatLogFile, false))
 				.Returns(() => new Dictionary<ulong, Queue<ChatGPTChannelMessage>> { { 0, new Queue<ChatGPTChannelMessage>(_fakeHistoryList) } });
 
-			SUT = new ChatGPTProvider(Logger, _restClientProviderMock.Object, _fileAccessHelperMock.Object, Configuration);
+			SUT = new ChatGPTProvider(Logger, _chatGPTConnectionMock.Object, _restClientProviderMock.Object, _fileAccessHelperMock.Object, Configuration);
 		}
 
 		[TestMethod]
@@ -96,7 +97,7 @@ namespace ShaosilBot.Tests
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - Verify NO calls to openAI occurred but a message was still sent to the channel
-			_openAIChatCompletionServiceMock.VerifyNoOtherCalls();
+			_chatGPTConnectionMock.VerifyNoOtherCalls();
 			_sutMessage.Verify(m => m.Channel.SendMessageAsync(It.IsAny<string>(), false, null, null, null, null, null, null, null, It.IsAny<MessageFlags>(), null), Times.Once);
 		}
 
@@ -123,9 +124,9 @@ namespace ShaosilBot.Tests
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Arrange - Make sure we send the request with the specified content
-			_openAIChatCompletionServiceMock.VerifyAll();
+			_chatGPTConnectionMock.VerifyAll();
 			string content = _sutMessage.Object.Content[3..]; // Remove "!c "
-			Assert.IsTrue(_capturedChatRequest.Messages.Any(m => m.Role == StaticValues.ChatMessageRoles.User && m.Content.Contains(content)));
+			Assert.IsTrue(_capturedChatMessages.Any(m => m is UserChatMessage && m.Content[0].Text.Contains(content)));
 		}
 
 		[TestMethod]
@@ -136,37 +137,15 @@ namespace ShaosilBot.Tests
 
 			// Act - Call chat twice - one with no system message, one with
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
-			var firstCapturedRequest = _capturedChatRequest;
+			var firstCapturedRequest = _capturedChatMessages;
 			Configuration["ChatGPTSystemMessage"] = systemMessage;
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
-			var secondCapturedRequest = _capturedChatRequest;
+			var secondCapturedRequest = _capturedChatMessages;
 
 			// Assert - Make sure chat was called twice, and the captured requests contain a system message if specified
-			_openAIChatCompletionServiceMock.Verify(m => m.CreateCompletion(It.IsAny<ChatCompletionCreateRequest>(), It.IsAny<string>(), default), Times.Exactly(2));
-			Assert.AreEqual(1, firstCapturedRequest.Messages.Count);
-			Assert.AreEqual(StaticValues.ChatMessageRoles.User, firstCapturedRequest.Messages[0].Role);
-			Assert.AreEqual(2, secondCapturedRequest.Messages.Count);
-			Assert.AreEqual(StaticValues.ChatMessageRoles.System, secondCapturedRequest.Messages[0].Role);
-			Assert.AreEqual(StaticValues.ChatMessageRoles.User, secondCapturedRequest.Messages[1].Role);
-		}
-
-		[TestMethod]
-		public async Task ChatRequest_SendsTokenLimitIfProvided()
-		{
-			// Arrange - Set a token limit int
-			int tokenLimit = 1000;
-
-			// Act - Call chat twice, one with no limit and one with
-			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
-			var firstCapturedRequest = _capturedChatRequest;
-			Configuration["ChatGPTMessageTokenLimit"] = tokenLimit.ToString();
-			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
-			var secondCapturedRequest = _capturedChatRequest;
-
-			// Assert - Ensure either no max was sent or the specified limit was
-			_openAIChatCompletionServiceMock.Verify(m => m.CreateCompletion(It.IsAny<ChatCompletionCreateRequest>(), It.IsAny<string>(), default), Times.Exactly(2));
-			Assert.IsFalse(firstCapturedRequest.MaxTokens.HasValue);
-			Assert.AreEqual(tokenLimit, secondCapturedRequest.MaxTokens);
+			_chatGPTConnectionMock.Verify(m => m.SendMessages(It.IsAny<List<ChatMessage>>()), Times.Exactly(2));
+			Assert.AreEqual(1, firstCapturedRequest.Count);
+			Assert.AreEqual(2, secondCapturedRequest.Count);
 		}
 
 		[TestMethod]
@@ -180,8 +159,8 @@ namespace ShaosilBot.Tests
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - Make sure our messages contain the custom prompts
-			Assert.IsTrue(_capturedChatRequest.Messages.Any(m => m.Role == StaticValues.ChatMessageRoles.User && m.Content.Contains(_sutUser.CustomUserPrompt)));
-			Assert.IsTrue(_capturedChatRequest.Messages.Any(m => m.Role == StaticValues.ChatMessageRoles.Assistant && m.Content.Contains(_sutUser.CustomAssistantPrompt)));
+			Assert.IsTrue(_capturedChatMessages.Any(m => m.Content[0].Text.Contains(_sutUser.CustomUserPrompt)));
+			Assert.IsTrue(_capturedChatMessages.Any(m => m.Content[0].Text.Contains(_sutUser.CustomAssistantPrompt)));
 		}
 
 		[TestMethod]
@@ -200,12 +179,10 @@ namespace ShaosilBot.Tests
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - Ensure ONLY X most recent historical records were sent
-			var userMessages = _capturedChatRequest.Messages.Where(c => c.Role == StaticValues.ChatMessageRoles.User).ToList();
 			var recentXHistory = _fakeHistoryList.TakeLast(pairsToKeep).ToList();
-			Assert.AreEqual(pairsToKeep + 1, userMessages.Count);
 			for (int i = 0; i < recentXHistory.Count; i++)
 			{
-				Assert.IsTrue(userMessages.Any(m => m.Content.Contains(recentXHistory[i].Message)));
+				Assert.IsTrue(_capturedChatMessages.Any(m => m.Content[0].Text.Contains(recentXHistory[i].Message)));
 			}
 			_fileAccessHelperMock.Verify(m => m.SaveFileJSON(ChatGPTProvider.ChatLogFile, It.IsAny<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(), It.IsAny<bool>()), Times.Once);
 		}
@@ -223,8 +200,7 @@ namespace ShaosilBot.Tests
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
 
 			// Assert - No history should have been included or saved
-			var userMessages = _capturedChatRequest.Messages.Where(c => c.Role == StaticValues.ChatMessageRoles.User).ToList();
-			Assert.AreEqual(1, userMessages.Count);
+			Assert.AreEqual(1, _capturedChatMessages.Count);
 			_fileAccessHelperMock.Verify(m => m.SaveFileJSON(ChatGPTProvider.ChatLogFile, It.IsAny<Dictionary<ulong, Queue<ChatGPTChannelMessage>>>(), It.IsAny<bool>()), Times.Never);
 		}
 
@@ -236,7 +212,10 @@ namespace ShaosilBot.Tests
 			// Arrange - Store starting available and tell response to cost passed amount
 			int startingInputTokens = _sutUser.AvailableInputTokens;
 			int startingOutputTokens = _sutUser.AvailableOutputTokens;
-			_fakeChatResponse.Usage = new() { PromptTokens = responseInputTokenCost, CompletionTokens = responseOutputTokenCost, TotalTokens = responseInputTokenCost + responseOutputTokenCost };
+			_fakeChatCompletionResponse = OpenAIChatModelFactory.ChatCompletion(
+				usage: OpenAIChatModelFactory.ChatTokenUsage(responseOutputTokenCost, responseInputTokenCost, responseInputTokenCost + responseOutputTokenCost)
+			);
+			_chatGPTConnectionMock.Setup(c => c.SendMessages(It.IsAny<List<ChatMessage>>())).Returns(_fakeChatCompletionResponse);
 
 			// Act - Call chat
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
@@ -268,7 +247,10 @@ namespace ShaosilBot.Tests
 				inactiveUsers.Add(new() { AvailableInputTokens = Random.Shared.Next(2000, 3000), AvailableOutputTokens = Random.Shared.Next(1000, 2000) });
 				_fakeUsers.Add(Random.Shared.NextULong(), inactiveUsers.Last());
 			}
-			_fakeChatResponse.Usage = new() { PromptTokens = responseInputTokenCost, CompletionTokens = responseOutputTokenCost, TotalTokens = responseInputTokenCost + responseOutputTokenCost };
+			_fakeChatCompletionResponse = OpenAIChatModelFactory.ChatCompletion(
+				usage: OpenAIChatModelFactory.ChatTokenUsage(responseOutputTokenCost, responseInputTokenCost, responseInputTokenCost + responseOutputTokenCost)
+			);
+			_chatGPTConnectionMock.Setup(c => c.SendMessages(It.IsAny<List<ChatMessage>>())).Returns(_fakeChatCompletionResponse);
 
 			// Act - Call chat
 			await SUT.HandleChatRequest(_sutMessage.Object, IChatGPTProvider.eMessageType.Message);
