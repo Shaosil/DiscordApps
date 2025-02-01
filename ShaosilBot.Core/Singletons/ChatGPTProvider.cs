@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Net.Mime;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
@@ -97,15 +98,25 @@ namespace ShaosilBot.Core.Singletons
 					sanitizedMessage = sanitizedMessage.Replace($"<@{mention.Id}>", mention.Username);
 				}
 				sanitizedMessage = $"[{DateTime.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"))} - {message.Author.Username}]: {sanitizedMessage}";
+				var userMessage = ChatMessage.CreateUserMessage(sanitizedMessage);
+
+				// If any images were attached to this message (or one we are replying to), send up to 3 of them as part of the current user message
+				var imageAttachments = message.Attachments.Concat(((message as IUserMessage)?.ReferencedMessage)?.Attachments ?? [])
+					.Where(a => new[] { MediaTypeNames.Image.Jpeg, MediaTypeNames.Image.Png, MediaTypeNames.Image.Gif, MediaTypeNames.Image.Webp }.Contains(a.ContentType))
+					.Take(3).ToList();
+				foreach (var imageAttachment in imageAttachments)
+				{
+					userMessage.Content.Add(ChatMessageContentPart.CreateImagePart(new Uri(imageAttachment.Url)));
+				}
 
 				// Build chat content
 				var messages = new List<ChatMessage>
-					((string.IsNullOrWhiteSpace(systemMessage) ? [] : new[] { ChatMessage.CreateSystemMessage($"{systemMessage} Current Channel: #{message.Channel.Name}") })               // System message
-					.Concat(channelHistory.Select(h =>                                                                                                                                      // Historical messages
-						h.UserID != _restClientProvider.BotUser.Id ? (ChatMessage)ChatMessage.CreateUserMessage(h.Message)                                                                  // ^
-						: ChatMessage.CreateAssistantMessage(h.Message)))                                                                                                                   // ^
-					.Concat([ChatMessage.CreateUserMessage(customUserPrompt), ChatMessage.CreateAssistantMessage(customAssistantPrompt), ChatMessage.CreateUserMessage(sanitizedMessage)])  // Customized prompts
-					.Where(m => m.Content?.Count > 0 && m.Content.Any(c => !string.IsNullOrWhiteSpace(c.Text))));
+					((string.IsNullOrWhiteSpace(systemMessage) ? [] : new[] { ChatMessage.CreateSystemMessage($"{systemMessage} Current Channel: #{message.Channel.Name}") })   // System message
+					.Concat(channelHistory.Select(h =>                                                                                                                          // Historical messages
+						h.UserID != _restClientProvider.BotUser.Id ? (ChatMessage)ChatMessage.CreateUserMessage(h.Message)                                                      // ^
+						: ChatMessage.CreateAssistantMessage(h.Message)))                                                                                                       // ^
+					.Concat([ChatMessage.CreateUserMessage(customUserPrompt), ChatMessage.CreateAssistantMessage(customAssistantPrompt), userMessage])                          // Customized prompts
+					.Where(m => m.Content.Any(c => !string.IsNullOrWhiteSpace(c.Text))));
 				_logger.LogInformation($"Preparing to send messages:\n\t{string.Join("\n\t", messages.Select(m => $"{m.GetType().Name}: {m.Content?.FirstOrDefault()?.Text}"))}");
 
 				// Send request
