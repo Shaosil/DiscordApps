@@ -26,9 +26,9 @@ namespace ShaosilBot.Core.Jobs
 		public async Task Execute(IJobExecutionContext context)
 		{
 			ulong userID = ulong.Parse(context.MergedJobDataMap.GetString(DataMapKeys.UserID)!);
-			string? channelStr = context.MergedJobDataMap.GetString(DataMapKeys.ChannelID);
+			context.MergedJobDataMap.TryGetString(DataMapKeys.ChannelID, out var channelStr);
 			ulong? channelID = string.IsNullOrEmpty(channelStr) ? null : ulong.Parse(channelStr);
-			string? msg = context.MergedJobDataMap.GetString(DataMapKeys.Message);
+			context.MergedJobDataMap.TryGetString(DataMapKeys.Message, out var msg);
 
 			// If it was private, send a DM to the user. Otherwise, try to send it to the channel
 			var user = await _discordRestClientProvider.GetUserAsync(userID);
@@ -36,7 +36,7 @@ namespace ShaosilBot.Core.Jobs
 			if (channel != null)
 			{
 				// If we have a reference message, this was from a message command. Otherwise, it was from a slash
-				string? refMsgIDStr = context.MergedJobDataMap.GetString(DataMapKeys.ReferenceMessageID);
+				context.MergedJobDataMap.TryGetString(DataMapKeys.ReferenceMessageID, out var refMsgIDStr);
 				ulong? refMsgID = string.IsNullOrEmpty(refMsgIDStr) ? null : ulong.Parse(refMsgIDStr);
 				if (refMsgID.HasValue)
 				{

@@ -106,7 +106,7 @@ namespace ShaosilBot.Core.Singletons
 					.Take(3).ToList();
 				foreach (var imageAttachment in imageAttachments)
 				{
-					userMessage.Content.Add(ChatMessageContentPart.CreateImagePart(new Uri(imageAttachment.Url)));
+					userMessage.Content.Add(ChatMessageContentPart.CreateImagePart(new Uri(imageAttachment.Url), ChatImageDetailLevel.Low));
 				}
 
 				// Build chat content
