@@ -276,7 +276,8 @@ namespace ShaosilBot.Core.Providers
 
 						// Most other properties match up between responses so add the rest here
 						fakeDealResponses.Add(updatedGame);
-					};
+					}
+					;
 				}
 
 				// TODO: Filter to things usually over $5
@@ -305,10 +306,12 @@ namespace ShaosilBot.Core.Providers
 
 					// Retrieve items via a dynamic JS object
 					string objSelector = "{ return { Title: n.innerText, URL: n.closest('a').href, ImgURL: n.closest('a').querySelector('img').src, OrigPrice: n.closest('a').querySelector('.discount_original_price').innerText } }";
-					steamGames = await page.EvaluateExpressionAsync<List<SteamResult>>($"Array.from(document.querySelectorAll('#search_resultsRows span.title')).slice(0, 5).map(n => {objSelector})");
+					string jsonData = (await page.EvaluateExpressionAsync($"Array.from(document.querySelectorAll('#search_resultsRows span.title')).slice(0, 5).map(n => {objSelector})")).ToString()!;
+					steamGames = JsonConvert.DeserializeObject<List<SteamResult>>(jsonData)!;
+
 					_logger.LogInformation($"Found {steamGames.Count} free Steam game{(steamGames.Count == 1 ? "" : "s")}.");
 
-					foreach (var game in steamGames)
+					foreach (var game in steamGames.Where(g => !string.IsNullOrWhiteSpace(g.ImgURL)))
 					{
 						// Update the image URL to use the header instead of the tiny thumbnail
 						game.ImgURL = Regex.Replace(game.ImgURL, "(.+)/(.+\\.jpg.*)", "$1/header.jpg");

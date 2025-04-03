@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.ClientModel;
+using System.Globalization;
 using System.Net.Mime;
 using Discord;
 using Discord.WebSocket;
@@ -160,10 +161,24 @@ namespace ShaosilBot.Core.Singletons
 					await sendMsg(content);
 				}
 			}
-			catch (Exception ex) when (ex is TaskCanceledException && ex.InnerException is TimeoutException)
+			catch (ClientResultException ex)
 			{
-				_logger.LogError(ex, "Timeout in HandleChatRequest");
-				await LogAndSendChannelMessage(message.Channel, "*[Chat server timeout. Please try again.]*");
+				_logger.LogError(ex, "Unsuccessful response in HandleChatRequest.");
+
+				switch (ex.Status)
+				{
+					case 429: // Rate limit or quota exceeded
+						await LogAndSendChannelMessage(message.Channel, "*[OpenAI reported an exceeded rate limit or quota. <@392127164570664962>, check the credits.]*");
+						break;
+
+					case 503: // Engine overloaded or slow down
+						await LogAndSendChannelMessage(message.Channel, "*[OpenAI servers may be overloaded. Please try again shortly.]*");
+						break;
+
+					default:
+						await LogAndSendChannelMessage(message.Channel, "*[OpenAI returned an unhandled failure. <@392127164570664962>, check the logs.]*");
+						break;
+				}
 			}
 			catch (Exception ex)
 			{

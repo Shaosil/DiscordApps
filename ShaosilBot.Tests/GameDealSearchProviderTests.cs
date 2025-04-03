@@ -19,6 +19,8 @@ namespace ShaosilBot.Tests
 			// Use a shared in memory database, leaving the connection open until the end of each test
 			Configuration["FilesBasePath"] = string.Empty;
 			Configuration["IsThereAnyDealChannel"] = "1190155474243436656";
+			Configuration["IsThereAnyDealAPIKey"] = string.Empty;
+			Configuration["IsThereAnyDealFilter"] = string.Empty;
 			_sqliteProvider = new SQLiteProvider(new Mock<ILogger<SQLiteProvider>>().Object, Configuration);
 			var privateConnString = typeof(SQLiteProvider).GetProperty(nameof(SQLiteProvider.ConnectionString), BindingFlags.Static | BindingFlags.Public);
 			privateConnString!.SetValue(null, "Data Source=InMemory;Mode=Memory;Cache=Shared");
@@ -42,7 +44,7 @@ namespace ShaosilBot.Tests
 		public async Task Search_Generic_Test()
 		{
 			// TODO
-			//await SUT.DoDefaultSearch();
+			await SUT.DoDefaultSearch();
 		}
 	}
 }
