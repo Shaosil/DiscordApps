@@ -1,4 +1,5 @@
-﻿using Discord;
+﻿using System.Diagnostics;
+using Discord;
 using Microsoft.Extensions.Logging;
 using Quartz;
 using ServerManager.Core;
@@ -6,7 +7,6 @@ using ServerManager.Core.Interfaces;
 using ServerManager.Core.Models;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
-using System.Diagnostics;
 using static ServerManager.Core.Models.QueueMessage;
 
 namespace ShaosilBot.Core.SlashCommands
@@ -103,26 +103,26 @@ namespace ShaosilBot.Core.SlashCommands
 					new SlashCommandOptionBuilder
 					{
 						Type = ApplicationCommandOptionType.SubCommandGroup,
-						Name = "invokeai",
-						Description = "Manage the InvokeAI web server",
+						Name = "comfyui",
+						Description = "Manage the ComfyUI web server",
 						Options = new List<SlashCommandOptionBuilder>
 						{
 							new SlashCommandOptionBuilder
 							{
-								Name = SupportedCommands.InvokeAI.Status,
-								Description = "Gives the current status of the InvokeAI server.",
+								Name = SupportedCommands.ComfyUI.Status,
+								Description = "Gives the current status of the ComfyUI server.",
 								Type = ApplicationCommandOptionType.SubCommand
 							},
 							new SlashCommandOptionBuilder
 							{
-								Name = SupportedCommands.InvokeAI.Startup,
-								Description = "Starts the InvokeAI server.",
+								Name = SupportedCommands.ComfyUI.Startup,
+								Description = "Starts the ComfyUI server.",
 								Type = ApplicationCommandOptionType.SubCommand
 							},
 							new SlashCommandOptionBuilder
 							{
-								Name = SupportedCommands.InvokeAI.Shutdown,
-								Description = "Shuts down the InvokeAI server.",
+								Name = SupportedCommands.ComfyUI.Shutdown,
+								Description = "Shuts down the ComfyUI server.",
 								Type = ApplicationCommandOptionType.SubCommand
 							}
 						}
@@ -163,32 +163,26 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override async Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			// Verify user has manage message permissions
-			var channel = (await _restClientProvider.GetChannelAsync(cmdWrapper.Command.ChannelId!.Value)) as IGuildChannel;
-			if (!(cmdWrapper.Command.User as IGuildUser)!.GetPermissions(channel).ManageMessages)
+			if (!await VerifyPermissions(cmdWrapper.Command.ChannelId!.Value, (cmdWrapper.Command.User as IGuildUser)!))
 			{
-				return cmdWrapper.Respond($"Sorry, the `/{CommandName}` command is only available for admin users in this server.", ephemeral: true);
+				return cmdWrapper.Respond($"Sorry, the `/{CommandName}` command is only available for admin users in this server.");
 			}
 
 			var group = cmdWrapper.Command.Data.Options.First();
 			var subCmd = group.Options.First();
 
-			// Verify the ServerManager service is running if needed
-			if (group.Name == "bds" || group.Name == "invokeai")
-			{
-				if (Process.GetProcessesByName("ServerManager").Length == 0)
-				{
-					return cmdWrapper.Respond($"ERROR: The server manager does not appear to be running.", ephemeral: true);
-				}
-			}
-
 			// Set the server command type based on the subcommand group
 			object[]? args = Array.Empty<object>();
 			if (group.Name == "bds")
 			{
+				if (!VerifyServerManagerRunning(out var serverMsg))
+				{
+					return cmdWrapper.Respond(serverMsg, ephemeral: true);
+				}
+
 				if (subCmd.Name == SupportedCommands.BDS.Shutdown)
 				{
-					args = [(object)(subCmd.Options.FirstOrDefault()?.Value is bool force && force)]; // Whether to force kill it
+					args = [(subCmd.Options.FirstOrDefault()?.Value is bool force && force)]; // Whether to force kill it
 				}
 				else if (subCmd.Name == SupportedCommands.BDS.Logs)
 				{
@@ -214,25 +208,13 @@ namespace ShaosilBot.Core.SlashCommands
 
 				}, true);
 			}
-			else if (group.Name == "invokeai")
+			else if (group.Name == "comfyui")
 			{
 				// Defer while we wait for a response
 				return await cmdWrapper.DeferWithCode(async () =>
 				{
-					// Wait no longer than 60 seconds
-					Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(60));
-					var completedTask = await Task.WhenAny(_rabbitMQProvider.SendCommand(eCommandType.InvokeAI, subCmd.Name, args), timeoutTask);
-
-					if (completedTask == timeoutTask)
-					{
-						await cmdWrapper.Command.FollowupAsync("Timeout while waiting for response - ask Shaosil to verify the ServerManager service is running.");
-					}
-					else
-					{
-						var result = ((Task<QueueMessageResponse>)completedTask).Result;
-						await cmdWrapper.Command.FollowupAsync($"Response from server:\n\n{result.Response}");
-					}
-
+					string result = await AttemptToStartImageGenService(cmdWrapper.Command.ChannelId!.Value, (cmdWrapper.Command.User as IGuildUser)!, subCmd.Name);
+					await cmdWrapper.Command.FollowupAsync(result);
 				}, true);
 			}
 			else if (group.Name == "scheduled-jobs")
@@ -274,6 +256,55 @@ namespace ShaosilBot.Core.SlashCommands
 			{
 				return cmdWrapper.Respond("*Error - unsupported command group!*", ephemeral: true);
 			}
+		}
+
+		private async Task<bool> VerifyPermissions(ulong channelID, IGuildUser user)
+		{
+			// Verify user has manage message permissions
+			var channel = (await _restClientProvider.GetChannelAsync(channelID)) as IGuildChannel;
+			return user.GetPermissions(channel).ManageMessages;
+		}
+
+		private bool VerifyServerManagerRunning(out string message)
+		{
+			message = string.Empty;
+
+			bool running = Process.GetProcessesByName("ServerManager").Length > 0;
+
+			if (!running)
+			{
+				message = $"ERROR: The server manager service does not appear to be running.";
+			}
+
+			return running;
+		}
+
+		public async Task<string> AttemptToStartImageGenService(ulong channelID, IGuildUser user, string cmdName)
+		{
+			if (!await VerifyPermissions(channelID, user))
+			{
+				return "Sorry, only admin users in this server may manage remote services.";
+			}
+
+			if (!VerifyServerManagerRunning(out var serverMsg))
+			{
+				return serverMsg;
+			}
+
+			// Wait no longer than 60 seconds
+			Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(60));
+			var completedTask = await Task.WhenAny(_rabbitMQProvider.SendCommand(eCommandType.ComfyUI, cmdName, []), timeoutTask);
+
+			if (completedTask == timeoutTask)
+			{
+				return "Timeout while waiting for response - ask Shaosil to verify the ServerManager service is running.";
+			}
+			else
+			{
+				var result = ((Task<QueueMessageResponse>)completedTask).Result;
+				return $"Response from server:\n\n{result.Response}";
+			}
+
 		}
 	}
 }

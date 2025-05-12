@@ -17,7 +17,7 @@
 			public const string Logs = "logs";
 		}
 
-		public static class InvokeAI
+		public static class ComfyUI
 		{
 			public const string Status = "status";
 			public const string Startup = "startup";

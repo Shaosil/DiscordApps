@@ -23,7 +23,7 @@ namespace ServerManager
 
 			// Map a resolved instance of every implementation of IServerManagerCommand to the CommandType enums
 			_commandProcessors.Add(eCommandType.BDS, serviceProvider.GetRequiredService<BDSCommand>());
-			_commandProcessors.Add(eCommandType.InvokeAI, serviceProvider.GetRequiredService<InvokeAICommand>());
+			_commandProcessors.Add(eCommandType.ComfyUI, serviceProvider.GetRequiredService<ComfyUICommand>());
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -56,7 +56,7 @@ namespace ServerManager
 
 			// Open a channel and declare both queues
 			_channel = await _connection.CreateChannelAsync();
-			var ttlArgs = new Dictionary<string, object> { { "x-message-ttl", 10000 } };
+			var ttlArgs = new Dictionary<string, object?> { { "x-message-ttl", 10000 } };
 			await _channel.QueueDeclareAsync(queue: QueueNames.COMMAND_QUEUE, durable: false, exclusive: false, autoDelete: false, arguments: ttlArgs);
 
 			var consumer = new AsyncEventingBasicConsumer(_channel);

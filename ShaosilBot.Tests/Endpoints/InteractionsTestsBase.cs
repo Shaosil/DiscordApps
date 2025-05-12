@@ -1,13 +1,14 @@
+using System.Text;
 using Discord.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using NSec.Cryptography;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
 using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Models;
 using ShaosilBot.Web.Controllers;
-using System.Text;
 
 namespace ShaosilBot.Tests.Endpoints
 {
@@ -39,7 +40,7 @@ namespace ShaosilBot.Tests.Endpoints
 
 		protected DiscordInteractionResponse DeserializeResponse(string? content)
 		{
-			return JsonSerializer.Deserialize<DiscordInteractionResponse>(content ?? string.Empty)!;
+			return JsonConvert.DeserializeObject<DiscordInteractionResponse>(content ?? string.Empty)!;
 		}
 
 		protected async Task<IActionResult> RunInteractions(HttpContext customContext)

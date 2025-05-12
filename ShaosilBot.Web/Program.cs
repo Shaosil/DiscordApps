@@ -37,13 +37,13 @@ builder.Services.AddSingleton<IDiscordSocketClientProvider, DiscordSocketClientP
 builder.Services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvider>();
 builder.Services.AddSingleton<IRabbitMQProvider, RabbitMQProvider>();
 builder.Services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
+builder.Services.AddSingleton<IChatGPTConnection, ChatGPTConnection>();
 builder.Services.AddSingleton<IChatGPTProvider, ChatGPTProvider>();
 builder.Services.AddSingleton<IGuildHelper, GuildHelper>();
 builder.Services.AddSingleton<IQuartzProvider, QuartzProvider>();
-builder.Services.AddSingleton<IImageGenerationProvider, InvokeAIProvider>();
+builder.Services.AddSingleton<IImageGenerationProvider, ComfyUIProvider>();
 
 // Add scoped services, including all derivitives of BaseCommand
-builder.Services.AddScoped<IChatGPTConnection, ChatGPTConnection>();
 builder.Services.AddScoped<ISQLiteProvider, SQLiteProvider>();
 builder.Services.AddScoped<IMessageCommandProvider, MessageCommandProvider>();
 builder.Services.AddScoped<IHttpUtilities, HttpUtilities>();

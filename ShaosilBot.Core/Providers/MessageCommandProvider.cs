@@ -3,10 +3,10 @@ using System.Text.RegularExpressions;
 using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
+using ServerManager.Core;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using ShaosilBot.Core.SlashCommands;
-using static ShaosilBot.Core.Providers.MessageCommandProvider.MessageComponentNames;
 
 namespace ShaosilBot.Core.Providers
 {
@@ -17,6 +17,7 @@ namespace ShaosilBot.Core.Providers
 		private readonly ILogger<SlashCommandProvider> _logger;
 		private readonly RemindMeCommand _remindMeCommand;
 		private readonly ImageGenerateCommand _imageGenerateCommand;
+		private readonly ServerCommand _serverCommand;
 		private readonly IFileAccessHelper _fileAccessHelper;
 		private readonly IDiscordRestClientProvider _restClientProvider;
 
@@ -28,7 +29,7 @@ namespace ShaosilBot.Core.Providers
 			public static class Modals
 			{
 				public const string CustomReminder = "custom-reminder-modal";
-				public const string RequeueImage = "requeue-image-modal";
+				public const string RemixImage = "remix-image-modal";
 			}
 		}
 
@@ -36,9 +37,11 @@ namespace ShaosilBot.Core.Providers
 		{
 			public static class ImageGeneration
 			{
+				public const string StartService = "StartImageGenerationService";
 				public const string ImageGenerate = "Image Generate";
 				public const string CmdCancel = "Cancel"; // By batch ID
 				public const string CmdRequeue = "Requeue"; // By image name
+				public const string CmdRequeueFailed = "RequeueFailed"; // Reads prompt data from bot message
 				public const string CmdRemix = "Remix"; // By image name
 				public const string CmdDelete = "Delete"; // By image name
 			}
@@ -47,12 +50,14 @@ namespace ShaosilBot.Core.Providers
 		public MessageCommandProvider(ILogger<SlashCommandProvider> logger,
 			RemindMeCommand remindMeCommand,
 			ImageGenerateCommand imageGenerateCommand,
+			ServerCommand serverCommand,
 			IFileAccessHelper fileAccessHelper,
 			IDiscordRestClientProvider restClientProvider)
 		{
 			_logger = logger;
 			_remindMeCommand = remindMeCommand;
 			_imageGenerateCommand = imageGenerateCommand;
+			_serverCommand = serverCommand;
 			_fileAccessHelper = fileAccessHelper;
 			_restClientProvider = restClientProvider;
 		}
@@ -89,7 +94,18 @@ namespace ShaosilBot.Core.Providers
 					{
 						return await _remindMeCommand.HandleReminderTimeButton(messageComponent);
 					}
-					else if (customButtonId.StartsWith($"{ImageGeneration.ImageGenerate}-"))
+					else if (customButtonId == MessageComponentNames.ImageGeneration.StartService)
+					{
+						// Checking and starting the service may take a while, so defer and followup
+						_ = Task.Run(async () =>
+						{
+							string result = await _serverCommand.AttemptToStartImageGenService(messageComponent.ChannelId!.Value, (messageComponent.User as IGuildUser)!, SupportedCommands.ComfyUI.Startup);
+							await messageComponent.FollowupAsync(result, ephemeral: true);
+						});
+
+						return messageComponent.DeferLoading(ephemeral: true);
+					}
+					else if (customButtonId.StartsWith($"{MessageComponentNames.ImageGeneration.ImageGenerate}-"))
 					{
 						return await _imageGenerateCommand.HandleGenerationButton(messageComponent);
 					}
@@ -121,8 +137,8 @@ namespace ShaosilBot.Core.Providers
 				case string s when s.StartsWith(MessageCommandNames.Modals.CustomReminder):
 					return await _remindMeCommand.HandleReminderTimeModal(modal);
 
-				case string s when s.StartsWith(MessageCommandNames.Modals.RequeueImage):
-					return await _imageGenerateCommand.HandleRequeueModal(modal);
+				case string s when s.StartsWith(MessageCommandNames.Modals.RemixImage):
+					return await _imageGenerateCommand.HandleRemixModal(modal);
 
 				default:
 					return modal.Respond("Unknown modal type! Poke Shaosil for details.", ephemeral: true);

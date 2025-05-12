@@ -1,9 +1,9 @@
-using Microsoft.AspNetCore.Mvc;
-using ShaosilBot.Core.Interfaces;
-using ShaosilBot.Core.Models.Twitch;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using ShaosilBot.Core.Interfaces;
+using ShaosilBot.Core.Models.Twitch;
 
 namespace ShaosilBot.Web.Controllers
 {
@@ -30,7 +30,7 @@ namespace ShaosilBot.Web.Controllers
 
 			// Get message type header and body payload
 			Request.Headers.TryGetValue("Twitch-Eventsub-Message-Type", out var messageType);
-			var payload = JsonSerializer.Deserialize<TwitchPayload>(body)!;
+			var payload = JsonConvert.DeserializeObject<TwitchPayload>(body)!;
 
 			// Handle the various event types
 			switch (messageType.FirstOrDefault()?.ToLower())

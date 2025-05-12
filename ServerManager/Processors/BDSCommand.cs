@@ -1,8 +1,8 @@
-﻿using ServerManager.Core;
+﻿using System.Diagnostics;
+using System.Text.RegularExpressions;
+using ServerManager.Core;
 using ServerManager.Core.Interfaces;
 using ServerManager.Core.Models;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
 
 namespace ServerManager.Processors
 {
@@ -181,7 +181,7 @@ namespace ServerManager.Processors
 					_server = null;
 
 					string logs = string.Join('\n', _serverLogs);
-					return new QueueMessageResponse($"WARNING: Bedrock Dedicated Server process NOT started successfully. Logs:\n\n{logs}");
+					return new QueueMessageResponse($"WARNING: Bedrock Dedicated Server process failed to start. Logs:\n\n{logs}");
 				}
 
 				return new QueueMessageResponse("Bedrock Dedicated Server process started successfully.");

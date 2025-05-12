@@ -1,7 +1,7 @@
 ﻿using Discord;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using ShaosilBot.Core.Providers;
-using System.Text.Json;
 
 namespace ShaosilBot.Core.SlashCommands
 {
@@ -70,7 +70,7 @@ SUBCOMMANDS
 				{
 					response = await _client.GetAsync("https://xkcd.com/info.0.json");
 					if (response.IsSuccessStatusCode)
-						data = JsonSerializer.Deserialize<Xkcd>(await response.Content.ReadAsStringAsync())!;
+						data = JsonConvert.DeserializeObject<Xkcd>(await response.Content.ReadAsStringAsync())!;
 					else
 						throw new Exception();
 				}
@@ -93,7 +93,7 @@ SUBCOMMANDS
 						// Update data with specified comic if one was requested
 						response = await _client.GetAsync($"https://xkcd.com/{requestedNum}/info.0.json");
 						if (!response.IsSuccessStatusCode) throw new Exception();
-						data = JsonSerializer.Deserialize<Xkcd>(await response.Content.ReadAsStringAsync())!;
+						data = JsonConvert.DeserializeObject<Xkcd>(await response.Content.ReadAsStringAsync())!;
 					}
 
 					description = $"{cmdWrapper.Command.User.Mention} used {(latest != null ? "latest" : random != null ? "random" : $"#{requestedNum}")}! It's super effective!";

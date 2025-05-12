@@ -17,7 +17,7 @@ IHost host = Host.CreateDefaultBuilder(args)
 		services.AddHttpClient();
 
 		services.AddSingleton<BDSCommand>();
-		services.AddSingleton<InvokeAICommand>();
+		services.AddSingleton<ComfyUICommand>();
 
 		services.AddHostedService<CommandProcessor>();
 	})

@@ -2,7 +2,7 @@
   "profiles": {
     "ServerManager.Proxy": {
       "commandName": "Project",
-      "commandLineArgs": "InvokeAI Startup"
+      "commandLineArgs": "ComfyUI Startup"
     }
   }
 }

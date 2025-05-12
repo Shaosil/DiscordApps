@@ -1,23 +1,17 @@
 ﻿using Discord;
-using ShaosilBot.Core.Models.InvokeAI;
+using ShaosilBot.Core.Models.ImageGeneration;
 
 namespace ShaosilBot.Core.Interfaces
 {
 	public interface IImageGenerationProvider
 	{
-		IReadOnlyCollection<string> ValidSchedulers { get; }
+		IReadOnlyCollection<string> ValidSamplers { get; }
 
 		Task<bool> IsOnline();
 		Dictionary<string, string> GetConfigValidModels();
-		Task<IEnumerable<ModelsRoot.Model>> GetModelsOfType(string type, bool unfiltered = false);
-		Task<FriendlyEnqueueResult> EnqueueBatchItem(IUserMessage message, IUser requestor, string posPrompt, string negPrompt, int width, int height, string? seedStr, string? model, string scheduler, int steps, string cfg);
-		Task<List<Board>> GetAllBoards();
-		Task<Board?> GetBoardByName(string boardName);
-		Task<Board> CreateBoard(string boardName);
-		Task<QueueItemCollection.QueueItem?> GetCurrentQueueItem();
-		Task<QueueItemCollection> GetPendingQueueItems();
+		Task<IEnumerable<string>> GetModelsOfType(string type, bool unfiltered = false);
+		Task<SharedEnqueueResult> EnqueuePrompt(IUserMessage message, IUser requestor, string posPrompt, string? pNegPrompt, int? width, int? height, string? seedStr, string? model, string? sampler, int? pSteps, int? pCfg);
 		bool TryCancelQueueItem(IUser user, Guid ID, out string response);
-		Task<FriendlyEnqueueResult> RequeueImage(string imageName, IUserMessage message, IUser requestor, string? posPrompt = null, string? negPrompt = null, string? seedStr = null, string? model = null, int? steps = null);
-		bool TryDeleteImage(IUser user, string imageName, out string deleteResponse);
+		bool TryDeleteImage(IUser user, Guid imageName, out string deleteResponse);
 	}
 }

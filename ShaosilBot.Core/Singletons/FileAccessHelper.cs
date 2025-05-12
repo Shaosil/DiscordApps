@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using ShaosilBot.Core.Interfaces;
-using System.Text.Json;
 
 namespace ShaosilBot.Core.Singletons
 {
@@ -23,8 +23,8 @@ namespace ShaosilBot.Core.Singletons
 		public T LoadFileJSON<T>(string fileName, bool lockFile = false) where T : new()
 		{
 			_logger.LogInformation($"Entered {nameof(LoadFileJSON)}: filename={fileName} lockFile={lockFile}");
-			string contents = GetTextFromFile(fileName, lockFile, () => JsonSerializer.Serialize(new T()));
-			return JsonSerializer.Deserialize<T>(contents)!;
+			string contents = GetTextFromFile(fileName, lockFile, () => JsonConvert.SerializeObject(new T()));
+			return JsonConvert.DeserializeObject<T>(contents)!;
 		}
 
 		public string LoadFileText(string fileName, bool lockFile = false)
@@ -41,7 +41,7 @@ namespace ShaosilBot.Core.Singletons
 			string fullPath = Path.Combine(_basePath, filename);
 			lock (_fileLocks)
 			{
-				File.WriteAllText(fullPath, JsonSerializer.Serialize(content, new JsonSerializerOptions { WriteIndented = true }));
+				File.WriteAllText(fullPath, JsonConvert.SerializeObject(content, Formatting.Indented));
 			}
 
 			// Release lease if any exists by default

@@ -33,7 +33,7 @@ namespace ShaosilBot.Tests.SlashCommands
 				{
 					var customImageProvider = new Mock<IImageGenerationProvider>();
 					customImageProvider.Setup(i => i.GetConfigValidModels()).Returns(new Dictionary<string, string>());
-					customImageProvider.Setup(i => i.ValidSchedulers).Returns([]);
+					customImageProvider.Setup(i => i.ValidSamplers).Returns([]);
 
 					int index = constructorParams.FindIndex(p => p is IImageGenerationProvider);
 					constructorParams[index] = customImageProvider.Object;

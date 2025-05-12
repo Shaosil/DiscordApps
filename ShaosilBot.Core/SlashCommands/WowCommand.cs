@@ -1,9 +1,8 @@
 ﻿using Discord;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using ShaosilBot.Core.Providers;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace ShaosilBot.Core.SlashCommands
 {
@@ -34,7 +33,7 @@ namespace ShaosilBot.Core.SlashCommands
 			// Immediately acknowledge, and let the async task above decide how to followup
 			return cmdWrapper.DeferWithCode(async () =>
 			{
-				string url = _configuration["RandomWowURL"];
+				string url = _configuration["RandomWowURL"]!;
 				var response = await _client.GetAsync(url);
 				if (response.IsSuccessStatusCode)
 				{
@@ -42,7 +41,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 					try
 					{
-						var responseObj = JsonSerializer.Deserialize<WowResponse[]>(content)!.First();
+						var responseObj = JsonConvert.DeserializeObject<WowResponse[]>(content)!.First();
 						string description = $"*{responseObj.movie} **wow** {responseObj.current_wow_in_movie} of {responseObj.total_wows_in_movie}*";
 						await cmdWrapper.Command.FollowupWithFileAsync(await _client.GetStreamAsync(responseObj.video._360p), Path.GetFileName(responseObj.video._360p), description);
 					}
@@ -74,13 +73,13 @@ namespace ShaosilBot.Core.SlashCommands
 
 			public class Video
 			{
-				[JsonPropertyName("1080p")]
+				[JsonProperty("1080p")]
 				public string _1080p { get; set; }
-				[JsonPropertyName("720p")]
+				[JsonProperty("720p")]
 				public string _720p { get; set; }
-				[JsonPropertyName("480p")]
+				[JsonProperty("480p")]
 				public string _480p { get; set; }
-				[JsonPropertyName("360p")]
+				[JsonProperty("360p")]
 				public string _360p { get; set; }
 			}
 		}

@@ -1,11 +1,12 @@
 ﻿using System.Net.Http.Headers;
 using System.Net.Mime;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models.Twitch;
 
@@ -42,7 +43,7 @@ namespace ShaosilBot.Core.Providers
 			ulong targetChannel = payload?.event_type?.broadcaster_user_login == "shaosil" ? 786668753407705160u : 1012811798191292480u; // #twitch-golives for me, #streams for everyone else
 			var discordChannel = await _restClientProvider.GetChannelAsync(targetChannel);
 			RestUserMessage? lastMessage = null;
-			string twitchLink = $"https://twitch.tv/{payload.event_type.broadcaster_user_login}";
+			string twitchLink = $"https://twitch.tv/{payload!.event_type.broadcaster_user_login}";
 			var embed = new EmbedBuilder
 			{
 				Color = new Color(0x7c0089),
@@ -60,11 +61,11 @@ namespace ShaosilBot.Core.Providers
 				// Channel info for game name and ID
 				_logger.LogInformation("Getting channel and game information for image and description.");
 				string channelResponse = await GetHttpResponseAsync<string>($"https://api.twitch.tv/helix/channels?broadcaster_id={payload.event_type.broadcaster_user_id}");
-				var channelInfo = JsonSerializer.Deserialize<ChannelInfoRoot>(channelResponse)!.Channels.First();
+				var channelInfo = JsonConvert.DeserializeObject<ChannelInfoRoot>(channelResponse)!.Channels.First();
 
 				// Game image URL
 				string gameResponse = await GetHttpResponseAsync<string>($"https://api.twitch.tv/helix/games?id={payload.event_type.category_id ?? channelInfo.game_id}");
-				string gameUrl = JsonDocument.Parse(gameResponse).RootElement.GetProperty("data")[0].GetProperty("box_art_url").GetString()!.Replace("-{width}x{height}", string.Empty);
+				string gameUrl = JObject.Parse(gameResponse)["data"]![0]!["box_art_url"]!.ToString()!.Replace("-{width}x{height}", string.Empty);
 
 				// Always set image and description from these events
 				embed.ImageUrl = gameUrl;
@@ -151,8 +152,8 @@ namespace ShaosilBot.Core.Providers
 		public async Task<bool> PostSubscription(string userId)
 		{
 			string oauthToken = await GetOAuthAccessToken();
-			string clientId = _configuration["TwitchClientID"];
-			string twitchApiSecret = _configuration["TwitchAPISecret"];
+			string clientId = _configuration["TwitchClientID"]!;
+			string twitchApiSecret = _configuration["TwitchAPISecret"]!;
 
 			// Subscribe to stream.online, stream.offline, and channel.update events
 			foreach (string twitchEvent in new[] { "stream.online", "stream.offline", "channel.update" })
@@ -160,7 +161,7 @@ namespace ShaosilBot.Core.Providers
 				var request = new HttpRequestMessage(HttpMethod.Post, "https://api.twitch.tv/helix/eventsub/subscriptions");
 				request.Headers.Add("Authorization", $"Bearer {oauthToken}");
 				request.Headers.Add("Client-Id", clientId);
-				request.Content = new StringContent(JsonSerializer.Serialize(new
+				request.Content = new StringContent(JsonConvert.SerializeObject(new
 				{
 					type = twitchEvent,
 					version = 1,
@@ -201,13 +202,13 @@ namespace ShaosilBot.Core.Providers
 		private async Task<T> GetHttpResponseAsync<T>(string url) where T : class
 		{
 			string oauthToken = await GetOAuthAccessToken();
-			string clientId = _configuration["TwitchClientID"];
+			string clientId = _configuration["TwitchClientID"]!;
 
 			var request = new HttpRequestMessage(HttpMethod.Get, url);
 			request.Headers.Add("Authorization", $"Bearer {oauthToken}");
 			request.Headers.Add("Client-Id", clientId);
 			var response = await (await _httpClient.SendAsync(request)).Content.ReadAsStringAsync();
-			return (typeof(T) == typeof(string)) ? response as T : JsonSerializer.Deserialize<T>(response);
+			return (typeof(T) == typeof(string)) ? (response as T)! : JsonConvert.DeserializeObject<T>(response)!;
 		}
 
 		private async Task<string> GetOAuthAccessToken()
@@ -219,15 +220,15 @@ namespace ShaosilBot.Core.Providers
 				var request = new HttpRequestMessage(HttpMethod.Post, "https://id.twitch.tv/oauth2/token");
 				request.Content = new FormUrlEncodedContent(new[]
 				{
-					new KeyValuePair<string, string>("client_id", _configuration["TwitchClientID"]),
-					new KeyValuePair<string, string>("client_secret", _configuration["TwitchClientSecret"]),
+					new KeyValuePair<string, string>("client_id", _configuration["TwitchClientID"]!),
+					new KeyValuePair<string, string>("client_secret", _configuration["TwitchClientSecret"]!),
 					new KeyValuePair<string, string>("grant_type", "client_credentials")
 				});
 				var response = await _httpClient.SendAsync(request);
 
-				var bodyData = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
-				oauthInfo.Token = bodyData.GetProperty("access_token").GetString();
-				oauthInfo.Expires = DateTimeOffset.Now.AddSeconds(bodyData.GetProperty("expires_in").GetInt32());
+				var bodyData = JObject.Parse(await response.Content.ReadAsStringAsync());
+				oauthInfo.Token = bodyData["access_token"]!.ToString();
+				oauthInfo.Expires = DateTimeOffset.Now.AddSeconds((int)bodyData["expires_in"]!);
 				_fileAccessHelper.SaveFileJSON(OAuthFileName, oauthInfo);
 			}
 			else

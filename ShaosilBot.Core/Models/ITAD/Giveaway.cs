@@ -17,7 +17,7 @@ namespace ShaosilBot.Core.Models.ITAD
 			[property: JsonProperty("isPending")] bool Pending,
 			[property: JsonProperty("title")] string Title,
 			[property: JsonProperty("isMature")] bool Mature,
-			[property: JsonProperty("shop")] int ShopID,
+			[property: JsonProperty("shop")] int? ShopID,
 			[property: JsonProperty("games")] IReadOnlyList<DealResponse.DealOverview> Games
 		)
 		{

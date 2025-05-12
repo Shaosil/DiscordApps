@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
-using System.Text.Json;
 
 namespace ShaosilBot.Core.Providers
 {
@@ -21,7 +21,7 @@ namespace ShaosilBot.Core.Providers
 			var req = new HttpRequestMessage(HttpMethod.Get, _configuration["ImgurGitBlameAlbum"]);
 			req.Headers.Add("Authorization", $"Client-ID {_configuration["ImgurClientID"]}");
 			var albumResponse = await (await _httpClient.SendAsync(req)).Content.ReadAsStringAsync();
-			var allImages = JsonSerializer.Deserialize<ImgurData>(albumResponse)!.Images;
+			var allImages = JsonConvert.DeserializeObject<ImgurData>(albumResponse)!.Images;
 
 			return allImages[Random.Shared.Next(allImages.Count)].link;
 		}
