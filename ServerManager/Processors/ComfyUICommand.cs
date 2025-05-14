@@ -39,8 +39,12 @@ namespace ServerManager.Processors
 			{
 				switch (message.Instructions.ToLower())
 				{
+					case SupportedCommands.ComfyUI.ToggleEnabled:
+						response = new QueueMessageResponse($"ComfyUI server manager access is now **{(ToggleEnabled() ? "ENABLED" : "DISABLED")}**");
+						break;
+
 					case SupportedCommands.ComfyUI.Status:
-						response = new QueueMessageResponse($"ComfyUI is **{(IsOnline() ? "ONLINE" : "OFFLINE")}**");
+						response = new QueueMessageResponse($"ComfyUI is **{(IsOnline() ? "ONLINE" : "OFFLINE")}**. Server access: **{(_configuration.GetValue<bool>("ComfyUIEnabled") ? "ENABLED" : "DISABLED")}**");
 						break;
 
 					case SupportedCommands.ComfyUI.Startup:
@@ -68,6 +72,14 @@ namespace ServerManager.Processors
 			}
 
 			return response;
+		}
+
+		private bool ToggleEnabled()
+		{
+			bool currentlyEnabled = _configuration.GetValue<bool>("ComfyUIEnabled");
+			_configuration["ComfyUIEnabled"] = $"{!currentlyEnabled}";
+
+			return !currentlyEnabled;
 		}
 
 		private bool IsOnline()

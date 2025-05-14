@@ -180,7 +180,7 @@ namespace ShaosilBot.Core.Singletons
 		/// </summary>
 		/// <returns>The item that was queued, if any, and the position in the queue</returns>
 		/// <exception cref="Exception"></exception>
-		public async Task<SharedEnqueueResult> EnqueuePrompt(IUserMessage message, IUser requestor, string posPrompt, string? pNegPrompt, int? width, int? height, string? seedStr, string? model, string? sampler, int? pSteps, int? pCfg)
+		public async Task<SharedEnqueueResult> EnqueuePrompt(IUserMessage message, IUser requestor, string posPrompt, string? negPrompt, int? width, int? height, string? seedStr, string? model, string? sampler, int? steps, int? cfg)
 		{
 			try
 			{
@@ -215,11 +215,6 @@ namespace ShaosilBot.Core.Singletons
 					}
 				}
 
-				// Default the values that need to be returned
-				string negPrompt = pNegPrompt ?? string.Empty;
-				int steps = pSteps ?? 30;
-				int cfg = pCfg ?? 6;
-
 				var allModels = await GetModelsOfType("checkpoints", true);
 				var validModels = GetConfigValidModels();
 				var targetModel = allModels.FirstOrDefault(m => m.Equals(model, StringComparison.OrdinalIgnoreCase))    // Specific model name
@@ -233,14 +228,14 @@ namespace ShaosilBot.Core.Singletons
 
 				// Modify based on prompt parameters
 				workflow.Checkpoint!.Inputs["ckpt_name"] = targetModel;
-				workflow.Image!.Inputs["width"] = width ?? 1024;
-				workflow.Image!.Inputs["height"] = height ?? 1024;
+				if (width.HasValue) workflow.Image!.Inputs["width"] = width;
+				if (height.HasValue) workflow.Image!.Inputs["height"] = height;
 				workflow.PositiveText!.Inputs["text"] = posPrompt;
-				workflow.NegativeText!.Inputs["text"] = negPrompt;
+				workflow.NegativeText!.Inputs["text"] = negPrompt ?? string.Empty;
 				workflow.Sampler!.Inputs["noise_seed"] = seed;
-				workflow.Sampler!.Inputs["steps"] = steps;
-				workflow.Sampler!.Inputs["cfg"] = cfg;
-				workflow.Sampler!.Inputs["sampler_name"] = sampler ?? "dpmpp_3m_sde";
+				if (steps.HasValue) workflow.Sampler!.Inputs["steps"] = steps;
+				if (cfg.HasValue) workflow.Sampler!.Inputs["cfg"] = cfg;
+				if (!string.IsNullOrWhiteSpace(sampler)) workflow.Sampler!.Inputs["sampler_name"] = sampler;
 				workflow.SaveImage!.Inputs["filename_prefix"] += $"{requestor.Username}-";
 
 				// Serialize and send to queue
@@ -259,7 +254,9 @@ namespace ShaosilBot.Core.Singletons
 					int linePos = Math.Max(1, (queueItems?.IndexOf(promptID) ?? -1) + 1);
 
 					// Return the queued information
-					return new SharedEnqueueResult(posPrompt, negPrompt, seed, validModels.GetValueOrDefault(targetModel) ?? targetModel, steps, cfg, linePos, promptID);
+					int parsedSteps = int.Parse(workflow.Sampler!.Inputs["steps"].ToString()!);
+					int parsedCfg = int.Parse(workflow.Sampler!.Inputs["cfg"].ToString()!);
+					return new SharedEnqueueResult(posPrompt, negPrompt, seed, validModels.GetValueOrDefault(targetModel) ?? targetModel, parsedSteps, parsedCfg, linePos, promptID);
 				}
 				else
 				{

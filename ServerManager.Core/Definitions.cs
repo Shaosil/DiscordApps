@@ -19,6 +19,7 @@
 
 		public static class ComfyUI
 		{
+			public const string ToggleEnabled = "toggle-enabled";
 			public const string Status = "status";
 			public const string Startup = "startup";
 			public const string Shutdown = "shutdown";
