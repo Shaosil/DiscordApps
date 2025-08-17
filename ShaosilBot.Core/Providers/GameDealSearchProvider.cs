@@ -178,7 +178,7 @@ namespace ShaosilBot.Core.Providers
 								_logger.LogWarning("Unsuccessful call to games/info/v2!");
 							}
 
-							var allComponents = new List<IMessageComponent>();
+							var allComponents = new List<IMessageComponentBuilder>();
 
 							// Basic embed fields
 							string store = $"{(string.IsNullOrWhiteSpace(newGame.BestPercentStore) ? string.Empty : $" on {newGame.BestPercentStore}")}";
@@ -200,11 +200,11 @@ namespace ShaosilBot.Core.Providers
 								embed.Url = newGame.BestPercentStoreLink;
 
 								// Link button component
-								allComponents.Add(ButtonBuilder.CreateLinkButton("Store Page", newGame.BestPercentStoreLink, new Emoji("💲")).Build());
+								allComponents.Add(ButtonBuilder.CreateLinkButton("Store Page", newGame.BestPercentStoreLink, new Emoji("💲")));
 							}
 
 							// Link button component
-							allComponents.Add(ButtonBuilder.CreateLinkButton("Deal Page", newGame.IsThereAnyDealLink, new Emoji("ℹ️")).Build());
+							allComponents.Add(ButtonBuilder.CreateLinkButton("Deal Page", newGame.IsThereAnyDealLink, new Emoji("ℹ️")));
 
 							// Try to retrieve the image URL of the game. Since the site doesn't fully load, we can scrape the script it returns
 							response = await _httpClient.GetAsync(newGame.IsThereAnyDealLink);
@@ -244,8 +244,10 @@ namespace ShaosilBot.Core.Providers
 
 			// Load via the unlisted API
 			_logger.LogInformation("Retrieving ITAD giveaways.");
-			var content = new StringContent(@"{""_id"":1,""offset"":0,""options"":[]}", MediaTypeHeaderValue.Parse("application/json"));
-			var response = await _httpClient.PostAsync("https://isthereanydeal.com/giveaways/api/list/", content);
+			var content = new StringContent(@"{""offset"":0,""filter"":null,""sort"":null}", MediaTypeHeaderValue.Parse("application/json"));
+			content.Headers.Add("ITAD-SessionToken", "ShaosilBot");
+			content.Headers.Add("Cookie", "sess2=ShaosilBot");
+			var response = await _httpClient.PostAsync("https://isthereanydeal.com/giveaways/api/list/?tab=live", content);
 
 			if (response.StatusCode == HttpStatusCode.OK)
 			{
