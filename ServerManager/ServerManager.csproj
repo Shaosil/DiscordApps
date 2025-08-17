@@ -30,7 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Bat Files\Publish.bat">
+    <None Update="Bat Files\AfterPublish.bat">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
   </ItemGroup>

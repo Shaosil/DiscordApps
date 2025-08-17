@@ -74,7 +74,7 @@
     },
     "6": {
         "inputs": {
-            "ckpt_name": "prefectPonyXL_v50.safetensors"
+            "ckpt_name": ""
         },
         "class_type": "CheckpointLoaderSimple",
         "_meta": {
