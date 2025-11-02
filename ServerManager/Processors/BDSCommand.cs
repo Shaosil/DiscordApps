@@ -149,7 +149,7 @@ namespace ServerManager.Processors
 				startInfo.RedirectStandardInput = true;
 				startInfo.RedirectStandardOutput = true;
 				startInfo.RedirectStandardError = true;
-				startInfo.UseShellExecute = true;
+				startInfo.UseShellExecute = false;
 				_server = new Process();
 				_server.StartInfo = startInfo;
 				_server.ErrorDataReceived += (sender, error) => HandleServerLog(error.Data, true);
