@@ -4,6 +4,7 @@ using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using ShaosilBot.Core.Singletons;
 
+#pragma warning disable OPENAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
 namespace ShaosilBot.Tests
 {
 	[TestClass]
@@ -329,3 +330,4 @@ namespace ShaosilBot.Tests
 		}
 	}
 }
+#pragma warning restore OPENAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
