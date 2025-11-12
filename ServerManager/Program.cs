@@ -11,7 +11,8 @@ Log.Logger = new LoggerConfiguration()
 		rollingInterval: RollingInterval.Day, retainedFileTimeLimit: TimeSpan.FromDays(3))
 	.CreateLogger();
 
-IHost host = Host.CreateDefaultBuilder(args)
+Host.CreateDefaultBuilder(args)
+	.UseWindowsService()
 	.ConfigureServices(services =>
 	{
 		services.AddHttpClient();
@@ -22,6 +23,5 @@ IHost host = Host.CreateDefaultBuilder(args)
 		services.AddHostedService<CommandProcessor>();
 	})
 	.UseSerilog()
-	.Build();
-
-host.Run();
+	.Build()
+	.Run();
