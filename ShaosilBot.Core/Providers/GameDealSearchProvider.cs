@@ -87,6 +87,7 @@ namespace ShaosilBot.Core.Providers
 						foundGame.BestPercentStoreRegularPrice = dealRoot.Deal?.Regular?.Amount;
 						foundGame.BestPercentStoreLink = dealRoot.Deal?.URL;
 						foundGame.AddedOn = DateTime.Now;
+						foundGame.ExpiresOn = dealRoot.Deal?.Expiry;
 						foundGames.Add(foundGame);
 					}
 				}
@@ -216,7 +217,11 @@ namespace ShaosilBot.Core.Providers
 							}
 
 							// Send the message
-							string msg = $"**{newGame.Title}** is **{(newGame.BestPrice <= 0 ? "FREE" : $"${newGame.BestPrice}")}** right now{store}!";
+							string msg = $"**{newGame.Title}** is **{(newGame.BestPrice <= 0 ? "FREE" : $"${newGame.BestPrice}")}** right now{store}!\n";
+							if (newGame.ExpiresOn.HasValue && newGame.ExpiresOn > DateTime.Now)
+							{
+								msg += $"\nDeal expires <t:{newGame.ExpiresOn.Value.ToUnixTimeSeconds()}:R>\n";
+							}
 							var actionRow = ComponentBuilder.FromComponents(new[] { new ActionRowBuilder().WithComponents(allComponents).Build() });
 							var sentMessage = await loadedChannels[announcementChannelID].SendMessageAsync(msg, embed: embed.Build(), components: actionRow.Build());
 
@@ -271,15 +276,15 @@ namespace ShaosilBot.Core.Providers
 							Deal = new DealOverview.DealDetails
 							(
 								Shop: matchingShop != null ? new GenericObj(matchingShop!.ID, matchingShop!.Name) : null,
-								null, null, 0, string.Empty, null, null, string.Empty, [], [], DateTime.Now, null, // Useless props
-								URL: giveaway.ShopID == 35 ? "https://www.gog.com/en/#giveaway" : giveaway.URL // Custom URL for GOG, pass others (Not yet implemented)
+								null, null, 0, string.Empty, null, null, string.Empty, [], [], DateTime.Now,	// Useless props
+								Expiry: giveaway.Expiry,
+								URL: giveaway.ShopID == 35 ? "https://www.gog.com/en/#giveaway" : giveaway.URL	// Custom URL for GOG, pass others (Not yet implemented)
 							)
 						};
 
 						// Most other properties match up between responses so add the rest here
 						fakeDealResponses.Add(updatedGame);
 					}
-					;
 				}
 
 				// TODO: Filter to things usually over $5

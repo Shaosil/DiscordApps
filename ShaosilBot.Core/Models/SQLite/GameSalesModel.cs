@@ -28,5 +28,7 @@
 		public ulong? DiscordMessageID { get; set; }
 
 		public DateTime AddedOn { get; set; }
+
+		public DateTimeOffset? ExpiresOn { get; set; }
 	}
 }

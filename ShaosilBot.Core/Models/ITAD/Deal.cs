@@ -28,7 +28,7 @@ namespace ShaosilBot.Core.Models.ITAD
 				[property: JsonProperty("drm")] IReadOnlyList<GenericObj> DRMs,
 				[property: JsonProperty("platforms")] IReadOnlyList<GenericObj> Platforms,
 				[property: JsonProperty("timestamp")] DateTime Timestamp,
-				[property: JsonProperty("expiry")] DateTime? Expiry,
+				[property: JsonProperty("expiry")] DateTimeOffset? Expiry,
 				[property: JsonProperty("url")] string URL
 			);
 		};
