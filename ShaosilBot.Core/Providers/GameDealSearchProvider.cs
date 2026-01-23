@@ -61,16 +61,15 @@ namespace ShaosilBot.Core.Providers
 
 			if (response.IsSuccessStatusCode)
 			{
-				_logger.LogInformation("Success! Deserializing response...");
 				var dealResponse = JsonConvert.DeserializeObject<DealResponse>(responseString);
-				_logger.LogInformation($"Success! Parsing into DB object(s)... ({dealResponse})");
+				_logger.LogInformation($"Success! Found {dealResponse?.Deals?.Count} matching deals.");
 
 				var foundGames = new List<GameSale>();
 				var deals = dealResponse?.Deals
-					.Concat(await GenerateGiveawayMockResponses())
-					.Concat(await GenerateSteamMockResponses()).ToList();
+					.Concat(await GenerateGiveawayMockResponses()).ToList();
+					//.Concat(await GenerateSteamMockResponses()).ToList(); // Uncomment if ITAD doesn't return free Steam games again
 
-				_logger.LogInformation($"Found {deals?.Count ?? 0} games matching filters.");
+				_logger.LogInformation($"Found {deals?.Count ?? 0} games matching filters. Parsing into DB object(s)...");
 				if (deals != null)
 				{
 					// Load useful information into new table records
@@ -312,8 +311,8 @@ namespace ShaosilBot.Core.Providers
 					await page.GoToAsync(_configuration.GetValue<string>("SteamFreeGamesURL"));
 
 					// Retrieve items via a dynamic JS object
-					string objSelector = "{ return { Title: n.innerText, URL: n.closest('a').href, ImgURL: n.closest('a').querySelector('img').src, OrigPrice: n.closest('a').querySelector('.discount_original_price').innerText } }";
-					string jsonData = (await page.EvaluateExpressionAsync($"Array.from(document.querySelectorAll('#search_resultsRows span.title')).slice(0, 5).map(n => {objSelector})")).ToString()!;
+					string objSelector = "{ return { Title: r.querySelector('span').innerText, URL: r.href, AppID: r.dataset.dsAppid, ImgURL: r.querySelector('img')?.src, OrigPrice: r.querySelector('.discount_original_price')?.innerText} }";
+					string jsonData = (await page.EvaluateExpressionAsync($"Array.from(document.querySelectorAll('a.search_result_row')).slice(0, 5).map(r => {objSelector})")).ToString()!;
 					steamGames = JsonConvert.DeserializeObject<List<SteamResult>>(jsonData)!;
 
 					_logger.LogInformation($"Found {steamGames.Count} free Steam game{(steamGames.Count == 1 ? "" : "s")}.");
@@ -330,9 +329,9 @@ namespace ShaosilBot.Core.Providers
 			foreach (var game in steamGames)
 			{
 				var uriBuilder = new UriBuilder("https://api.isthereanydeal.com/games/lookup/v1");
-				uriBuilder.Query = $"key={_configuration.GetValue<string>("IsThereAnyDealAPIKey")}&title={game.Title}";
+				uriBuilder.Query = $"key={_configuration.GetValue<string>("IsThereAnyDealAPIKey")}&{(string.IsNullOrWhiteSpace(game.AppID) ? $"title={game.Title}" : $"appid={game.AppID})")}";
 
-				_logger.LogInformation($"Looking up ITAD info for '{game.Title}'.");
+				_logger.LogInformation($"Looking up ITAD info for '{game.Title}' by {(string.IsNullOrWhiteSpace(game.AppID) ? "title" : "App ID")}.");
 				var response = await _httpClient.GetAsync(uriBuilder.Uri);
 				string responseString = await response.Content.ReadAsStringAsync();
 				if (response.IsSuccessStatusCode)
@@ -385,6 +384,7 @@ namespace ShaosilBot.Core.Providers
 		private class SteamResult
 		{
 			public string Title { get; set; }
+			public string AppID { get; set; }
 			public string URL { get; set; }
 			public string ImgURL { get; set; }
 			public string OrigPrice { get; set; }
