@@ -22,8 +22,8 @@ namespace ShaosilBot.Tests.Endpoints
 			Random.Shared.NextBytes(randomSignatureBytes);
 			Random.Shared.NextBytes(randomPublicKeyBytes);
 			Configuration["PublicKey"] = Convert.ToHexString(randomPublicKeyBytes).ToLower();
-			context.Request.Headers.Add("X-Signature-Ed25519", Convert.ToHexString(randomSignatureBytes).ToLower());
-			context.Request.Headers.Add("X-Signature-Timestamp", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
+			context.Request.Headers.Append("X-Signature-Ed25519", Convert.ToHexString(randomSignatureBytes).ToLower());
+			context.Request.Headers.Append("X-Signature-Timestamp", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
 
 			// Act
 			var response = await RunInteractions(context) as UnauthorizedObjectResult;

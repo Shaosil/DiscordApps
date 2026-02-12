@@ -54,7 +54,7 @@ namespace ShaosilBot.Core.SlashCommands
 			{
 				var allProps = GetType().GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly).Where(f => f.Name.EndsWith("FileName")).ToList();
 				int randIndex = Random.Shared.Next(allProps.Count);
-				fileName = allProps[randIndex].GetValue(null)!.ToString();
+				fileName = allProps[randIndex].GetValue(null)!.ToString()!;
 			}
 
 			var facts = (_fileAccessHelper.LoadFileText(fileName)).Split(Environment.NewLine);

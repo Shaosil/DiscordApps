@@ -52,7 +52,7 @@ namespace ShaosilBot.Web.Controllers
 					break;
 			}
 
-			Response.Headers.Add("Content-Type", "text/plain");
+			Response.Headers.Append("Content-Type", "text/plain");
 			return Ok();
 		}
 

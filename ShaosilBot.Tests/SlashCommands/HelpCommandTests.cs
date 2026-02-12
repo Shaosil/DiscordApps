@@ -16,7 +16,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		protected override HelpCommand GetInstance() => new HelpCommand(Logger, SlashCommandProviderMock.Object);
 
 		[ClassInitialize]
-		public static new void ClassInitialize(TestContext context)
+		public static void ClassInitialize(TestContext context)
 		{
 			// Set up a fake service provider
 			_derivedTypes = typeof(BaseCommand).Assembly.GetTypes().Where(t => t.BaseType == typeof(BaseCommand) && t != typeof(HelpCommand)).ToList();

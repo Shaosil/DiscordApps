@@ -37,7 +37,7 @@ namespace ShaosilBot.Core.Providers
 			foreach (var derivedType in derivedTypes.Where(t => t != typeof(HelpCommand)).Concat(derivedTypes.Where(t => t == typeof(HelpCommand))))
 			{
 				// Store the types to command names for the service locator
-				var instance = scope.ServiceProvider.GetService(derivedType) as BaseCommand;
+				var instance = (BaseCommand)scope.ServiceProvider.GetService(derivedType)!;
 				_commandToTypeMappings[instance.CommandName] = derivedType;
 
 				// Store the properties to command names
@@ -202,7 +202,11 @@ namespace ShaosilBot.Core.Providers
 				? _serviceProvider.CreateScope().ServiceProvider.GetService(_commandToTypeMappings[name]) as BaseCommand
 				: null;
 
-			if (service == null) _logger.LogError("Service not found!");
+			if (service == null)
+			{
+				_logger.LogError("Service not found!");
+				throw new Exception();
+			}
 			return service;
 		}
 	}

@@ -3,7 +3,7 @@
 	public class SharedEnqueueResult
 	{
 		public string PositivePrompt { get; init; }
-		public string NegativePrompt { get; init; }
+		public string? NegativePrompt { get; init; }
 		public ulong Seed { get; init; }
 		public string Model { get; init; }
 		public int Steps { get; init; }
@@ -14,7 +14,7 @@
 		public bool Success { get; init; }
 		public string ErrorMessage { get; init; }
 
-		public SharedEnqueueResult(string positivePrompt, string negativePrompt, ulong seed, string model, int steps, int cfg, int linePos, Guid batchID)
+		public SharedEnqueueResult(string positivePrompt, string? negativePrompt, ulong seed, string model, int steps, int cfg, int linePos, Guid batchID)
 		{
 			PositivePrompt = positivePrompt;
 			NegativePrompt = negativePrompt;

@@ -6,10 +6,10 @@ namespace ShaosilBot.Core.Models.ImageGeneration.ComfyUI
 	public record QueueResult()
 	{
 		[JsonProperty("queue_running")]
-		private List<List<object>> _internalRunning;
+		private List<List<object>> _internalRunning = new();
 
 		[JsonProperty("queue_pending")]
-		private List<List<object>> _internalPending;
+		private List<List<object>> _internalPending = new();
 
 		public IReadOnlyList<KeyValuePair<Guid, WorkflowNodes>>? Running => ParseObjList(_internalRunning);
 		public IReadOnlyList<KeyValuePair<Guid, WorkflowNodes>>? Pending => ParseObjList(_internalPending);

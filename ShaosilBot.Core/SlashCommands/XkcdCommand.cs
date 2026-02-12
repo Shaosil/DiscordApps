@@ -85,7 +85,7 @@ SUBCOMMANDS
 					var latest = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "latest");
 					var random = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "random");
 					var comicNum = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "comic")?.Options.FirstOrDefault(o => o.Name == "num");
-					int requestedNum = latest != null ? 0 : random != null ? Random.Shared.Next(1, data.num + 1) : int.Parse(comicNum.Value.ToString()); // Null = get random
+					int requestedNum = latest != null ? 0 : random != null ? Random.Shared.Next(1, data.num + 1) : int.Parse(comicNum!.Value.ToString()!); // Null = get random
 					string description;
 
 					if (requestedNum > 0)

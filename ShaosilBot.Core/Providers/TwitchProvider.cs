@@ -184,7 +184,7 @@ namespace ShaosilBot.Core.Providers
 		public async Task<bool> DeleteSubscriptions(List<TwitchSubscriptions.Datum> subscriptions)
 		{
 			string oauthToken = await GetOAuthAccessToken();
-			string clientId = _configuration["TwitchClientID"];
+			string clientId = _configuration["TwitchClientID"]!;
 
 			foreach (var sub in subscriptions)
 			{

@@ -312,7 +312,7 @@ namespace ShaosilBot.Core.Providers
 
 					// Retrieve items via a dynamic JS object
 					string objSelector = "{ return { Title: r.querySelector('span').innerText, URL: r.href, AppID: r.dataset.dsAppid, ImgURL: r.querySelector('img')?.src, OrigPrice: r.querySelector('.discount_original_price')?.innerText} }";
-					string jsonData = (await page.EvaluateExpressionAsync($"Array.from(document.querySelectorAll('a.search_result_row')).slice(0, 5).map(r => {objSelector})")).ToString()!;
+					string jsonData = await page.EvaluateExpressionAsync<string>($"Array.from(document.querySelectorAll('a.search_result_row')).slice(0, 5).map(r => {objSelector})")!;
 					steamGames = JsonConvert.DeserializeObject<List<SteamResult>>(jsonData)!;
 
 					_logger.LogInformation($"Found {steamGames.Count} free Steam game{(steamGames.Count == 1 ? "" : "s")}.");

@@ -70,8 +70,8 @@ namespace ShaosilBot.Tests.Endpoints
 
 			var context = new DefaultHttpContext();
 			context.Request.Method = HttpMethods.Post;
-			context.Request.Headers.Add("X-Signature-Ed25519", signatureStr);
-			context.Request.Headers.Add("X-Signature-Timestamp", timestampStr);
+			context.Request.Headers.Append("X-Signature-Ed25519", signatureStr);
+			context.Request.Headers.Append("X-Signature-Timestamp", timestampStr);
 			context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(bodyStr));
 
 			return await RunInteractions(context);

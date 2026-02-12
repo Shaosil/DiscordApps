@@ -65,7 +65,7 @@ OPTIONAL ARGS:
 			var weaponChangeRequest = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "weapon-change");
 			if (weaponChangeRequest != null)
 			{
-				string weaponName = weaponChangeRequest.Value.ToString().ToLower().Trim();
+				string weaponName = weaponChangeRequest.Value.ToString()!.ToLower().Trim();
 				var matchingWeapons = _equipmentList.Weapons.Where(w => w.Name.ToLower().Contains(weaponName ?? string.Empty)).ToList();
 				string weaponList = string.Join(Environment.NewLine, _equipmentList.Weapons.Select(w => $"* {w.Name}"));
 
@@ -168,7 +168,7 @@ OPTIONAL ARGS:
 				var loadedUsers = new List<RestGuildUser>();
 				var curGuild = _restClientProvider.Guilds.First(g => g.Id == cmdWrapper.Command.GuildId);
 				foreach (var group in groupedAttacks)
-					loadedUsers.Add(await curGuild.GetUserAsync(group.Key) as RestGuildUser);
+					loadedUsers.Add((RestGuildUser)await curGuild.GetUserAsync(group.Key));
 
 				sb.AppendLine("\n\n**PLAYER STATS ( ATs / EVs / CRTs / GRZs / DMG / ACC )**");
 				foreach (var user in loadedUsers)

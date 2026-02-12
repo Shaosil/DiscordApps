@@ -80,7 +80,7 @@ OPTIONAL ARGS:
 			// Functions are handled by themselves
 			if (parsedFunctions)
 			{
-				var requestor = cmdWrapper.Command.User as IGuildUser;
+				var requestor = (cmdWrapper.Command.User as IGuildUser)!;
 				if (targetUser == null)
 					targetUser = requestor;
 

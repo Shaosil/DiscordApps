@@ -123,7 +123,7 @@ SUBCOMMANDS:
 								sb.AppendLine();
 								foreach (var id in uniqueIds)
 								{
-									string matchingUser = users.data.First(u => u.id == id).display_name;
+									string matchingUser = users!.data.First(u => u.id == id).display_name;
 									sb.AppendLine($"* {matchingUser}");
 								}
 
@@ -147,7 +147,7 @@ SUBCOMMANDS:
 								}
 
 								// Attempt to subscribe
-								if (!await _twitchProvider.PostSubscription(newUser.data.FirstOrDefault().id))
+								if (!newUser.data.Any() || !await _twitchProvider.PostSubscription(newUser.data[0].id))
 								{
 									await cmdWrapper.Command.FollowupAsync($"Received unauthorized status code while attempting to subscribe to user '{userArg}'. Poke Shaosil and tell him to code better.");
 									return;

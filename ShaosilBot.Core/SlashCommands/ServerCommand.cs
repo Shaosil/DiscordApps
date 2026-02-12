@@ -221,7 +221,7 @@ namespace ShaosilBot.Core.SlashCommands
 			{
 				if (subCmd.Name == "execute")
 				{
-					string jobKey = null;
+					string jobKey = string.Empty;
 
 					if (subCmd.Options.First()!.Value.ToString() == "GameDealSearch")
 					{
