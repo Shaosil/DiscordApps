@@ -530,12 +530,20 @@ namespace ShaosilBot.Core.Providers
 				var theListOfUs = parentRecordProp.PropertyType.GetProperties().FirstOrDefault(p => p.PropertyType.IsAssignableTo(typeof(IEnumerable<T>)));
 				if (theListOfUs != null)
 				{
+
 					// Get the FK column of this type for the current parent
 					var fkIdProp = propColumns.FirstOrDefault(p => p.GetCustomAttribute<ForeignKeyAttribute>()?.ReferenceTable == parentRecordProp.PropertyType);
 					if (fkIdProp == null) return;
 
 					// Load parent object from cache. All children should have the same parent, so just grab the first
 					var parentVal = _tableCache[parentRecordProp.PropertyType][fkIdProp.GetValue(childEntities.First())!];
+
+					// If the list is null, initialize it
+					if (theListOfUs.GetValue(parentVal) == null)
+					{
+						theListOfUs.SetValue(parentVal, new List<T>());
+					}
+
 					var listVal = (List<T>)theListOfUs.GetValue(parentVal)!;
 
 					foreach (var child in childEntities)

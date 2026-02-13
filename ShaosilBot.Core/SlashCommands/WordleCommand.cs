@@ -25,17 +25,22 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override string HelpSummary => "Starts or continues a game of wordle.";
 
-		public override string HelpDetails => $@"/{CommandName} (play (string guess) || (remind) || (reset-game) || (stats ([User user, bool reset]))
+		public override string HelpDetails => $@"/{CommandName} (play (guess word || remind)) || (play-random (guess word || remind || reset)) || (stats ([User user, bool reset]))
 
 SUBCOMMANDS:
-* play (guess)
-    Starts or continues a game of Wordle. Play automatically continues if you have an active game.
+* play
+	- guess (word)
+	    Starts or continues a game of daily Wordle. Play automatically continues if you have an active game. Words are shared across server and generated anew at 08:00 UTC each day.
+	- remind
+		Displays your current active daily game and its guesses, if any.
 
-* remind
-	Displays your current active game and its guesses, if any.
-
-* reset-game
-	Clears any active game guesses you may be working on and starts a new game next time you use /{CommandName} play.
+* play-random
+	- guess (word)
+	    Starts or continues a game of daily Wordle. Play automatically continues if you have an active game, and your game will persist until completed or reset.
+	- remind
+		Displays your current active randomized game and its guesses, if any.
+	- reset
+		Clears any active game guesses you may be working on and starts a new game next time you use /{CommandName} play-random.
 
 * stats ([user, reset])
 	Displays a user's (defaults to yours) or resets (only your own) overall Wordle statistics with count details.";
@@ -50,34 +55,78 @@ SUBCOMMANDS:
 					new SlashCommandOptionBuilder
 					{
 						Name = "play",
-						Description = "Starts or continues a game of Wordle.",
-						Type = ApplicationCommandOptionType.SubCommand,
+						Description = "Manage your game of daily Wordle.",
+						Type = ApplicationCommandOptionType.SubCommandGroup,
 						Options = new List<SlashCommandOptionBuilder>
 						{
 							new SlashCommandOptionBuilder
 							{
 								Name = "guess",
-								Description = "Your current guess",
-								Type = ApplicationCommandOptionType.String,
-								IsRequired = true,
-								MinLength = 5,
-								MaxLength = 5
+								Description = "Start or continue guessing.",
+								Type = ApplicationCommandOptionType.SubCommand,
+								Options = new List<SlashCommandOptionBuilder>
+								{
+									new SlashCommandOptionBuilder
+									{
+										Name = "word",
+										Description = "Your current guess.",
+										Type = ApplicationCommandOptionType.String,
+										IsRequired = true,
+										MinLength = 5,
+										MaxLength = 5
+									}
+								}
+							},
+
+							new SlashCommandOptionBuilder
+							{
+								Name = "remind",
+								Description = "Display your current active daily game, if any.",
+								Type = ApplicationCommandOptionType.SubCommand
 							}
 						}
 					},
 
 					new SlashCommandOptionBuilder
 					{
-						Name = "remind",
-						Description = "Displays your currently active game and its guesses.",
-						Type = ApplicationCommandOptionType.SubCommand
-					},
+						Name = "play-random",
+						Description = "Starts or continues a randomized game of Wordle.",
+						Type = ApplicationCommandOptionType.SubCommandGroup,
+						Options = new List<SlashCommandOptionBuilder>
+						{
+							new SlashCommandOptionBuilder
+							{
+								Name = "guess",
+								Description = "Start or continue guessing.",
+								Type = ApplicationCommandOptionType.SubCommand,
+								Options = new List<SlashCommandOptionBuilder>
+								{
+									new SlashCommandOptionBuilder
+									{
+										Name = "word",
+										Description = "Your current guess.",
+										Type = ApplicationCommandOptionType.String,
+										IsRequired = true,
+										MinLength = 5,
+										MaxLength = 5
+									}
+								}
+							},
 
-					new SlashCommandOptionBuilder
-					{
-						Name = "reset-game",
-						Description = "Clears any active game guesses and word you may be working on.",
-						Type = ApplicationCommandOptionType.SubCommand
+							new SlashCommandOptionBuilder
+							{
+								Name = "remind",
+								Description = "Display your current active randomized game, if any.",
+								Type = ApplicationCommandOptionType.SubCommand
+							},
+
+							new SlashCommandOptionBuilder
+							{
+								Name = "reset",
+								Description = "Clears any active randomized game guesses and word you may be working on.",
+								Type = ApplicationCommandOptionType.SubCommand
+							}
+						}
 					},
 
 					new SlashCommandOptionBuilder
@@ -152,176 +201,189 @@ SUBCOMMANDS:
 					}
 				});
 			}
-			else if (subcmd.Name == "play")
+			else if (subcmd.Name.StartsWith("play"))
 			{
-				// Store variables
-				var allWords = _sqliteProvider.GetDataRecords<WordleWord>();
-				var validSolutionWords = allWords.Where(w => w.CanBeSolution).ToList();
-				var activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id).FirstOrDefault();
-				var activeWord = (activeGame == null ? validSolutionWords[Random.Shared.Next(validSolutionWords.Count)].Word : activeGame!.WordID).ToUpper();
+				bool isDaily = !subcmd.Name.EndsWith("-random");
+				string dailyDesc = isDaily ? "daily" : "random";
+				var activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id && g.IsDaily == isDaily).FirstOrDefault();
 
-				// Validate the guess
-				string guess = subcmd.Options.First(o => o.Name == "guess").Value.ToString()!.ToUpper();
-				if (!Regex.IsMatch(guess, "[a-zA-Z]{5}"))
-				{
-					return Task.FromResult(cmdWrapper.Respond("Invalid guess provided. Please only use the characters A-Z. No action taken.", ephemeral: true));
-				}
-				else if (!allWords.Any(w => w.Word.Equals(guess, StringComparison.OrdinalIgnoreCase)))
-				{
-					return Task.FromResult(cmdWrapper.Respond("Invalid word provided. No action taken.", ephemeral: true));
-				}
-				else if (activeGame != null && activeGame.Guesses.Any(g => g.Guess.Equals(guess, StringComparison.OrdinalIgnoreCase)))
-				{
-					return Task.FromResult(cmdWrapper.Respond("You already tried that word. No action taken.", ephemeral: true));
-				}
+				// play and play-remind are subcommand groups, so another subcommand is guaranteed
+				subcmd = subcmd.Options.First();
 
-				// Defer so we can properly send an attachment and take time to do Puppetteer stuff
-				return cmdWrapper.DeferWithCode(async () =>
+				if (subcmd.Name == "guess")
 				{
-					// Start the embed
-					var embedBuilder = new EmbedBuilder()
+					// Store variables
+					var allWords = _sqliteProvider.GetDataRecords<WordleWord>();
+					var validSolutionWords = allWords.Where(w => w.CanBeSolution).ToList();
+
+					// Determine active word based on daily or randomized game
+					string activeWord;
+					if (isDaily)
 					{
-						Color = new Color(0x7c0089),
-						ImageUrl = "attachment://wordle.jpg"
-					};
-
-					bool justReminding = false;
-					if (activeGame == null)
-					{
-						// Clear the active game if it exists. This will cascade to the guesses
-						if (activeGame != null)
-						{
-							_sqliteProvider.DeleteDataRecords(activeGame);
-						}
-
-						// Insert new game
-						_sqliteProvider.UpsertDataRecords(new WordleGame
-						{
-							UserID = cmdWrapper.Command.User.Id,
-							WordID = activeWord,
-							StartedTimestamp = DateTimeOffset.Now
-						});
-						activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id).FirstOrDefault();
-
-						embedBuilder.Title = "Starting a new Wordle game!";
+						int dailyHash = DateTime.UtcNow.AddHours(8).Date.GetHashCode();
+						activeWord = validSolutionWords[new Random(dailyHash).Next(validSolutionWords.Count)].Word.ToUpper();
 					}
 					else
 					{
-						// Find the most recent activity (reminder or guess) and determine whether to simply remind the user
-						List<DateTimeOffset> recentActivities = activeGame.Guesses.Select(g => g.GuessTimestamp).OrderDescending().Take(1).ToList();
-						if (activeGame.RemindedTimestamp.HasValue) recentActivities.Add(activeGame.RemindedTimestamp.Value);
-						justReminding = DateTimeOffset.Now - recentActivities.OrderDescending().First() > TimeSpan.FromHours(1);
-
-						embedBuilder.Title = justReminding ? "It's been a while since your last guess, so your guess was not taken this time. Here's your active game."
-						 : "Continuing your current Wordle game.";
+						activeWord = (activeGame?.WordID ?? validSolutionWords[Random.Shared.Next(validSolutionWords.Count)].Word).ToUpper();
 					}
 
-					if (justReminding)
+					// Validate the guess
+					string guess = subcmd.Options.First(o => o.Name == "word").Value.ToString()!.ToUpper();
+					if (!Regex.IsMatch(guess, "[A-Z]{5}"))
 					{
-						// Update the reminded timestamp
-						activeGame!.RemindedTimestamp = DateTimeOffset.Now;
-						_sqliteProvider.UpsertDataRecords(activeGame);
+						return Task.FromResult(cmdWrapper.Respond("Invalid guess provided. Please only use the characters A-Z. No action taken.", ephemeral: true));
 					}
-					else
+					else if (!allWords.Any(w => w.Word.Equals(guess, StringComparison.OrdinalIgnoreCase)))
 					{
-						// Insert the new guess
-						var newGuess = new WordleGuess
+						return Task.FromResult(cmdWrapper.Respond("Invalid word provided. No action taken.", ephemeral: true));
+					}
+					else if (activeGame != null && activeGame.Guesses.Any(g => g.Guess.Equals(guess, StringComparison.OrdinalIgnoreCase)))
+					{
+						return Task.FromResult(cmdWrapper.Respond("You already tried that word. No action taken.", ephemeral: true));
+					}
+
+					// Defer so we can properly send an attachment and take time to do Puppetteer stuff
+					return cmdWrapper.DeferWithCode(async () =>
+					{
+						// Start the embed
+						var embedBuilder = new EmbedBuilder()
 						{
-							UserID = cmdWrapper.Command.User.Id,
-							WordleGameID = activeGame!.ID,
-							Guess = guess,
-							GuessTimestamp = DateTimeOffset.Now
+							Color = new Color(0x7c0089),
+							ImageUrl = "attachment://wordle.jpg"
 						};
-						_sqliteProvider.UpsertDataRecords(newGuess);
 
-						// Check for game end
-						bool won = guess.Equals(activeWord, StringComparison.OrdinalIgnoreCase);
-						if (won || (activeGame != null && activeGame.Guesses.Count >= 6))
+						bool justReminding = false;
+						if (activeGame == null)
 						{
-							embedBuilder.Title = $"{(won ? "Correct!" : "Game over!")} The solution is '{activeWord.ToUpper()}'.";
-
-							// Add a stat and delete active game (cascades to guesses)
-							_sqliteProvider.UpsertDataRecords(new WordleStat
+							// Insert new game
+							_sqliteProvider.UpsertDataRecords(new WordleGame
 							{
 								UserID = cmdWrapper.Command.User.Id,
 								WordID = activeWord,
-								Solved = won,
-								NumGuesses = activeGame!.Guesses.Count,
-								EndedTimestamp = DateTimeOffset.Now
+								IsDaily = isDaily,
+								StartedTimestamp = DateTimeOffset.Now
 							});
-							_sqliteProvider.DeleteDataRecords(activeGame);
+							activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id).OrderByDescending(g => g.StartedTimestamp).First();
+
+							embedBuilder.Title = $"Starting a new {dailyDesc} Wordle game!";
 						}
-					}
+						else
+						{
+							// Find the most recent activity (reminder or guess) and determine whether to simply remind the user
+							List<DateTimeOffset> recentActivities = activeGame.Guesses.Select(g => g.GuessTimestamp).OrderDescending().Take(1).ToList();
+							if (activeGame.RemindedTimestamp.HasValue) recentActivities.Add(activeGame.RemindedTimestamp.Value);
+							justReminding = DateTimeOffset.Now - recentActivities.OrderDescending().First() > TimeSpan.FromHours(1);
 
-					// Generate the HTML image stream (FileAttachment will dispose it automatically)
-					var imageStream = await GenerateGuessTableImage(activeWord, activeGame!.Guesses);
-					using (var attachment = new FileAttachment(imageStream, "wordle.jpg"))
-					{
-						// Load the original message to make sure it exists
-						await cmdWrapper.GetOriginalMessage();
+							embedBuilder.Title = justReminding ? "It's been a while since your last guess, so your guess was not taken this time. Here's your active game."
+							 : $"Continuing your {dailyDesc} Wordle game.";
+						}
 
-						// Add the attachment and embed to the followup message
-						await cmdWrapper.Command.FollowupWithFileAsync(attachment, embed: embedBuilder.Build());
-					}
-				}, true);
-			}
-			else if (subcmd.Name == "remind")
-			{
-				var activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id).FirstOrDefault();
-				if (activeGame == null)
-				{
-					return Task.FromResult(cmdWrapper.Respond("You have no active Wordle game. Go ahead and start a new one!", ephemeral: true));
-				}
-				else
-				{
-					// Start the embed
-					var embedBuilder = new EmbedBuilder()
-					{
-						Title = $"Your current Wordle game is {activeGame.Guesses.Count} guess{(activeGame.Guesses.Count > 1 ? "es" : "")} in:",
-						Color = new Color(0x7c0089),
-						ImageUrl = "attachment://wordle.jpg"
-					};
+						if (justReminding)
+						{
+							// Update the reminded timestamp
+							activeGame.RemindedTimestamp = DateTimeOffset.Now;
+							_sqliteProvider.UpsertDataRecords(activeGame);
+						}
+						else
+						{
+							// Insert the new guess
+							var newGuess = new WordleGuess
+							{
+								UserID = cmdWrapper.Command.User.Id,
+								WordleGameID = activeGame.ID,
+								Guess = guess,
+								GuessTimestamp = DateTimeOffset.Now
+							};
+							_sqliteProvider.UpsertDataRecords(newGuess);
 
-					// Update the reminded timestamp
-					activeGame.RemindedTimestamp = DateTimeOffset.Now;
-					_sqliteProvider.UpsertDataRecords(activeGame);
+							// Check for game end
+							bool won = guess.Equals(activeWord, StringComparison.OrdinalIgnoreCase);
+							if (won || (activeGame != null && activeGame.Guesses.Count >= 6))
+							{
+								embedBuilder.Title = $"{(won ? "Correct!" : "Game over!")} The solution is '{activeWord.ToUpper()}'.";
 
-					return cmdWrapper.DeferWithCode(async () =>
-					{
-						var imageStream = await GenerateGuessTableImage(activeGame.WordID, activeGame.Guesses);
+								// Add a stat and delete active game (cascades to guesses)
+								_sqliteProvider.UpsertDataRecords(new WordleStat
+								{
+									UserID = cmdWrapper.Command.User.Id,
+									WordID = activeWord,
+									IsDaily = isDaily,
+									Solved = won,
+									NumGuesses = activeGame.Guesses.Count,
+									EndedTimestamp = DateTimeOffset.Now
+								});
+								_sqliteProvider.DeleteDataRecords(activeGame);
+							}
+						}
+
+						// Generate the HTML image stream (FileAttachment will dispose it automatically)
+						var imageStream = await GenerateGuessTableImage(activeWord, activeGame!.Guesses);
 						using (var attachment = new FileAttachment(imageStream, "wordle.jpg"))
 						{
+							// Load the original message to make sure it exists
+							await cmdWrapper.GetOriginalMessage();
+
+							// Add the attachment and embed to the followup message
 							await cmdWrapper.Command.FollowupWithFileAsync(attachment, embed: embedBuilder.Build());
 						}
 					}, true);
 				}
-			}
-			else if (subcmd.Name == "reset-game")
-			{
-				var activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id).FirstOrDefault();
-				if (activeGame == null)
+				else if (subcmd.Name == "remind")
 				{
-					return Task.FromResult(cmdWrapper.Respond("You have no active Wordle game. Go ahead and start a new one!", ephemeral: true));
-				}
-				else
-				{
-					// Count this as a loss and delete game (cascades to guesses)
-					_sqliteProvider.UpsertDataRecords(new WordleStat
+					if (activeGame == null)
 					{
-						UserID = cmdWrapper.Command.User.Id,
-						WordID = activeGame.WordID,
-						Solved = false,
-						NumGuesses = activeGame.Guesses.Count,
-						EndedTimestamp = DateTimeOffset.Now
-					});
-					_sqliteProvider.DeleteDataRecords(activeGame);
-					return Task.FromResult(cmdWrapper.Respond("Existing game cleared and counted as a loss. Playing again will generate a new word.", ephemeral: true));
+						return Task.FromResult(cmdWrapper.Respond($"You have no active {dailyDesc} Wordle game. Go ahead and start a new one!", ephemeral: true));
+					}
+					else
+					{
+						// Start the embed
+						var embedBuilder = new EmbedBuilder()
+						{
+							Title = $"Your current {dailyDesc} Wordle game is {activeGame.Guesses.Count} guess{(activeGame.Guesses.Count > 1 ? "es" : "")} in:",
+							Color = new Color(0x7c0089),
+							ImageUrl = "attachment://wordle.jpg"
+						};
+
+						// Update the reminded timestamp
+						activeGame.RemindedTimestamp = DateTimeOffset.Now;
+						_sqliteProvider.UpsertDataRecords(activeGame);
+
+						return cmdWrapper.DeferWithCode(async () =>
+						{
+							var imageStream = await GenerateGuessTableImage(activeGame.WordID, activeGame.Guesses);
+							using (var attachment = new FileAttachment(imageStream, "wordle.jpg"))
+							{
+								await cmdWrapper.Command.FollowupWithFileAsync(attachment, embed: embedBuilder.Build());
+							}
+						}, true);
+					}
+				}
+				else if (subcmd.Name == "reset")
+				{
+					// Only available for randomized games
+					if (activeGame == null)
+					{
+						return Task.FromResult(cmdWrapper.Respond("You have no active random Wordle game. Go ahead and start a new one!", ephemeral: true));
+					}
+					else
+					{
+						// Count this as a loss and delete game (cascades to guesses)
+						_sqliteProvider.UpsertDataRecords(new WordleStat
+						{
+							UserID = cmdWrapper.Command.User.Id,
+							WordID = activeGame.WordID,
+							Solved = false,
+							NumGuesses = activeGame.Guesses.Count,
+							EndedTimestamp = DateTimeOffset.Now
+						});
+						_sqliteProvider.DeleteDataRecords(activeGame);
+						return Task.FromResult(cmdWrapper.Respond("Existing game cleared and counted as a loss. Playing again will generate a new word.", ephemeral: true));
+					}
 				}
 			}
-			else
-			{
-				return Task.FromResult(cmdWrapper.Respond("ERROR: Unknown Wordle subcommand!", ephemeral: true));
-			}
+
+			return Task.FromResult(cmdWrapper.Respond("ERROR: Unknown Wordle subcommand!", ephemeral: true));
 		}
 
 		private async Task<Stream> GenerateGuessTableImage(string answer, List<WordleGuess> guesses)

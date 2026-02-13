@@ -20,6 +20,9 @@
 		[ForeignKey(typeof(WordleWord), nameof(WordleWord.Word))]
 		public string WordID { get; set; }
 
+		[Required]
+		public bool IsDaily { get; set; }
+
 		public DateTimeOffset StartedTimestamp { get; set; }
 
 		public DateTimeOffset? RemindedTimestamp { get; set; } // Active games over 2H since a guess will do a remind instead
@@ -56,6 +59,9 @@
 
 		[ForeignKey(typeof(WordleWord), nameof(WordleWord.Word))]
 		public string WordID { get; set; }
+
+		[Required]
+		public bool IsDaily { get; set; }
 
 		[Required]
 		public bool Solved { get; set; }

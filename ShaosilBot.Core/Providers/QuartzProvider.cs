@@ -1,10 +1,12 @@
-﻿using Discord.Rest;
+﻿using System.Reflection;
+using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Quartz;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Jobs;
+using ShaosilBot.Core.SlashCommands;
 
 namespace ShaosilBot.Core.Providers
 {
@@ -12,6 +14,7 @@ namespace ShaosilBot.Core.Providers
 	{
 		public const string FillMonthlyChatGPTTokensJobIdentity = "FillMonthlyChatGPTTokens";
 		public const string SearchForGameDealsJobIdentity = "SearchForGameDeals";
+		public const string WordleDailyCleanupIdentity = "WordleDailyCleanup";
 
 		private bool _isDevelopment = true;
 		private readonly IScheduler _scheduler;
@@ -59,7 +62,7 @@ namespace ShaosilBot.Core.Providers
 				var job = JobBuilder.Create<FillMonthlyChatGPTTokensJob>().WithIdentity(chatGPTTokensKey).Build();
 				var trigger = TriggerBuilder.Create().WithIdentity(FillMonthlyChatGPTTokensJobIdentity).WithCronSchedule("0 0 0 1 * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
 
-				_scheduler.ScheduleJob(job, trigger);
+				_scheduler.ScheduleJob(job, [trigger], true);
 			}
 			else
 			{
@@ -74,11 +77,25 @@ namespace ShaosilBot.Core.Providers
 				var job = JobBuilder.Create<GameSaleNotifierJob>().WithIdentity(gameDealsKey).Build();
 				var trigger = TriggerBuilder.Create().WithIdentity(SearchForGameDealsJobIdentity).WithCronSchedule($"0 0 0,9-23/{gameHourInterval} * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
 
-				_scheduler.ScheduleJob(job, new[] { trigger }, true);
+				_scheduler.ScheduleJob(job, [trigger], true);
 			}
 			else
 			{
 				_scheduler.DeleteJob(gameDealsKey).Wait();
+			}
+
+			// Delete any active daily wordle games at 08:00 UTC (03:00 Eastern)
+			var wordleKey = new JobKey(WordleDailyCleanupIdentity);
+			if (Assembly.GetExecutingAssembly().GetType("ShaosilBot.Core.SlashCommands") != null)
+			{
+				var job = JobBuilder.Create<WordleJob>().WithIdentity(wordleKey).Build();
+				var trigger = TriggerBuilder.Create().WithIdentity(WordleDailyCleanupIdentity).WithCronSchedule($"0 0 3 * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+
+				_scheduler.ScheduleJob(job, [trigger], true);
+			}
+			else
+			{
+				_scheduler.DeleteJob(wordleKey).Wait();
 			}
 
 			// If we are here, we are NOT in development
