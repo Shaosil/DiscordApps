@@ -206,6 +206,7 @@ SUBCOMMANDS:
 				bool isDaily = !subcmd.Name.EndsWith("-random");
 				string dailyDesc = isDaily ? "daily" : "random";
 				var activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id && g.IsDaily == isDaily).FirstOrDefault();
+				bool finishedDaily = isDaily && activeGame != null && (activeGame.Guesses.Any(g => g.Guess == activeGame.WordID) || activeGame.Guesses.Count >= 6);
 
 				// play and play-remind are subcommand groups, so another subcommand is guaranteed
 				subcmd = subcmd.Options.First();
@@ -220,7 +221,7 @@ SUBCOMMANDS:
 					string activeWord;
 					if (isDaily)
 					{
-						int dailyHash = DateTime.UtcNow.AddHours(8).Date.GetHashCode();
+						int dailyHash = DateTime.UtcNow.AddHours(-8).Date.GetHashCode();
 						activeWord = validSolutionWords[new Random(dailyHash).Next(validSolutionWords.Count)].Word.ToUpper();
 					}
 					else
@@ -238,9 +239,16 @@ SUBCOMMANDS:
 					{
 						return Task.FromResult(cmdWrapper.Respond("Invalid word provided. No action taken.", ephemeral: true));
 					}
-					else if (activeGame != null && activeGame.Guesses.Any(g => g.Guess.Equals(guess, StringComparison.OrdinalIgnoreCase)))
+					else if (activeGame != null)
 					{
-						return Task.FromResult(cmdWrapper.Respond("You already tried that word. No action taken.", ephemeral: true));
+						if (finishedDaily)
+						{
+							return Task.FromResult(cmdWrapper.Respond($"You already finished today's daily wordle! Come back after 8:00 AM UTC for a new word, or use `/{CommandName} play-random` for a random game.", ephemeral: true));
+						}
+						else if (activeGame.Guesses.Any(g => g.Guess.Equals(guess, StringComparison.OrdinalIgnoreCase)))
+						{
+							return Task.FromResult(cmdWrapper.Respond("You already tried that word. No action taken.", ephemeral: true));
+						}
 					}
 
 					// Defer so we can properly send an attachment and take time to do Puppetteer stuff
@@ -303,7 +311,7 @@ SUBCOMMANDS:
 							{
 								embedBuilder.Title = $"{(won ? "Correct!" : "Game over!")} The solution is '{activeWord.ToUpper()}'.";
 
-								// Add a stat and delete active game (cascades to guesses)
+								// Add a stat and delete active game if it's not daily (cascades to guesses)
 								_sqliteProvider.UpsertDataRecords(new WordleStat
 								{
 									UserID = cmdWrapper.Command.User.Id,
@@ -313,7 +321,11 @@ SUBCOMMANDS:
 									NumGuesses = activeGame.Guesses.Count,
 									EndedTimestamp = DateTimeOffset.Now
 								});
-								_sqliteProvider.DeleteDataRecords(activeGame);
+
+								if (!isDaily)
+								{
+									_sqliteProvider.DeleteDataRecords(activeGame);
+								}
 							}
 						}
 
@@ -340,7 +352,8 @@ SUBCOMMANDS:
 						// Start the embed
 						var embedBuilder = new EmbedBuilder()
 						{
-							Title = $"Your current {dailyDesc} Wordle game is {activeGame.Guesses.Count} guess{(activeGame.Guesses.Count > 1 ? "es" : "")} in:",
+							Title = finishedDaily ? "You've finished today's daily wordle. Come back after 8:00 AM UTC to try the next one!"
+								: $"Your current {dailyDesc} Wordle game is {activeGame.Guesses.Count} guess{(activeGame.Guesses.Count > 1 ? "es" : "")} in:",
 							Color = new Color(0x7c0089),
 							ImageUrl = "attachment://wordle.jpg"
 						};
