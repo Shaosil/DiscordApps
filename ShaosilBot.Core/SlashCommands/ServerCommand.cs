@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Reflection;
 using Discord;
 using Microsoft.Extensions.Logging;
 using Quartz;
@@ -144,13 +145,9 @@ namespace ShaosilBot.Core.SlashCommands
 								{
 									new SlashCommandOptionBuilder
 									{
-										Name = "job-name",
-										Description = "The name of the job to execute",
+										Name = "job-key",
+										Description = "The quartz job key identifier",
 										Type = ApplicationCommandOptionType.String,
-										Choices = new List<ApplicationCommandOptionChoiceProperties>
-										{
-											new ApplicationCommandOptionChoiceProperties { Name = "GameDealSearch", Value = "GameDealSearch" }
-										},
 										IsRequired = true
 									}
 								}
@@ -221,16 +218,13 @@ namespace ShaosilBot.Core.SlashCommands
 			{
 				if (subCmd.Name == "execute")
 				{
-					string jobKey = string.Empty;
-
-					if (subCmd.Options.First()!.Value.ToString() == "GameDealSearch")
+					// Validate job key is supported via value reflection
+					string jobKey = subCmd.Options.First().Value.ToString()!;
+					string[] validChoices = [..typeof(QuartzProvider).GetFields(BindingFlags.Public | BindingFlags.Static)
+						.Where(f => f.Name.EndsWith("Identity") && f.FieldType == typeof(string)).Select(f => f.GetValue(null)!.ToString()!)];
+					if (string.IsNullOrWhiteSpace(jobKey) || !validChoices.Contains(jobKey))
 					{
-						jobKey = QuartzProvider.SearchForGameDealsJobIdentity;
-					}
-
-					if (string.IsNullOrWhiteSpace(jobKey))
-					{
-						return cmdWrapper.Respond("*Error - No job key found!*", ephemeral: true);
+						return cmdWrapper.Respond("*Error - Invalid job key provided!*", ephemeral: true);
 					}
 
 					try

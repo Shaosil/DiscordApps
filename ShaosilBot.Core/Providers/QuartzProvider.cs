@@ -86,7 +86,7 @@ namespace ShaosilBot.Core.Providers
 
 			// Delete any active daily wordle games at 08:00 UTC (03:00 Eastern)
 			var wordleKey = new JobKey(WordleDailyCleanupIdentity);
-			if (Assembly.GetExecutingAssembly().GetType("ShaosilBot.Core.SlashCommands") != null)
+			if (typeof(WordleCommand) != null)
 			{
 				var job = JobBuilder.Create<WordleJob>().WithIdentity(wordleKey).Build();
 				var trigger = TriggerBuilder.Create().WithIdentity(WordleDailyCleanupIdentity).WithCronSchedule($"0 0 3 * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();

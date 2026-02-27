@@ -610,7 +610,7 @@ namespace ShaosilBot.Core.Providers
 				{
 					// Otherwise, get the actual requested value of this member
 					if (node.Expression is ParameterExpression pe && node.Type == typeof(bool)) _queryBuilder.Append(" = 1");
-					else _queryBuilder.Append(Expression.Lambda(node).Compile().DynamicInvoke());
+					else _queryBuilder.Append($"'{Expression.Lambda(node).Compile().DynamicInvoke()}'");
 				}
 				return node;
 			}

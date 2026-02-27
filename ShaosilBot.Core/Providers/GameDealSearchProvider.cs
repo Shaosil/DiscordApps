@@ -182,8 +182,8 @@ namespace ShaosilBot.Core.Providers
 
 							// Basic embed fields
 							string store = $"{(string.IsNullOrWhiteSpace(newGame.BestPercentStore) ? string.Empty : $" on {newGame.BestPercentStore}")}";
-							embed.Title = $"{newGame.Title} - ${newGame.BestPrice} ({newGame.BestPercentOff}% off)";
-							string regPrice = $"{(newGame.BestPercentStoreRegularPrice.HasValue ? $"Regular price **${newGame.BestPercentStoreRegularPrice}**" : string.Empty)}";
+							embed.Title = $"{newGame.Title} - ${newGame.BestPrice:C} ({newGame.BestPercentOff}% off)";
+							string regPrice = $"{(newGame.BestPercentStoreRegularPrice.HasValue ? $"Regular price **${newGame.BestPercentStoreRegularPrice:C}**" : string.Empty)}";
 							string details = $"{regPrice}{(!string.IsNullOrWhiteSpace(regPrice) ? "\n\n" : string.Empty)}";
 							var detailsBuilder = new StringBuilder();
 							foreach (var s in new[] { regPrice, tags, reviews })
@@ -216,7 +216,7 @@ namespace ShaosilBot.Core.Providers
 							}
 
 							// Send the message
-							string msg = $"**{newGame.Title}** is **{(newGame.BestPrice <= 0 ? "FREE" : $"${newGame.BestPrice}")}** right now{store}!\n";
+							string msg = $"**{newGame.Title}** is **{(newGame.BestPrice <= 0 ? "FREE" : $"${newGame.BestPrice:C}")}** right now{store}!\n";
 							if (newGame.ExpiresOn.HasValue && newGame.ExpiresOn > DateTime.Now)
 							{
 								msg += $"\nDeal expires <t:{newGame.ExpiresOn.Value.ToUnixTimeSeconds()}:R>\n";

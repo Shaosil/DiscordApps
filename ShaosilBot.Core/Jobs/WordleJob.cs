@@ -21,7 +21,8 @@ namespace ShaosilBot.Core.Jobs
 		public async Task Execute(IJobExecutionContext context)
 		{
 			// Delete all of the previous day's games that were created more than 10 seconds ago
-			var activeDailyGames = _sqliteProvider.GetDataRecords<WordleGame>(g => g.IsDaily && g.StartedTimestamp.AddSeconds(10) < DateTimeOffset.Now);
+			DateTimeOffset validTime = DateTimeOffset.Now.AddSeconds(-10);
+			var activeDailyGames = _sqliteProvider.GetDataRecords<WordleGame>(g => g.IsDaily && g.StartedTimestamp < validTime);
 			if (activeDailyGames.Count > 0)
 			{
 				_logger.LogInformation($"Deleting {activeDailyGames.Count} active daily Wordle games from yesterday.");
