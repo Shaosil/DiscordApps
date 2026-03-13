@@ -57,13 +57,13 @@ namespace ShaosilBot.Tests.SlashCommands
 					.Returns<Func<Task>, bool>((f, b) => { f(); return Task.FromResult(""); }); // Don't call defer when running unit tests
 			SlashCommandWrapperMock.Setup(m => m.Command.FollowupAsync(It.IsAny<string>(), It.IsAny<Embed[]>(), It.IsAny<bool>(), It.IsAny<bool>(),
 				It.IsAny<AllowedMentions>(), It.IsAny<MessageComponent>(), It.IsAny<Embed>(), null, null, MessageFlags.None))
-				.Callback<string, Embed[], bool, bool, AllowedMentions, MessageComponent, Embed, RequestOptions, PollProperties>((s, _, _, _, _, _, _, _, _) =>
+				.Callback<string, Embed[], bool, bool, AllowedMentions, MessageComponent, Embed, RequestOptions, PollProperties, MessageFlags>((s, _, _, _, _, _, _, _, _, _) =>
 				{
 					FollowupResponseCapture = SlashCommandWrapperMock.Object.Respond(s);
 				});
 			SlashCommandWrapperMock.Setup(m => m.Command.FollowupWithFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Embed[]>(),
 				It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<AllowedMentions>(), It.IsAny<MessageComponent>(), It.IsAny<Embed>(), null, null, MessageFlags.None))
-				.Callback<Stream, string, string, Embed[], bool, bool, AllowedMentions, MessageComponent, Embed, RequestOptions, PollProperties>((_, _, text, _, _, _, _, _, _, _, _) =>
+				.Callback<Stream, string, string, Embed[], bool, bool, AllowedMentions, MessageComponent, Embed, RequestOptions, PollProperties, MessageFlags>((_, _, text, _, _, _, _, _, _, _, _, _) =>
 				{
 					FollowupResponseCapture = SlashCommandWrapperMock.Object.Respond(text);
 				});
