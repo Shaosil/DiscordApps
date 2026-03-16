@@ -252,8 +252,9 @@ SUBCOMMANDS:
 			{
 				// Respond with a modal asking for X hours or days
 				string desc = buttonId.EndsWith("Hours") ? "hours" : "days";
-				var textInput = new TextInputBuilder("Amount", $"amount-{originalMessageId}-{desc}", value: $"{(desc == "hours" ? 1 : 3)}", minLength: 1, maxLength: 3, required: true);
-				return messageComponent.RespondWithModal(new ModalBuilder($"How many {desc} do you want to schedule it?", MessageCommandNames.Modals.CustomReminder).AddTextInput(textInput).Build());
+				var modal = new ModalBuilder($"How many {desc} do you want to schedule it?", MessageCommandNames.Modals.CustomReminder)
+					.AddTextInput("Amount", $"amount-{originalMessageId}-{desc}", value: $"{(desc == "hours" ? 1 : 3)}", minLength: 1, maxLength: 3, required: true).Build();
+				return messageComponent.RespondWithModal(modal);
 			}
 			else
 			{
