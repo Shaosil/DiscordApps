@@ -13,8 +13,8 @@ namespace ShaosilBot.Core.Models
 		public string? CustomAssistantPrompt { get; set; }
 
 		// Keeps track of input and output tokens used
-		public Dictionary<DateTime, int> InputTokensUsed { get; set; } = new Dictionary<DateTime, int>();
-		public Dictionary<DateTime, int> OutputTokensUsed { get; set; } = new Dictionary<DateTime, int>();
+		public Dictionary<DateTimeOffset, int> InputTokensUsed { get; set; } = new Dictionary<DateTimeOffset, int>();
+		public Dictionary<DateTimeOffset, int> OutputTokensUsed { get; set; } = new Dictionary<DateTimeOffset, int>();
 
 		// The amount of tokens that have been lent to others. Overlaps with AvailableTokens.
 		public Dictionary<ulong, int> LentInputTokens { get; set; } = new Dictionary<ulong, int>();

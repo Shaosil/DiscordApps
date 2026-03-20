@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Reflection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using ShaosilBot.Core.Interfaces;
@@ -18,6 +19,36 @@ namespace ShaosilBot.Core.Singletons
 			_logger = logger;
 			_restClientProvider = restClientProvider;
 			_basePath = configuration["FilesBasePath"]!.ToString();
+		}
+
+		public void InitDataDirectory()
+		{
+			Action<string, string>? copyFiles = null;
+			copyFiles = (string curDir, string relPath) =>
+			{
+				var dirInfo = new DirectoryInfo(curDir);
+
+				foreach (var subdir in dirInfo.GetDirectories())
+				{
+					string targetDir = Path.Combine(relPath, subdir.Name);
+					if (!new DirectoryInfo(targetDir).Exists)
+					{
+						Directory.CreateDirectory(targetDir);
+					}
+					copyFiles!(subdir.FullName, targetDir);
+				}
+
+				foreach (var file in dirInfo.GetFiles())
+				{
+					var targetFile = new FileInfo(Path.Combine(relPath, file.Name));
+					if (!targetFile.Exists || targetFile.LastWriteTimeUtc < file.LastWriteTimeUtc)
+					{
+						file.CopyTo(targetFile.FullName, true);
+					}
+				}
+			};
+
+			copyFiles(Path.Combine(Environment.CurrentDirectory, "Files/DataInit"), _basePath);
 		}
 
 		public T LoadFileJSON<T>(string fileName, bool lockFile = false) where T : new()

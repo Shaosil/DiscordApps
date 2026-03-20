@@ -1,0 +1,29 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+
+# IDE/Tooling files
+.vscode/
+.vs/
+**/azds.yaml
+**/*.user
+**/*.dbmdl
+**/*.jfm
+
+# Source control
+.git/
+.gitignore
+
+# Docker files (optional, as they aren't needed inside the image)
+Dockerfile*
+compose.yaml
+.dockerignore
+
+# Node.js artifacts (if using SPA templates)
+**/node_modules/
+**/npm-debug.log
+
+# Environment secrets/documentation
+**/.env
+README.md

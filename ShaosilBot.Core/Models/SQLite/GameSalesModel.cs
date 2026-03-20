@@ -1,6 +1,6 @@
 ﻿namespace ShaosilBot.Core.Models.SQLite
 {
-	public class GameSale : ITable
+	public class GameSale : IEntity
 	{
 		[PrimaryKey(false)]
 		public Guid ID { get; set; }
@@ -27,7 +27,7 @@
 
 		public ulong? DiscordMessageID { get; set; }
 
-		public DateTime AddedOn { get; set; }
+		public DateTimeOffset AddedOn { get; set; }
 
 		public DateTimeOffset? ExpiresOn { get; set; }
 	}

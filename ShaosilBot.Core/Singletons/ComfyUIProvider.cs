@@ -27,7 +27,7 @@ namespace ShaosilBot.Core.Singletons
 		private ClientWebSocket? _webSocket;
 		private Task? _listenToWebSocket;
 		private float _generatorUpdateInterval = 3; // In seconds
-		private DateTime? _generatorLastUpdate = null;
+		private DateTimeOffset? _generatorLastUpdate = null;
 		private readonly Dictionary<Guid, KeyValuePair<IUser, IUserMessage>> _trackedBatches = new(); // <promptID, <initiator, bot response>>
 
 		public IReadOnlyCollection<string> ValidSamplers { get; private set; } = ["euler", "euler_cfg_pp", "euler_ancestral", "dpm_2", "dpm_2_ancestral",
@@ -550,7 +550,7 @@ namespace ShaosilBot.Core.Singletons
 		private async Task ShowGenerationProgress(byte[] imgBytes, Guid curPrompt, int curStep, int maxStep)
 		{
 			// Limit message updates to every N seconds
-			if (!_generatorLastUpdate.HasValue || (DateTime.Now - _generatorLastUpdate.Value).TotalSeconds >= _generatorUpdateInterval)
+			if (!_generatorLastUpdate.HasValue || (DateTimeOffset.Now - _generatorLastUpdate.Value).TotalSeconds >= _generatorUpdateInterval)
 			{
 				// Load message. If it's not available, remove from tracked items
 				var msgRef = _trackedBatches[curPrompt].Value;
@@ -566,7 +566,7 @@ namespace ShaosilBot.Core.Singletons
 				}
 
 				_logger.LogDebug($"Generator progress event with batch ID {curPrompt}.");
-				_generatorLastUpdate = DateTime.Now;
+				_generatorLastUpdate = DateTimeOffset.Now;
 
 				// Update message, silently failing if unable to do so (i.e. if the message no longer exists)
 				try

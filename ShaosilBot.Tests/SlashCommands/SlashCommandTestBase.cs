@@ -1,6 +1,8 @@
+using System.Transactions;
 using Discord;
 using Discord.Rest;
 using ShaosilBot.Core.Interfaces;
+using ShaosilBot.Core.Providers;
 using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Tests.Endpoints;
 
@@ -17,6 +19,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		protected Mock<IGuild> GuildMock { get; private set; }
 		protected Mock<IRestMessageChannel> ChannelMock { get; private set; }
 		protected Mock<IFileAccessHelper> FileAccessProviderMock { get; private set; }
+		protected Mock<ISQLiteProvider> SQLiteProviderMock { get; private set; }
 		protected string FollowupResponseCapture { get; private set; }
 
 		[TestInitialize]
@@ -27,6 +30,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			GuildHelperMock = new Mock<IGuildHelper>();
 			HttpUtilitiesMock = new Mock<IHttpUtilities>();
 			FileAccessProviderMock = new Mock<IFileAccessHelper>();
+			SQLiteProviderMock = new Mock<ISQLiteProvider>();
 			SUT = GetInstance();
 			SlashCommandProviderMock.Setup(m => m.GetSlashCommandHandler(SUT.CommandName)).Returns(SUT);
 
@@ -42,7 +46,6 @@ namespace ShaosilBot.Tests.SlashCommands
 			ChannelMock = new Mock<IRestMessageChannel>();
 			RestClientProviderMock.SetupGet(m => m.Guilds).Returns(new List<IGuild> { GuildMock.Object });
 
-
 			var dataMock = new Mock<IApplicationCommandInteractionData>();
 			_optionsMocks = new List<IApplicationCommandInteractionDataOption>();
 			dataMock.SetupGet(m => m.Options).Returns(_optionsMocks);
@@ -54,7 +57,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			SlashCommandWrapperMock.SetupGet(m => m.Command).Returns(commandMock.Object);
 
 			SlashCommandWrapperMock.Setup(m => m.DeferWithCode(It.IsAny<Func<Task>>(), It.IsAny<bool>()))
-					.Returns<Func<Task>, bool>((f, b) => { f(); return Task.FromResult(""); }); // Don't call defer when running unit tests
+				.Returns<Func<Task>, bool>((f, b) => { f(); return Task.FromResult(""); }); // Don't call defer when running unit tests
 			SlashCommandWrapperMock.Setup(m => m.Command.FollowupAsync(It.IsAny<string>(), It.IsAny<Embed[]>(), It.IsAny<bool>(), It.IsAny<bool>(),
 				It.IsAny<AllowedMentions>(), It.IsAny<MessageComponent>(), It.IsAny<Embed>(), null, null, MessageFlags.None))
 				.Callback<string, Embed[], bool, bool, AllowedMentions, MessageComponent, Embed, RequestOptions, PollProperties, MessageFlags>((s, _, _, _, _, _, _, _, _, _) =>
@@ -69,12 +72,18 @@ namespace ShaosilBot.Tests.SlashCommands
 				});
 		}
 
-		protected void AddOption(string name, object value)
+		protected IApplicationCommandInteractionDataOption MakeOption(string name, object? value = null, List<IApplicationCommandInteractionDataOption>? subOptions = null)
 		{
 			var newMockedOption = new Mock<IApplicationCommandInteractionDataOption>();
 			newMockedOption.SetupGet(m => m.Name).Returns(name);
-			newMockedOption.SetupGet(m => m.Value).Returns(value);
-			_optionsMocks.Add(newMockedOption.Object);
+			newMockedOption.SetupGet(m => m.Value).Returns(value ?? string.Empty);
+			newMockedOption.SetupGet(o => o.Options).Returns(subOptions ?? []);
+			return newMockedOption.Object;
+		}
+
+		protected void AddOptionToBase(string name, object? value = null, List<IApplicationCommandInteractionDataOption>? subOptions = null)
+		{
+			_optionsMocks.Add(MakeOption(name, value, subOptions));
 		}
 
 		protected void ClearOptions() => _optionsMocks?.Clear();

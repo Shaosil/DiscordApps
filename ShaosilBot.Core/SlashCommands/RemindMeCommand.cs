@@ -32,7 +32,7 @@ SUBCOMMANDS:
     Schedules a reminder for [amount] [time-unit]s away. Can be private (DM) or public (channel).
 
 * on (day, month, year, time, timezone, private, message)
-	Schedules a reminder for the date/time specified. Month, year, and time default to current at midnight. Timezone defaults to EST.
+	Schedules a reminder for the date/time specified. Month, year, and time default to current at midnight. Timezone is UTC.
 
 * list
     Lists all of your own upcoming reminders.
@@ -154,13 +154,13 @@ SUBCOMMANDS:
 					: timeUnit == eTimeUnits.Weeks ? DateTimeOffset.Now.AddDays(amount * 7)
 					: DateTimeOffset.Now.AddMonths(amount);
 			}
-			// On exact date
+			// On exact UTC date
 			else
 			{
 				// Store options, or lack thereof and their defaults
-				int day = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "day")?.Value.ToString() ?? DateTime.Today.Day.ToString());
-				int month = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "month")?.Value.ToString() ?? DateTime.Today.ToString("MM"));
-				int year = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "year")?.Value.ToString() ?? DateTime.Today.Year.ToString());
+				int day = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "day")?.Value.ToString() ?? DateTimeOffset.Now.Day.ToString());
+				int month = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "month")?.Value.ToString() ?? DateTimeOffset.Now.ToString("MM"));
+				int year = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "year")?.Value.ToString() ?? DateTimeOffset.Now.Year.ToString());
 				string time = (subCmd.Options.FirstOrDefault(o => o.Name == "time")?.Value.ToString() ?? "00:00").Replace(" ", "").ToUpper();
 				int timezoneOffset = int.Parse(subCmd.Options.FirstOrDefault(o => o.Name == "timezone")?.Value.ToString() ?? "0");
 
@@ -174,9 +174,8 @@ SUBCOMMANDS:
 					return Task.FromResult(cmdWrapper.Respond($"The time you provided parsed to '{hour}:{minute}' (24 hour), which is invalid.", ephemeral: true));
 				}
 
-				// Convert all values to DateTimeOffset
-				int estOffset = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time").GetUtcOffset(DateTime.UtcNow).Hours;
-				string toParse = $"{month:00}/{day:00}/{year} {hour}:{minute} {estOffset - timezoneOffset}";
+				// Parse
+				string toParse = $"{month:00}/{day:00}/{year} {hour}:{minute}";
 				if (!DateTimeOffset.TryParse(toParse, out targetDateTime))
 				{
 					return Task.FromResult(cmdWrapper.Respond($"The date and time you provided could not be parsed ({toParse}). Please input a valid time.", ephemeral: true));

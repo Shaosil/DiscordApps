@@ -104,7 +104,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			foreach (var instance in _mappedInstances)
 			{
 				ClearOptions();
-				AddOption("command", instance.Key);
+				AddOptionToBase("command", instance.Key);
 
 				var response = await RunInteractions(interaction) as ContentResult;
 
@@ -119,7 +119,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Call as a default nobody with a super basic command request
 			var interaction = DiscordInteraction.CreateSlash(SUT);
-			AddOption("command", "b");
+			AddOptionToBase("command", "b");
 
 			// Act
 			var response = await RunInteractions(interaction) as ContentResult;
@@ -138,7 +138,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Call as a default nobody with a missing command request
 			var interaction = DiscordInteraction.CreateSlash(SUT);
-			AddOption("command", "THIS IS NOT A VALID COMMAND");
+			AddOptionToBase("command", "THIS IS NOT A VALID COMMAND");
 
 			// Act
 			var response = await RunInteractions(interaction) as ContentResult;

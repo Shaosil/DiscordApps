@@ -80,7 +80,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
 			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser).Result;
-			AddOption("target-user", targetUser);
+			AddOptionToBase("target-user", targetUser);
 			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
@@ -99,7 +99,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.None);
 			var randomSimpleUser = preppedUsers[Random.Shared.Next(preppedUsers.Count)];
 			var targetUser = GuildMock.Object.GetUserAsync(randomSimpleUser).Result;
-			AddOption("target-user", targetUser);
+			AddOptionToBase("target-user", targetUser);
 			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
@@ -116,7 +116,7 @@ namespace ShaosilBot.Tests.SlashCommands
 		{
 			// Arrange - Build command with mock users and ensure target user is the caller
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
-			AddOption("target-user", UserMock.Object);
+			AddOptionToBase("target-user", UserMock.Object);
 			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
@@ -135,7 +135,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			// Arrange - Pass the functions option
 			var preppedUsers = Helpers.GenerateSimpleDiscordUsers(GuildHelperMock, GuildMock, GitBlameCommand.BlameablesFilename, ChannelPermissions.Text);
 			var interaction = DiscordInteraction.CreateSlash(SUT);
-			AddOption("functions", 1);
+			AddOptionToBase("functions", 1);
 
 			// Act
 			var response = await RunInteractions(interaction) as ContentResult;
@@ -169,8 +169,8 @@ namespace ShaosilBot.Tests.SlashCommands
 			}
 
 			// Act - Toggle target user as a blameable
-			AddOption("functions", 0);
-			AddOption("target-user", targetUser);
+			AddOptionToBase("functions", 0);
+			AddOptionToBase("target-user", targetUser);
 			var response = await RunInteractions(interaction) as ContentResult;
 
 			// Assert - Ensure the word success exists and we either added or removed the target as a blameable
@@ -191,8 +191,8 @@ namespace ShaosilBot.Tests.SlashCommands
 			GuildHelperMock.Setup(m => m.UserCanEditTargetUser(It.IsAny<IGuild>(), It.IsAny<IGuildUser>(), It.IsAny<IGuildUser>())).Returns(false);
 
 			// Act - Attempt to toggle ourselves
-			AddOption("functions", 0);
-			AddOption("target-user", UserMock.Object);
+			AddOptionToBase("functions", 0);
+			AddOptionToBase("target-user", UserMock.Object);
 			var response = await RunInteractions(interaction) as ContentResult;
 
 			// Assert - Make sure we did not succeed

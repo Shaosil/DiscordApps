@@ -52,7 +52,7 @@ OPTIONAL ARGS:
 
 		public override async Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			Logger.LogInformation($"Whackabot Command executed at {DateTime.Now}");
+			Logger.LogInformation($"Whackabot Command executed at {DateTimeOffset.Now}");
 
 			_equipmentList = _fileAccessHelper.LoadFileJSON<EquipmentList>(EquipmentFilename);
 			_gameInfo = _fileAccessHelper.LoadFileJSON<GameInfo>(GameFilename, true);

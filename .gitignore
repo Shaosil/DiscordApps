@@ -4,10 +4,11 @@
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 # Sensitive files
-local.settings.json
 /ShaosilBot.Web/appsettings.json
 /ServerManager/appsettings.json
-/ServerManager/Bat Files
+
+# Docker compose
+compose.yaml
 
 # User-specific files
 *.rsuser

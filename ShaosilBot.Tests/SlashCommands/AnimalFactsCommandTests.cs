@@ -45,7 +45,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			for (int i = 0; i < 100; i++) fakeFacts.Add(Guid.NewGuid().ToString());
 			var serializedFacts = string.Join(Environment.NewLine, fakeFacts);
 			FileAccessProviderMock.Setup(m => m.LoadFileText(AnimalFactsCommand.CatFactsFileName, It.IsAny<bool>())).Returns(serializedFacts);
-			AddOption("type", AnimalFactsCommand.CatFactsFileName);
+			AddOptionToBase("type", AnimalFactsCommand.CatFactsFileName);
 			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act
@@ -65,7 +65,7 @@ namespace ShaosilBot.Tests.SlashCommands
 			for (int i = 0; i < 100; i++) fakeFacts.Add(Guid.NewGuid().ToString());
 			var serializedFacts = string.Join(Environment.NewLine, fakeFacts);
 			FileAccessProviderMock.Setup(m => m.LoadFileText(AnimalFactsCommand.DogFactsFileName, It.IsAny<bool>())).Returns(serializedFacts);
-			AddOption("type", AnimalFactsCommand.DogFactsFileName);
+			AddOptionToBase("type", AnimalFactsCommand.DogFactsFileName);
 			var interaction = DiscordInteraction.CreateSlash(SUT);
 
 			// Act

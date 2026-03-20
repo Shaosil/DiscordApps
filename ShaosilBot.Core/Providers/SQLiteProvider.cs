@@ -6,7 +6,6 @@ using ShaosilBot.Core.Models.SQLite;
 using System.Collections;
 using System.ComponentModel;
 using System.Data;
-using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 
@@ -15,7 +14,7 @@ namespace ShaosilBot.Core.Providers
 	public class SQLiteProvider : ISQLiteProvider
 	{
 		private readonly ILogger<SQLiteProvider> _logger;
-		private readonly Dictionary<Type, Dictionary<object, ITable>> _tableCache = new(); // Caches entities by type and PK
+		private readonly Dictionary<Type, Dictionary<object, IEntity>> _tableCache = new(); // Caches entities by type and PK
 
 		public static string ConnectionString { get; private set; }
 
@@ -24,9 +23,11 @@ namespace ShaosilBot.Core.Providers
 			_logger = logger;
 			if (string.IsNullOrWhiteSpace(ConnectionString))
 			{
-				var connStringBuilder = new SqliteConnectionStringBuilder();
-				connStringBuilder.DataSource = Path.Combine(configuration.GetValue<string>("FilesBasePath")!, "data.db");
-				connStringBuilder.ForeignKeys = true;
+				var connStringBuilder = new SqliteConnectionStringBuilder
+				{
+					DataSource = Path.Combine(configuration.GetValue<string>("FilesBasePath")!, "data.db"),
+					ForeignKeys = true
+				};
 
 				ConnectionString = connStringBuilder.ToString();
 			}
@@ -37,8 +38,8 @@ namespace ShaosilBot.Core.Providers
 		public void UpdateSchema()
 		{
 			// Create or delete tables based on existing schema
-			string ns = typeof(ITable).Namespace!;
-			var ourTables = GetType().Assembly.GetTypes().Where(t => t.Namespace == ns && !t.IsInterface && t.IsAssignableTo(typeof(ITable))).ToList();
+			string ns = typeof(IEntity).Namespace!;
+			var ourTables = GetType().Assembly.GetTypes().Where(t => t.Namespace == ns && !t.IsInterface && t.IsAssignableTo(typeof(IEntity))).ToList();
 			List<string> existingTableNames = GetSimpleData<string>("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'QRTZ_%' AND name NOT LIKE 'sqlite_%'");
 			foreach (var table in ourTables.Where(t => !existingTableNames.Contains($"{t.Name}s"))) CreateTable(table);
 			foreach (var table in existingTableNames.Where(t => !ourTables.Any(ot => $"{ot.Name}s" == t))) DropTable(table);
@@ -238,7 +239,7 @@ namespace ShaosilBot.Core.Providers
 
 		#endregion
 
-		public List<T> GetDataRecords<T>(Expression<Func<T, bool>>? filterQuery) where T : ITable, new()
+		public List<T> GetDataRecords<T>() where T : IEntity, new()
 		{
 			// If the table type is not yet cached, get all records
 			if (!_tableCache.ContainsKey(typeof(T)))
@@ -252,12 +253,6 @@ namespace ShaosilBot.Core.Providers
 				{
 					var cmd = conn.CreateCommand();
 					cmd.CommandText = $"SELECT * FROM {typeof(T).Name}s";
-
-					// Add a where clause if a filter query was provided
-					if (filterQuery != null)
-					{
-						cmd.CommandText += new FilterTranslator<T>().GetWhereClause(filterQuery);
-					}
 
 					conn.Open();
 
@@ -276,7 +271,7 @@ namespace ShaosilBot.Core.Providers
 			return _tableCache[typeof(T)].Values.Cast<T>().ToList();
 		}
 
-		public T? GetDataRecord<T, TID>(TID primaryKeyValue) where T : ITable, new() where TID : struct
+		public T? GetDataRecord<T, TID>(TID primaryKeyValue) where T : IEntity, new() where TID : struct
 		{
 			// If we already have it cached, return it
 			if (_tableCache.ContainsKey(typeof(T)))
@@ -312,7 +307,7 @@ namespace ShaosilBot.Core.Providers
 			return result;
 		}
 
-		private void PopulateObjectData<T>(T item, List<PropertyInfo> itemProperties, PropertyInfo pkCol, SqliteDataReader openReader) where T : ITable
+		private void PopulateObjectData<T>(T item, List<PropertyInfo> itemProperties, PropertyInfo pkCol, SqliteDataReader openReader) where T : IEntity
 		{
 			foreach (var propColumn in itemProperties)
 			{
@@ -340,8 +335,8 @@ namespace ShaosilBot.Core.Providers
 
 			// Recursively load connected entity info via reflection. Infinite circular references should be prevented by the cache.
 			var allProps = typeof(T).GetProperties();
-			var connectedSingleEntities = allProps.Where(p => p.PropertyType.IsAssignableTo(typeof(ITable))).ToList();
-			var connectedMultiEntities = allProps.Where(p => p.PropertyType.IsAssignableTo(typeof(IEnumerable<ITable>))).ToList();
+			var connectedSingleEntities = allProps.Where(p => p.PropertyType.IsAssignableTo(typeof(IEntity))).ToList();
+			var connectedMultiEntities = allProps.Where(p => p.PropertyType.IsAssignableTo(typeof(IEnumerable<IEntity>))).ToList();
 			var genericGetRecord = GetType().GetMethod(nameof(GetDataRecord))!;
 
 			foreach (var singleEntity in connectedSingleEntities)
@@ -384,7 +379,7 @@ namespace ShaosilBot.Core.Providers
 			}
 		}
 
-		public void UpsertDataRecords<T>(params T[] records) where T : ITable, new()
+		public void UpsertDataRecords<T>(params T[] records) where T : IEntity, new()
 		{
 			if (records.Length == 0) return;
 
@@ -422,7 +417,7 @@ namespace ShaosilBot.Core.Providers
 				conn.Open();
 
 				// Make sure we have a cached table of this type in prep for the next part
-				if (!_tableCache.ContainsKey(typeof(T))) _tableCache[typeof(T)] = new Dictionary<object, ITable>();
+				if (!_tableCache.ContainsKey(typeof(T))) _tableCache[typeof(T)] = new Dictionary<object, IEntity>();
 
 				// Read the returned PKs and make sure our objects reflect that, in case of autoincremented columns
 				using (var reader = cmd.ExecuteReader())
@@ -440,7 +435,7 @@ namespace ShaosilBot.Core.Providers
 			}
 
 			// Set any parent FK single properties in this class
-			var iTableProps = typeof(T).GetProperties().Where(p => p.PropertyType.IsAssignableTo(typeof(ITable))).ToList();
+			var iEntityProps = typeof(T).GetProperties().Where(p => p.PropertyType.IsAssignableTo(typeof(IEntity))).ToList();
 			var fkColumns = nonDefaultAutoIncCols.Where(p => p.GetCustomAttribute<ForeignKeyAttribute>() != null).ToList();
 			foreach (var fkColumn in fkColumns)
 			{
@@ -448,7 +443,7 @@ namespace ShaosilBot.Core.Providers
 				var fkAttr = fkColumn.GetCustomAttribute<ForeignKeyAttribute>()!;
 
 				// Find the matching single property type
-				var matchingFKProp = iTableProps.FirstOrDefault(p => p.PropertyType == fkAttr.ReferenceTable);
+				var matchingFKProp = iEntityProps.FirstOrDefault(p => p.PropertyType == fkAttr.ReferenceTable);
 				if (matchingFKProp == null) continue;
 
 				foreach (var record in records)
@@ -456,7 +451,7 @@ namespace ShaosilBot.Core.Providers
 					var fkey = fkColumn.GetValue(record);
 					if (fkey != null)
 					{
-						ITable? parentVal = null;
+						IEntity? parentVal = null;
 						if (_tableCache.ContainsKey(matchingFKProp.PropertyType) && _tableCache[matchingFKProp.PropertyType].ContainsKey(fkey))
 						{
 							// Load the value from cache if it exists
@@ -466,7 +461,7 @@ namespace ShaosilBot.Core.Providers
 						{
 							// Otherwise load it from the DB. This will ensure everything is freshly cached, including autoincremented properties
 							var genDataMethod = GetType().GetMethod(nameof(GetDataRecord))!.MakeGenericMethod(matchingFKProp.PropertyType, fkey.GetType());
-							parentVal = (ITable?)genDataMethod.Invoke(this, [fkey]);
+							parentVal = (IEntity?)genDataMethod.Invoke(this, [fkey]);
 						}
 						matchingFKProp.SetValue(record, parentVal);
 					}
@@ -477,7 +472,7 @@ namespace ShaosilBot.Core.Providers
 			UpdateParentListsFromChildEntities(true, records);
 		}
 
-		public void DeleteDataRecords<T>(params T[] records) where T : ITable
+		public void DeleteDataRecords<T>(params T[] records) where T : IEntity
 		{
 			if (records.Length == 0) return;
 
@@ -504,7 +499,7 @@ namespace ShaosilBot.Core.Providers
 			UpdateParentListsFromChildEntities(false, records);
 		}
 
-		private void UpdateParentListsFromChildEntities<T>(bool isUpsert, params T[] childEntities) where T : ITable
+		private void UpdateParentListsFromChildEntities<T>(bool isUpsert, params T[] childEntities) where T : IEntity
 		{
 			// Remove from or update cache
 			var propColumns = GetColumnProperties(typeof(T));
@@ -524,7 +519,7 @@ namespace ShaosilBot.Core.Providers
 			}
 
 			// If the current type has a parent reference, find that parent's list of the current (child) type. If it exists, populate it with our records
-			var parentRecordProp = typeof(T).GetProperties().FirstOrDefault(p => p.PropertyType.IsAssignableTo(typeof(ITable)));
+			var parentRecordProp = typeof(T).GetProperties().FirstOrDefault(p => p.PropertyType.IsAssignableTo(typeof(IEntity)));
 			if (parentRecordProp != null)
 			{
 				var theListOfUs = parentRecordProp.PropertyType.GetProperties().FirstOrDefault(p => p.PropertyType.IsAssignableTo(typeof(IEnumerable<T>)));
@@ -564,86 +559,6 @@ namespace ShaosilBot.Core.Providers
 						}
 					}
 				}
-			}
-		}
-
-		private class FilterTranslator<T> : ExpressionVisitor
-		{
-			private StringBuilder _queryBuilder;
-
-			public string GetWhereClause(Expression expression)
-			{
-				_queryBuilder = new StringBuilder();
-
-				_queryBuilder.Append(" WHERE ");
-				Visit(expression);
-
-				return _queryBuilder.ToString();
-			}
-
-			protected override Expression VisitBinary(BinaryExpression node)
-			{
-				_queryBuilder.Append("(");
-				Visit(node.Left);
-				_queryBuilder.Append($" {GetSqlOperator(node.NodeType)} ");
-				Visit(node.Right);
-				_queryBuilder.AppendLine(")");
-
-				return node;
-			}
-
-			protected override Expression VisitUnary(UnaryExpression node)
-			{
-				_queryBuilder.Append($" {GetSqlOperator(node.NodeType)} ");
-				Visit(node.Operand);
-				return node;
-			}
-
-			protected override Expression VisitMember(MemberExpression node)
-			{
-				// If the reflected type is our current class's generic type, we want to use the word for the column name
-				if (typeof(T) == node.Member.ReflectedType)
-				{
-					_queryBuilder.Append($"[{node.Member.Name}]");
-				}
-				else
-				{
-					// Otherwise, get the actual requested value of this member
-					if (node.Expression is ParameterExpression pe && node.Type == typeof(bool)) _queryBuilder.Append(" = 1");
-					else _queryBuilder.Append($"'{Expression.Lambda(node).Compile().DynamicInvoke()}'");
-				}
-				return node;
-			}
-
-			protected override Expression VisitConstant(ConstantExpression node)
-			{
-				_queryBuilder.Append(AppendValue(node.Value));
-				return node;
-			}
-
-			private string AppendValue(object? val)
-			{
-				if (val == null) return "NULL";
-				else if (val is bool b) return b ? "1" : "0";
-				else return $"'{val}'";
-			}
-
-			private string GetSqlOperator(ExpressionType nodeType)
-			{
-				return nodeType switch
-				{
-					ExpressionType.Not => "NOT",
-					ExpressionType.And or ExpressionType.AndAlso => "AND",
-					ExpressionType.Or or ExpressionType.OrElse => "OR",
-					ExpressionType.Equal => "=",
-					ExpressionType.GreaterThanOrEqual => ">=",
-					ExpressionType.LessThanOrEqual => "<=",
-					ExpressionType.NotEqual => "!=",
-					ExpressionType.GreaterThan => ">",
-					ExpressionType.LessThan => "<",
-
-					_ => throw new NotImplementedException($"FilterTranslator does not support '{nodeType}' node types.")
-				};
 			}
 		}
 	}

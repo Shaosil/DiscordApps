@@ -165,7 +165,12 @@ namespace ShaosilBot.Core.SlashCommands
 				return cmdWrapper.Respond($"Sorry, the `/{CommandName}` command is only available for admin users in this server.");
 			}
 
+			// TODO: Dockerize ServerManager
+			return cmdWrapper.Respond("Sorry, ServerManager functions will be down until it has been properly dockerized.", ephemeral: true);
+#pragma warning disable CS0162 // Unreachable code detected
 			var group = cmdWrapper.Command.Data.Options.First();
+#pragma warning restore CS0162 // Unreachable code detected
+
 			var subCmd = group.Options.First();
 
 			// Set the server command type based on the subcommand group

@@ -75,18 +75,20 @@ namespace ShaosilBot.Core.Providers
 					// Load useful information into new table records
 					foreach (var dealRoot in deals)
 					{
-						var foundGame = new GameSale();
-						foundGame.ID = dealRoot.ID;
-						foundGame.Slug = dealRoot.Slug;
-						foundGame.Title = dealRoot.Title;
-						foundGame.IsThereAnyDealLink = $"https://isthereanydeal.com/game/{dealRoot.Slug}/info/";
-						foundGame.BestPrice = dealRoot.Deal?.Price?.Amount ?? 0;
-						foundGame.BestPercentOff = dealRoot.Deal?.Cut ?? 100;
-						foundGame.BestPercentStore = dealRoot.Deal?.Shop?.Name;
-						foundGame.BestPercentStoreRegularPrice = dealRoot.Deal?.Regular?.Amount;
-						foundGame.BestPercentStoreLink = dealRoot.Deal?.URL;
-						foundGame.AddedOn = DateTime.Now;
-						foundGame.ExpiresOn = dealRoot.Deal?.Expiry;
+						var foundGame = new GameSale
+						{
+							ID = dealRoot.ID,
+							Slug = dealRoot.Slug,
+							Title = dealRoot.Title,
+							IsThereAnyDealLink = $"https://isthereanydeal.com/game/{dealRoot.Slug}/info/",
+							BestPrice = dealRoot.Deal?.Price?.Amount ?? 0,
+							BestPercentOff = dealRoot.Deal?.Cut ?? 100,
+							BestPercentStore = dealRoot.Deal?.Shop?.Name,
+							BestPercentStoreRegularPrice = dealRoot.Deal?.Regular?.Amount,
+							BestPercentStoreLink = dealRoot.Deal?.URL,
+							AddedOn = DateTimeOffset.Now,
+							ExpiresOn = dealRoot.Deal?.Expiry
+						};
 						foundGames.Add(foundGame);
 					}
 				}
@@ -217,7 +219,7 @@ namespace ShaosilBot.Core.Providers
 
 							// Send the message
 							string msg = $"**{newGame.Title}** is **{(newGame.BestPrice <= 0 ? "FREE" : $"{newGame.BestPrice:C}")}** right now{store}!\n";
-							if (newGame.ExpiresOn.HasValue && newGame.ExpiresOn > DateTime.Now)
+							if (newGame.ExpiresOn.HasValue && newGame.ExpiresOn > DateTimeOffset.Now)
 							{
 								msg += $"\nDeal expires <t:{newGame.ExpiresOn.Value.ToUnixTimeSeconds()}:R>\n";
 							}

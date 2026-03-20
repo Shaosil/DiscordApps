@@ -98,7 +98,7 @@ namespace ShaosilBot.Core.Singletons
 				{
 					sanitizedMessage = sanitizedMessage.Replace($"<@{mention.Id}>", mention.Username);
 				}
-				sanitizedMessage = $"[{DateTime.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"))} - {message.Author.Username}]: {sanitizedMessage}";
+				sanitizedMessage = $"[{DateTimeOffset.Now.ToString("g", CultureInfo.CreateSpecificCulture("en-us"))} - {message.Author.Username}]: {sanitizedMessage}";
 				var userMessage = ChatMessage.CreateUserMessage(sanitizedMessage);
 
 				// If any images were attached to this message (or one we are replying to), send up to 3 of them as part of the current user message
@@ -307,8 +307,8 @@ namespace ShaosilBot.Core.Singletons
 			lock (_userFileLock)
 			{
 				// First, log the usage
-				allUsers[id].InputTokensUsed.Add(DateTime.Now, inputTokens);
-				allUsers[id].OutputTokensUsed.Add(DateTime.Now, outputTokens);
+				allUsers[id].InputTokensUsed.Add(DateTimeOffset.Now, inputTokens);
+				allUsers[id].OutputTokensUsed.Add(DateTimeOffset.Now, outputTokens);
 
 				// For both input and output tokens, deduct full amount from their available if possible, else call borrow method
 				if (allUsers[id].AvailableInputTokens >= inputTokens)

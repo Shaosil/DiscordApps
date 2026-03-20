@@ -87,7 +87,7 @@ SUBCOMMANDS:
 
 		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			Logger.LogInformation($"Twitch command executed at {DateTime.Now}");
+			Logger.LogInformation($"Twitch command executed at {DateTimeOffset.Now}");
 
 			string? commandGroup = cmdWrapper.Command.Data.Options.FirstOrDefault()?.Name;
 			var subCommand = commandGroup != null ? cmdWrapper.Command.Data.Options.First().Options.FirstOrDefault() : null;

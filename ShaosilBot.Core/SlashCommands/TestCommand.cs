@@ -25,7 +25,7 @@ namespace ShaosilBot.Core.SlashCommands
 
 		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			Logger.LogInformation($"Test Command executed at {DateTime.Now}");
+			Logger.LogInformation($"Test Command executed at {DateTimeOffset.Now}");
 			return Task.FromResult(cmdWrapper.Respond("Test command successful", ephemeral: true));
 		}
 	}

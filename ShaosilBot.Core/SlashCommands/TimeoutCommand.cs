@@ -83,7 +83,7 @@ OPTIONAL ARGS:
 
 		public override async Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
-			Logger.LogInformation($"/{CommandName} executed at {DateTime.Now}");
+			Logger.LogInformation($"/{CommandName} executed at {DateTimeOffset.Now}");
 
 			// Validate target user exists, and is not admin or a bot
 			var userArg = cmdWrapper.Command.Data.Options.FirstOrDefault(o => o.Name == "user")?.Value as RestGuildUser;

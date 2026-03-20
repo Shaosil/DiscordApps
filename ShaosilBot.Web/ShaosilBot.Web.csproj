@@ -21,13 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Files\quartz-tables.sql">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Files\Wordle.html">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Files\WordleStats.html">
+    <None Update="Files/**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

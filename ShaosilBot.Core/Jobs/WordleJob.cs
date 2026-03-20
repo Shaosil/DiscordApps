@@ -22,7 +22,7 @@ namespace ShaosilBot.Core.Jobs
 		{
 			// Delete all of the previous day's games that were created more than 10 seconds ago
 			DateTimeOffset validTime = DateTimeOffset.Now.AddSeconds(-10);
-			var activeDailyGames = _sqliteProvider.GetDataRecords<WordleGame>(g => g.IsDaily && g.StartedTimestamp < validTime);
+			var activeDailyGames = _sqliteProvider.GetDataRecords<WordleGame>().Where(g => g.IsDaily && g.StartedTimestamp < validTime).ToList();
 			if (activeDailyGames.Count > 0)
 			{
 				_logger.LogInformation($"Deleting {activeDailyGames.Count} active daily Wordle games from yesterday.");

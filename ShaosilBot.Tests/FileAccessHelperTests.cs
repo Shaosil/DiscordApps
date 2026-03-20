@@ -28,7 +28,6 @@ namespace ShaosilBot.Tests
 			Configuration["FilesBasePath"] = _testDir;
 			_restClientProviderMock = new Mock<IDiscordRestClientProvider>();
 
-			var loggerMock = new Mock<ILogger<FileAccessHelper>>();
 			SUT = new FileAccessHelper(Logger, Configuration, _restClientProviderMock.Object);
 		}
 

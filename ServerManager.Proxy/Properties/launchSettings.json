@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "ServerManager.Proxy": {
-      "commandName": "Project",
-      "commandLineArgs": "ComfyUI Startup"
-    }
-  }
-}

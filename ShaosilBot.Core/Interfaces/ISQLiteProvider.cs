@@ -1,5 +1,4 @@
 ﻿using ShaosilBot.Core.Models.SQLite;
-using System.Linq.Expressions;
 
 namespace ShaosilBot.Core.Interfaces
 {
@@ -7,12 +6,12 @@ namespace ShaosilBot.Core.Interfaces
 	{
 		void UpdateSchema();
 
-		List<T> GetDataRecords<T>(Expression<Func<T, bool>>? filterQuery = null) where T : ITable, new();
+		List<T> GetDataRecords<T>() where T : IEntity, new();
 
-		T? GetDataRecord<T, TID>(TID id) where T : ITable, new() where TID : struct;
+		T? GetDataRecord<T, TID>(TID id) where T : IEntity, new() where TID : struct;
 
-		void UpsertDataRecords<T>(params T[] records) where T : ITable, new();
+		void UpsertDataRecords<T>(params T[] records) where T : IEntity, new();
 
-		void DeleteDataRecords<T>(params T[] records) where T : ITable;
+		void DeleteDataRecords<T>(params T[] records) where T : IEntity;
 	}
 }

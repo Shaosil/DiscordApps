@@ -1,6 +1,6 @@
 ﻿namespace ShaosilBot.Core.Models.SQLite
 {
-	public interface ITable { } // Tables MUST inherit from this
+	public interface IEntity { } // Table row objects MUST inherit from this
 
 	public class NotMappedAttribute : Attribute { } // Tells the ORM to not include this property in the DB columns
 
@@ -20,10 +20,10 @@
 
 		public ForeignKeyAttribute(Type refTableType, string refColumn)
 		{
-			// Soft enforcement on ITable to save headaches with GetCustomAttribute
-			if (!refTableType.IsAssignableTo(typeof(ITable)))
+			// Soft enforcement on IEntity to save headaches with GetCustomAttribute
+			if (!refTableType.IsAssignableTo(typeof(IEntity)))
 			{
-				throw new Exception($"Foreign key reference table type must derive from {nameof(ITable)}!");
+				throw new Exception($"Foreign key reference table type must derive from {nameof(IEntity)}!");
 			}
 
 			ReferenceTable = refTableType;

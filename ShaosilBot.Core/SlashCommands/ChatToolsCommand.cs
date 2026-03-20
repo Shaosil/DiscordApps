@@ -118,7 +118,7 @@ SUBCOMMANDS:
 				if (subCmd.Name == "self")
 				{
 					// Show stats
-					statsBuilder.AppendLine($"Chat usage since {DateTime.Now:M/1/yyyy}:");
+					statsBuilder.AppendLine($"Chat usage since {DateTimeOffset.Now:M/1/yyyy}:");
 					statsBuilder.AppendLine();
 					statsBuilder.AppendLine($"```* Chats sent:              {ourInfo.InputTokensUsed.Count():N0}");
 					statsBuilder.AppendLine($"* Used input tokens:       {ourInfo.InputTokensUsed.Sum(t => t.Value):N0}");
@@ -135,7 +135,7 @@ SUBCOMMANDS:
 				}
 				else
 				{
-					statsBuilder.AppendLine($"Top user token usage since {DateTime.Now:M/1/yyyy}:");
+					statsBuilder.AppendLine($"Top user token usage since {DateTimeOffset.Now:M/1/yyyy}:");
 					statsBuilder.AppendLine();
 
 					var topUsers = allUsers.Where(u => u.Value.TotalTokensUsed > 0).OrderBy(u => u.Value.TotalAvailableTokens).Take(10).ToList();

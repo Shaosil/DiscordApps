@@ -165,7 +165,7 @@ SUBCOMMANDS:
 			{
 				IUser statsUser = (IUser?)subcmd.Options.FirstOrDefault(o => o.Name == "user")?.Value ?? cmdWrapper.Command.User;
 
-				var allStats = _sqliteProvider.GetDataRecords<WordleStat>(s => s.UserID == statsUser.Id);
+				var allStats = _sqliteProvider.GetDataRecords<WordleStat>().Where(s => s.UserID == statsUser.Id).ToList();
 				if (allStats.Count == 0)
 				{
 					return Task.FromResult(cmdWrapper.Respond($"{statsUser.Username} has no Wordle stats yet.", ephemeral: true));
@@ -205,7 +205,7 @@ SUBCOMMANDS:
 			{
 				bool isDaily = !subcmd.Name.EndsWith("-random");
 				string dailyDesc = isDaily ? "daily" : "random";
-				var activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id && g.IsDaily == isDaily).FirstOrDefault();
+				var activeGame = _sqliteProvider.GetDataRecords<WordleGame>().FirstOrDefault(g => g.UserID == cmdWrapper.Command.User.Id && g.IsDaily == isDaily);
 				bool finishedDaily = isDaily && activeGame != null && (activeGame.Guesses.Any(g => g.Guess == activeGame.WordID) || activeGame.Guesses.Count >= 6);
 
 				// play and play-remind are subcommand groups, so another subcommand is guaranteed
@@ -221,7 +221,7 @@ SUBCOMMANDS:
 					string activeWord;
 					if (isDaily)
 					{
-						int dailyHash = DateTime.UtcNow.AddHours(-8).Date.GetHashCode();
+						int dailyHash =DateTimeOffset.Now.AddHours(-8).Date.GetHashCode();
 						activeWord = validSolutionWords[new Random(dailyHash).Next(validSolutionWords.Count)].Word.ToUpper();
 					}
 					else
@@ -272,7 +272,7 @@ SUBCOMMANDS:
 								IsDaily = isDaily,
 								StartedTimestamp = DateTimeOffset.Now
 							});
-							activeGame = _sqliteProvider.GetDataRecords<WordleGame>(g => g.UserID == cmdWrapper.Command.User.Id).OrderByDescending(g => g.StartedTimestamp).First();
+							activeGame = _sqliteProvider.GetDataRecords<WordleGame>().OrderByDescending(g => g.StartedTimestamp).First(g => g.UserID == cmdWrapper.Command.User.Id);
 
 							embedBuilder.Title = $"Starting a new {dailyDesc} Wordle game!";
 						}
@@ -405,7 +405,7 @@ SUBCOMMANDS:
 
 			// Make sure puppeteer browser is downloaded
 			var installedBrowser = await new BrowserFetcher(new BrowserFetcherOptions { Path = _configuration.GetValue<string>("FilesBasePath") }).DownloadAsync();
-			using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions { ExecutablePath = installedBrowser.GetExecutablePath(), Headless = true }))
+			using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions { ExecutablePath = installedBrowser.GetExecutablePath(), Headless = true, Args = ["--no-sandbox", "--disable-setuid-sandbox"], DumpIO = true }))
 			{
 				using (var page = await browser.NewPageAsync())
 				{

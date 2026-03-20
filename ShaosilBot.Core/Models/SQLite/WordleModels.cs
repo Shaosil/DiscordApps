@@ -1,6 +1,6 @@
 ﻿namespace ShaosilBot.Core.Models.SQLite
 {
-	public class WordleWord : ITable
+	public class WordleWord : IEntity
 	{
 		[PrimaryKey(false)]
 		public string Word { get; set; }
@@ -9,7 +9,7 @@
 		public bool CanBeSolution { get; set; }
 	}
 
-	public class WordleGame : ITable
+	public class WordleGame : IEntity
 	{
 		[PrimaryKey(true)]
 		public int ID { get; set; }
@@ -30,7 +30,7 @@
 		public List<WordleGuess> Guesses { get; set; }
 	}
 
-	public class WordleGuess : ITable
+	public class WordleGuess : IEntity
 	{
 		[PrimaryKey(true)]
 		public int ID { get; set; }
@@ -49,7 +49,7 @@
 		public WordleGame WordleGame { get; set; }
 	}
 
-	public class WordleStat : ITable
+	public class WordleStat : IEntity
 	{
 		[PrimaryKey(true)]
 		public int ID { get; set; }

@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Discord.Rest;
+﻿using Discord.Rest;
 using Discord.WebSocket;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
@@ -55,12 +54,12 @@ namespace ShaosilBot.Core.Providers
 		{
 			_scheduler.Start().Wait();
 
-			// Once a month ChatGPT token reset
+			// Once a month ChatGPT token reset at end of day (Eastern time)
 			var chatGPTTokensKey = new JobKey(FillMonthlyChatGPTTokensJobIdentity);
 			if (_configuration.GetValue<bool>("ChatGPTEnabled"))
 			{
 				var job = JobBuilder.Create<FillMonthlyChatGPTTokensJob>().WithIdentity(chatGPTTokensKey).Build();
-				var trigger = TriggerBuilder.Create().WithIdentity(FillMonthlyChatGPTTokensJobIdentity).WithCronSchedule("0 0 0 1 * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+				var trigger = TriggerBuilder.Create().WithIdentity(FillMonthlyChatGPTTokensJobIdentity).WithCronSchedule("0 0 5 1 * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
 
 				_scheduler.ScheduleJob(job, [trigger], true);
 			}
@@ -75,7 +74,11 @@ namespace ShaosilBot.Core.Providers
 			if (gameHourInterval.HasValue && gameHourInterval >= 1)
 			{
 				var job = JobBuilder.Create<GameSaleNotifierJob>().WithIdentity(gameDealsKey).Build();
-				var trigger = TriggerBuilder.Create().WithIdentity(SearchForGameDealsJobIdentity).WithCronSchedule($"0 0 0,9-23/{gameHourInterval} * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+				var trigger = TriggerBuilder.Create()
+					.WithIdentity(SearchForGameDealsJobIdentity)
+					// Between from 9/10 AM to PM EST/EDT
+					.WithCronSchedule($"0 0 0-2/{gameHourInterval},14-23/{gameHourInterval} * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed())
+					.Build();
 
 				_scheduler.ScheduleJob(job, [trigger], true);
 			}
@@ -84,12 +87,12 @@ namespace ShaosilBot.Core.Providers
 				_scheduler.DeleteJob(gameDealsKey).Wait();
 			}
 
-			// Delete any active daily wordle games at 08:00 UTC (03:00 Eastern)
+			// Delete any active daily wordle games at 08:00 UTC (03:00 EST or 4:00 EDT)
 			var wordleKey = new JobKey(WordleDailyCleanupIdentity);
 			if (typeof(WordleCommand) != null)
 			{
 				var job = JobBuilder.Create<WordleJob>().WithIdentity(wordleKey).Build();
-				var trigger = TriggerBuilder.Create().WithIdentity(WordleDailyCleanupIdentity).WithCronSchedule($"0 0 3 * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+				var trigger = TriggerBuilder.Create().WithIdentity(WordleDailyCleanupIdentity).WithCronSchedule($"0 0 8 * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
 
 				_scheduler.ScheduleJob(job, [trigger], true);
 			}
@@ -111,7 +114,7 @@ namespace ShaosilBot.Core.Providers
 				{ SelfDestructMessageJob.DataMapKeys.MessageID, message.Id.ToString() }
 			});
 			var job = JobBuilder.Create<SelfDestructMessageJob>().WithIdentity(key).UsingJobData(dataMap).Build();
-			var trigger = TriggerBuilder.Create().StartAt(DateTime.Now.AddHours(hours)).Build();
+			var trigger = TriggerBuilder.Create().StartAt(DateTimeOffset.Now.AddHours(hours)).Build();
 
 			_scheduler.ScheduleJob(job, trigger);
 		}
