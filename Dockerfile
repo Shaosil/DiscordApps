@@ -15,7 +15,8 @@ COPY ShaosilBot.Web/. ./ShaosilBot.Web/
 COPY ShaosilBot.Core/. ./ShaosilBot.Core/
 COPY ServerManager.Core/. ./ServerManager.Core/
 WORKDIR /source/ShaosilBot.Web
-RUN dotnet publish -c release -o /app --no-restore
+ARG BUILD_CONFIG=Release
+RUN dotnet publish -c $BUILD_CONFIG -o /app --no-restore
 
 # Final stage/image, including chromium dependencies
 FROM mcr.microsoft.com/dotnet/aspnet:10.0

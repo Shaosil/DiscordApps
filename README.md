@@ -27,7 +27,10 @@ First of all, I assume you plan on using this code for your own bot, because run
 ```yaml
 services:
   shaosilbot:
-    build: ./
+    build:
+      context: ./
+      args:
+        BUILD_CONFIG: Release
     image: shaosilbot:local
     container_name: shaosilbot
     restart: unless-stopped
@@ -94,6 +97,10 @@ volumes:
   <li>Back in the ShaosilBot's compose.yaml, make sure the networking sections are all uncommented.</li>
   <li>Finally, run `docker compose up` in the caddy directory, and again in your ShaosilBot directory if you haven't since uncommenting the networking parts.</li>
 </ul>
+
+<h2>Debugging</h2>
+
+If you want to attach your IDE (in my case, VSCode), you will need to ensure you run the compose file with `BUILD_ARG` set to `Debug` before building. If you also use VSCode, there is an included configuration that allows a simple attach to docker in the run/debug area. Just be sure to update the `/source` source file map to point to your own parent directory of where you are storing this repo first.
 
 <h2>Conclusion</h2>
 

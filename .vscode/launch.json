@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "name": "Attach to Docker",
+            "type": "docker",
+            "request": "attach",
+            "platform": "netCore",
+            "containerName": "shaosilbot",
+            "sourceFileMap": {
+                "/source": "${workspaceFolder}"
+            }
+        }
+    ]
+}
