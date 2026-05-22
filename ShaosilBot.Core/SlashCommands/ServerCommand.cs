@@ -164,19 +164,18 @@ namespace ShaosilBot.Core.SlashCommands
 			{
 				return cmdWrapper.Respond($"Sorry, the `/{CommandName}` command is only available for admin users in this server.");
 			}
-
-			// TODO: Dockerize ServerManager
-			return cmdWrapper.Respond("Sorry, ServerManager functions will be down until it has been properly dockerized.", ephemeral: true);
-#pragma warning disable CS0162 // Unreachable code detected
+			
 			var group = cmdWrapper.Command.Data.Options.First();
-#pragma warning restore CS0162 // Unreachable code detected
-
 			var subCmd = group.Options.First();
 
 			// Set the server command type based on the subcommand group
 			object[]? args = Array.Empty<object>();
 			if (group.Name == "bds")
 			{
+				// TODO: Dockerize ServerManager
+				return cmdWrapper.Respond("Sorry, ServerManager BDS functionality will be down until it has been properly dockerized.", ephemeral: true);
+
+#pragma warning disable CS0162 // Unreachable code detected
 				if (!VerifyServerManagerRunning(out var serverMsg))
 				{
 					return cmdWrapper.Respond(serverMsg, ephemeral: true);
@@ -212,12 +211,16 @@ namespace ShaosilBot.Core.SlashCommands
 			}
 			else if (group.Name == "comfyui")
 			{
+				// TODO: Dockerize ServerManager
+				return cmdWrapper.Respond("Sorry, ServerManager image gen functionality will be down until it has been properly dockerized.", ephemeral: true);
+
 				// Defer while we wait for a response
 				return await cmdWrapper.DeferWithCode(async () =>
 				{
 					string result = await AttemptToStartImageGenService(cmdWrapper.Command.ChannelId!.Value, (cmdWrapper.Command.User as IGuildUser)!, subCmd.Name);
 					await cmdWrapper.Command.FollowupAsync(result);
 				}, true);
+#pragma warning restore CS0162 // Unreachable code detected
 			}
 			else if (group.Name == "scheduled-jobs")
 			{

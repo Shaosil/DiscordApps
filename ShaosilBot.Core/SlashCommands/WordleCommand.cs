@@ -1,12 +1,12 @@
-﻿using Discord;
+﻿using System.Text;
+using System.Text.RegularExpressions;
+using Discord;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using PuppeteerSharp;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models.SQLite;
 using ShaosilBot.Core.Providers;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace ShaosilBot.Core.SlashCommands
 {
@@ -472,7 +472,7 @@ SUBCOMMANDS:
 
 			// Make sure puppeteer browser is downloaded
 			var installedBrowser = await new BrowserFetcher(new BrowserFetcherOptions { Path = _configuration.GetValue<string>("FilesBasePath") }).DownloadAsync();
-			using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions { ExecutablePath = installedBrowser.GetExecutablePath(), Headless = true }))
+			using (var browser = await Puppeteer.LaunchAsync(new LaunchOptions { ExecutablePath = installedBrowser.GetExecutablePath(), Headless = true, Args = ["--no-sandbox", "--disable-setuid-sandbox"], DumpIO = true }))
 			{
 				using (var page = await browser.NewPageAsync())
 				{

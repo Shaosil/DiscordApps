@@ -39,23 +39,11 @@ namespace ShaosilBot.Core.Providers
 
 		public async Task DoDefaultSearch()
 		{
-			// First get the full shops list to associate with IDs
-			_logger.LogInformation("Calling isthereanydeal shops endpoint");
-			var shopsResponse = await _httpClient.GetAsync("https://api.isthereanydeal.com/service/shops/v1");
-			var shopsResponseString = await shopsResponse.Content.ReadAsStringAsync();
-			if (shopsResponse.IsSuccessStatusCode)
-			{
-				_allShops = JsonConvert.DeserializeObject<IReadOnlyList<Shop>>(shopsResponseString)!;
-				_logger.LogInformation($"Success! Storing {_allShops.Count} shops.");
-			}
-			else
-			{
-				_logger.LogWarning($"Error while querying ITAD shops. Response: {shopsResponseString}");
-			}
-
 			_logger.LogInformation("Calling isthereanydeal deals endpoint...");
-			var dealsUri = new UriBuilder("https://api.isthereanydeal.com/deals/v2");
-			dealsUri.Query = $"key={_configuration["IsThereAnyDealAPIKey"]}&filter={Uri.EscapeDataString(_configuration["IsThereAnyDealFilter"]!)}";
+			var dealsUri = new UriBuilder("https://api.isthereanydeal.com/deals/v2")
+			{
+				Query = $"key={_configuration["IsThereAnyDealAPIKey"]}&country=US&filter={Uri.EscapeDataString(_configuration["IsThereAnyDealFilter"]!)}"
+			};
 			var response = await _httpClient.GetAsync(dealsUri.Uri);
 			var responseString = await response.Content.ReadAsStringAsync();
 
@@ -240,7 +228,7 @@ namespace ShaosilBot.Core.Providers
 			}
 			else
 			{
-				_logger.LogWarning($"Error posting to isthereanydeal! Response: {responseString}");
+				_logger.LogWarning($"Error getting deals! Response: {responseString}");
 			}
 		}
 
@@ -257,6 +245,20 @@ namespace ShaosilBot.Core.Providers
 
 			if (response.StatusCode == HttpStatusCode.OK)
 			{
+				// First get the full shops list to associate with IDs
+				_logger.LogInformation("Calling isthereanydeal shops endpoint");
+				var shopsResponse = await _httpClient.GetAsync("https://api.isthereanydeal.com/service/shops/v1");
+				var shopsResponseString = await shopsResponse.Content.ReadAsStringAsync();
+				if (shopsResponse.IsSuccessStatusCode)
+				{
+					_allShops = JsonConvert.DeserializeObject<IReadOnlyList<Shop>>(shopsResponseString)!;
+					_logger.LogInformation($"Success! Storing {_allShops.Count} shops.");
+				}
+				else
+				{
+					_logger.LogWarning($"Error while querying ITAD shops. Response: {shopsResponseString}");
+				}
+
 				var data = JsonConvert.DeserializeObject<GiveawayResponse>(await response.Content.ReadAsStringAsync())!;
 
 				// Filter to non expired giveaways from our specified stores
