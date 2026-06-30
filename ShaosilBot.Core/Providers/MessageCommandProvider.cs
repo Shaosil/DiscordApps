@@ -3,10 +3,10 @@ using System.Text.RegularExpressions;
 using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
-using ServerManager.Core;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Models;
 using ShaosilBot.Core.SlashCommands;
+using static ShaosilBot.Core.SlashCommands.ServerCommand;
 
 namespace ShaosilBot.Core.Providers
 {
@@ -99,7 +99,7 @@ namespace ShaosilBot.Core.Providers
 						// Checking and starting the service may take a while, so defer and followup
 						_ = Task.Run(async () =>
 						{
-							string result = await _serverCommand.AttemptToStartImageGenService(messageComponent.ChannelId!.Value, (messageComponent.User as IGuildUser)!, SupportedCommands.ComfyUI.Startup);
+							string result = await _serverCommand.ModifyImageGenerationService(messageComponent.ChannelId!.Value, (messageComponent.User as IGuildUser)!, SupportedCommands.ComfyUI.Startup);
 							await messageComponent.FollowupAsync(result, ephemeral: true);
 						});
 

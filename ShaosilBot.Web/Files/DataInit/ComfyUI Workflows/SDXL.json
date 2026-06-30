@@ -109,7 +109,7 @@
   },
   "17": {
     "inputs": {
-      "filename_prefix": "ShaosilBot-",
+      "filename_prefix": "ShaosilBot/",
       "images": [
         "8",
         0

@@ -224,7 +224,7 @@ namespace ShaosilBot.Core.Singletons
 
 				// Load workflow nodes
 				string workflowType = targetModel.ToLower().IndexOf("pony") < 0 ? "SDXL" : "SDXL Pony";
-				var workflow = _fileAccessHelper.LoadFileJSON<WorkflowNodes>($"ComfyUI Workflows\\{workflowType}.json");
+				var workflow = _fileAccessHelper.LoadFileJSON<WorkflowNodes>($"ComfyUI Workflows/{workflowType}.json");
 
 				// Modify based on prompt parameters
 				workflow.Checkpoint!.Inputs["ckpt_name"] = targetModel;
@@ -236,7 +236,7 @@ namespace ShaosilBot.Core.Singletons
 				if (steps.HasValue) workflow.Sampler!.Inputs["steps"] = steps;
 				if (cfg.HasValue) workflow.Sampler!.Inputs["cfg"] = cfg;
 				if (!string.IsNullOrWhiteSpace(sampler)) workflow.Sampler!.Inputs["sampler_name"] = sampler;
-				workflow.SaveImage!.Inputs["filename_prefix"] += $"{requestor.Username}-";
+				workflow.SaveImage!.Inputs["filename_prefix"] += $"{requestor.Username}/Image";
 
 				// Serialize and send to queue
 				_logger.LogInformation("Queueing new prompt item");
@@ -277,113 +277,107 @@ namespace ShaosilBot.Core.Singletons
 			}
 		}
 
-		public bool TryCancelQueueItem(IUser user, Guid ID, out string response)
+		public async Task<KeyValuePair<bool, string>> TryCancelQueueItem(IUser user, Guid ID)
 		{
 			_logger.LogInformation($"User {user.Id} is attempting to cancel queue item by batch ID {ID}");
 
 			if (!_trackedBatches.ContainsKey(ID))
 			{
-				response = $"Warning: Could not find queue item by batch ID '{ID}'.";
-			}
-			else
-			{
-				if (TryDeleteImage(user, ID, out response))
-				{
-					_trackedBatches.Remove(ID);
-					return true;
-				}
+				return new KeyValuePair<bool, string>(false, $"Warning: Could not find queue item by batch ID '{ID}'.");
 			}
 
-			return false;
+			var deleteResult = await TryDeleteImage(user, ID);
+			if (!deleteResult.Key)
+			{
+				return new KeyValuePair<bool, string>(false, deleteResult.Value);
+			}
+
+			_trackedBatches.Remove(ID);
+			return new KeyValuePair<bool, string>(true, string.Empty);
 		}
 
 		/// <summary>
 		/// Will either remove an image from the queue before it finishes generating, or delete the image file from disk. Will clear item from queue history either way.
 		/// </summary>
-		public bool TryDeleteImage(IUser user, Guid imageName, out string deleteResponse)
+		public async Task<KeyValuePair<bool, string>> TryDeleteImage(IUser user, Guid imageName)
 		{
 			try
 			{
-				var requestBody = JsonContent.Create(new { delete = new Guid[] { imageName } });
-				Func<bool> deleteFromHistory = () => _httpClient.PostAsync("history", requestBody).GetAwaiter().GetResult().IsSuccessStatusCode;
+				// First, get the requested job, and check queue items
+				var historyResult = await _httpClient.GetAsync($"jobs/{imageName}");
+				var jobItem = JsonConvert.DeserializeObject<Job>(await historyResult.Content.ReadAsStringAsync());
 
-				// Check queue and authorized user. If it is running, interrupt. If it is pending, delete.
-				var queueItems = GetQueueItemsInternal().GetAwaiter().GetResult();
-				if (queueItems?.AllItems?.Any(i => i.Key == imageName) ?? false)
+				if (jobItem != null)
 				{
-					bool clearedQueue = false;
+					string? outputFolder;
 
-					if (!queueItems.AllItems.First(i => i.Key == imageName).Value.SaveImage!.Inputs["filename_prefix"].ToString()!.Contains($"-{user.Username}-"))
+					// If the job status is pending or in progress, also pull queue to verify workflow and permissions
+					if (jobItem.Status == "pending" || jobItem.Status == "in_progress")
 					{
-						deleteResponse = $"Warning: You are not authorized to cancel a queued item that you did not initiate.";
-					}
-					else if (queueItems.Running!.Any(r => r.Key == imageName))
-					{
-						clearedQueue = _httpClient.PostAsync("interrupt", null).GetAwaiter().GetResult().IsSuccessStatusCode;
+						var queueResult = await _httpClient.GetAsync("queue");
+						var queueItems = JsonConvert.DeserializeObject<QueueResult>(await queueResult.Content.ReadAsStringAsync());
+						
+						outputFolder = queueItems?.AllItems?.FirstOrDefault(q => $"{q.Key}" == jobItem.ID).Value
+							?.SaveImage?.Inputs?.FirstOrDefault(i => i.Key == "filename_prefix").Value?.ToString();
 					}
 					else
 					{
-						clearedQueue = _httpClient.PostAsync("queue", requestBody).GetAwaiter().GetResult().IsSuccessStatusCode;
+						outputFolder = jobItem.Output?.Subfolder;
 					}
 
-					// Clear item from history
-					clearedQueue &= deleteFromHistory();
-
-					if (clearedQueue)
+					if (!outputFolder?.ToLower().Contains(user.Username) ?? false)
 					{
-						deleteResponse = "Successfully cancelled queue item.";
-						return true;
+						return new KeyValuePair<bool, string>(false, "Warning: You are not authorized to delete an image that you did not create.");
 					}
 					else
 					{
-						deleteResponse = "Warning: Successfully sent request to server but it failed to cancel.";
+						bool jobCleared = true;
+						var requestBody = JsonContent.Create(new { delete = new Guid[] { imageName } });
+
+						// Cancel or interrupt if pending or in progress, delete file (if needed) otherwise
+						switch (jobItem.Status)
+						{
+							case "pending":
+								jobCleared = _httpClient.PostAsync("queue", requestBody).GetAwaiter().GetResult().IsSuccessStatusCode;
+								break;
+
+							case "in_progress":
+								jobCleared = _httpClient.PostAsync("interrupt", null).GetAwaiter().GetResult().IsSuccessStatusCode;
+								break;
+
+							default:
+								if (!string.IsNullOrWhiteSpace(jobItem.Output?.Subfolder))
+								{
+									string file = Path.Combine(_configuration["ImageAIOutputFolder"]!, jobItem.Output.Subfolder, jobItem.Output.FileName);
+									File.Delete(file);
+									jobCleared = !File.Exists(file);
+								}
+								break;
+						}
+
+						// Try to clear it from the job history
+						jobCleared &= _httpClient.PostAsync("history", requestBody).GetAwaiter().GetResult().IsSuccessStatusCode;
+
+						if (jobCleared)
+						{
+							return new KeyValuePair<bool, string>(true, "Successfully deleted image.");
+						}
+						else
+						{
+							return new KeyValuePair<bool, string>(false, "Warning: Successfully sent request to server but it failed to fully delete.");
+						}
 					}
 				}
 				else
 				{
-					// Otherwise, look for a completed history item
-					var historyResult = _httpClient.GetAsync($"history/{imageName}").GetAwaiter().GetResult();
-					var historyItem = JObject.Parse(historyResult.Content.ReadAsStringAsync().GetAwaiter().GetResult())!;
-					if (historyItem.Children().Count() <= 0)
-					{
-						deleteResponse = "Warning: Image not found in server history.";
-					}
-					else
-					{
-						_logger.LogInformation($"User {user.Id} is attempting to delete image {imageName}");
-						string filename = historyItem.First!.First!["outputs"]!.First!.First!["images"]!.First!["filename"]!.ToString();
-
-						// Does the image filename contain the user's username?
-						if (!filename.Contains($"-{user.Username}-"))
-						{
-							deleteResponse = "Warning: You are not authorized to delete an image that you did not create.";
-						}
-						else
-						{
-							// Remove the item from the filesystem and clear it from the queue history
-							string file = Path.Combine(_configuration["ImageAIOutputFolder"]!, filename);
-							File.Delete(file);
-
-							if (!File.Exists(file) && deleteFromHistory())
-							{
-								deleteResponse = "Successfully deleted image.";
-								return true;
-							}
-							else
-							{
-								deleteResponse = "Warning: Successfully sent request to server but it failed to delete.";
-							}
-						}
-					}
+					return new KeyValuePair<bool, string>(false, "Warning: Image not found in server history.");
 				}
 			}
 			catch (Exception ex)
 			{
 				_logger.LogError($"Error: {ex}");
-				deleteResponse = $"Exception: {ex.Message}";
+				return new KeyValuePair<bool, string>(false, $"Exception: {ex.Message}");
 			}
-
-			return false;
 		}
 
 		private async void ListenToWebSocketData()
@@ -531,6 +525,7 @@ namespace ShaosilBot.Core.Singletons
 						originalMessage.ModifyAsync(p =>
 						{
 							p.Content = "Error during completion! Your image still exists, but something went wrong when updating the message.";
+							p.Embed = null;
 							p.Attachments = null;
 							p.Components = null;
 						}).GetAwaiter().GetResult();
@@ -596,8 +591,8 @@ namespace ShaosilBot.Core.Singletons
 		private async Task ShowFinalImage(IUserMessage originalMessage, Guid completedPrompt)
 		{
 			// Get a history item so we can retrieve the filename based on this prompt ID
-			var historyItem = await _httpClient.GetAsync($"history/{completedPrompt}");
-			string filename = JObject.Parse(await historyItem.Content.ReadAsStringAsync()).First!.First!["outputs"]!.First!.First!["images"]!.First!["filename"]!.ToString();
+			var jobResult = await _httpClient.GetAsync($"jobs/{completedPrompt}");
+			var jobItem = JsonConvert.DeserializeObject<Job>(await jobResult.Content.ReadAsStringAsync())!;
 
 			var modifiedEmbed = originalMessage.Embeds.First().Copy
 			(
@@ -607,7 +602,7 @@ namespace ShaosilBot.Core.Singletons
 			);
 
 			// Update message with final image
-			var imageResult = await _httpClient.GetAsync($"view?filename={filename}");
+			var imageResult = await _httpClient.GetAsync($"view?filename={jobItem.Output.FileName}&subfolder={jobItem.Output.Subfolder}");
 			using (var stream = imageResult.Content.ReadAsStream())
 			{
 				originalMessage.ModifyAsync(p =>

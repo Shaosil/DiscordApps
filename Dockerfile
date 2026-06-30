@@ -7,13 +7,11 @@ WORKDIR /source
 # Copy project files and restore as distinct layers
 COPY ShaosilBot.Web/*.csproj ./ShaosilBot.Web/
 COPY ShaosilBot.Core/*.csproj ./ShaosilBot.Core/
-COPY ServerManager.Core/*.csproj ./ServerManager.Core/
 RUN dotnet restore ShaosilBot.Web/ShaosilBot.Web.csproj
 
 # Copy rest of source code and publish app
 COPY ShaosilBot.Web/. ./ShaosilBot.Web/
 COPY ShaosilBot.Core/. ./ShaosilBot.Core/
-COPY ServerManager.Core/. ./ServerManager.Core/
 WORKDIR /source/ShaosilBot.Web
 ARG BUILD_CONFIG=Release
 RUN dotnet publish -c $BUILD_CONFIG -o /app --no-restore

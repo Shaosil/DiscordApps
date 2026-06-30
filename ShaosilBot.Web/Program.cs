@@ -2,18 +2,16 @@ using System.Globalization;
 using Discord;
 using Discord.Rest;
 using Discord.WebSocket;
+using Docker.DotNet;
 using Microsoft.AspNetCore.HttpLogging;
 using Quartz;
 using Quartz.AspNetCore;
 using Serilog;
-using ServerManager.Core;
-using ServerManager.Core.Interfaces;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
 using ShaosilBot.Core.Singletons;
 using ShaosilBot.Core.SlashCommands;
 using ShaosilBot.Web.CustomAuth;
-
 // Configure root paths
 var builder = WebApplication.CreateBuilder(args);
 string? basePath = builder.Configuration.GetValue<string>("FilesBasePath");
@@ -47,7 +45,8 @@ builder.Services.AddSingleton((sp) => new DiscordRestConfig
 builder.Services.AddSingleton<IDiscordGatewayMessageHandler, DiscordGatewayMessageHandler>();
 builder.Services.AddSingleton<IDiscordSocketClientProvider, DiscordSocketClientProvider>();
 builder.Services.AddSingleton<IDiscordRestClientProvider, DiscordRestClientProvider>();
-builder.Services.AddSingleton<IRabbitMQProvider, RabbitMQProvider>();
+builder.Services.AddSingleton(_ => new DockerClientConfiguration(new Uri("unix:///var/run/docker.sock")).CreateClient());
+builder.Services.AddSingleton<IDockerProvider, DockerProvider>();
 builder.Services.AddSingleton<ISlashCommandProvider, SlashCommandProvider>();
 builder.Services.AddSingleton<IChatGPTConnection, ChatGPTConnection>();
 builder.Services.AddSingleton<IChatGPTProvider, ChatGPTProvider>();

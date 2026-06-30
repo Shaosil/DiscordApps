@@ -39,6 +39,12 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
 
+      # Only uncomment if you want ServerCommands to work (launching ComfyUI for example)
+      #- /var/run/docker.sock:/var/run/docker.sock
+
+      # Configure this volume if you use an AI image gen service
+      #- <your output folder>:/app/data/ImageGenOutput
+
 # Uncomment the following if you plan to use Caddy for HTTPS
 #     networks:
 #       - caddy_gateway

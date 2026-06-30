@@ -1,31 +1,49 @@
-﻿using System.Diagnostics;
-using System.Reflection;
+﻿using System.Reflection;
 using Discord;
 using Microsoft.Extensions.Logging;
 using Quartz;
-using ServerManager.Core;
-using ServerManager.Core.Interfaces;
-using ServerManager.Core.Models;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
-using static ServerManager.Core.Models.QueueMessage;
 
 namespace ShaosilBot.Core.SlashCommands
 {
 	public class ServerCommand : BaseCommand
 	{
+		// Make sure all these are lower case so the switch statements can function
+		public static class SupportedCommands
+		{
+			public static class BDS
+			{
+				public const string Status = "status";
+				public const string Startup = "startup";
+				public const string ListPlayers = "list-players";
+				public const string Shutdown = "shutdown";
+				public const string Logs = "logs";
+			}
+
+			public static class ComfyUI
+			{
+				public const string Status = "status";
+				public const string Startup = "startup";
+				public const string Shutdown = "shutdown";
+			}
+		}
+
 		private readonly IDiscordRestClientProvider _restClientProvider;
-		private readonly IRabbitMQProvider _rabbitMQProvider;
 		private readonly ISchedulerFactory _schedulerFactory;
+		private readonly IImageGenerationProvider _imageGenerationProvider;
+		private readonly IDockerProvider _dockerProvider;
 
 		public ServerCommand(ILogger<BaseCommand> logger,
 			IDiscordRestClientProvider restClientProvider,
-			IRabbitMQProvider rabbitMQProvider,
-			ISchedulerFactory schedulerFactory) : base(logger)
+			ISchedulerFactory schedulerFactory,
+			IImageGenerationProvider imageGenerationProvider,
+			IDockerProvider dockerProvider) : base(logger)
 		{
 			_restClientProvider = restClientProvider;
-			_rabbitMQProvider = rabbitMQProvider;
 			_schedulerFactory = schedulerFactory;
+			_imageGenerationProvider = imageGenerationProvider;
+			_dockerProvider = dockerProvider;
 		}
 
 		public override string CommandName => "manage-server";
@@ -41,65 +59,65 @@ namespace ShaosilBot.Core.SlashCommands
 				Description = "Admin tools for the bot server PC",
 				Options = new List<SlashCommandOptionBuilder>
 				{
-					new SlashCommandOptionBuilder
-					{
-						Type = ApplicationCommandOptionType.SubCommandGroup,
-						Name = "bds",
-						Description = "Manage the Minecraft Bedrock Dedicated Server",
-						Options = new List<SlashCommandOptionBuilder>
-						{
-							new SlashCommandOptionBuilder
-							{
-								Name = SupportedCommands.BDS.Status,
-								Description = "Gives the current status of the dedicated server.",
-								Type = ApplicationCommandOptionType.SubCommand
-							},
-							new SlashCommandOptionBuilder
-							{
-								Name = SupportedCommands.BDS.Startup,
-								Description = "Starts the bedrock dedicated server.",
-								Type = ApplicationCommandOptionType.SubCommand
-							},
-							new SlashCommandOptionBuilder
-							{
-								Name = SupportedCommands.BDS.ListPlayers,
-								Description = "Lists all currently connected players.",
-								Type = ApplicationCommandOptionType.SubCommand
-							},
-							new SlashCommandOptionBuilder
-							{
-								Name = SupportedCommands.BDS.Shutdown,
-								Description = "Shuts down the server gracefully if no one is on.",
-								Type = ApplicationCommandOptionType.SubCommand,
-								Options = new List<SlashCommandOptionBuilder>
-								{
-									new SlashCommandOptionBuilder
-									{
-										Name = "force",
-										Description = "Kill the process (caution)",
-										Type = ApplicationCommandOptionType.Boolean
-									}
-								}
-							},
-							new SlashCommandOptionBuilder
-							{
-								Name = SupportedCommands.BDS.Logs,
-								Description = "Displays the last X logs.",
-								Type = ApplicationCommandOptionType.SubCommand,
-								Options = new List<SlashCommandOptionBuilder>
-								{
-									new SlashCommandOptionBuilder
-									{
-										Name = "amount",
-										Description = "How many logs to display",
-										Type = ApplicationCommandOptionType.Integer,
-										MinValue = 1,
-										MaxValue = 20
-									}
-								}
-							}
-						}
-					},
+					// new SlashCommandOptionBuilder
+					// {
+					// 	Type = ApplicationCommandOptionType.SubCommandGroup,
+					// 	Name = "bds",
+					// 	Description = "Manage the Minecraft Bedrock Dedicated Server",
+					// 	Options = new List<SlashCommandOptionBuilder>
+					// 	{
+					// 		new SlashCommandOptionBuilder
+					// 		{
+					// 			Name = SupportedCommands.BDS.Status,
+					// 			Description = "Gives the current status of the dedicated server.",
+					// 			Type = ApplicationCommandOptionType.SubCommand
+					// 		},
+					// 		new SlashCommandOptionBuilder
+					// 		{
+					// 			Name = SupportedCommands.BDS.Startup,
+					// 			Description = "Starts the bedrock dedicated server.",
+					// 			Type = ApplicationCommandOptionType.SubCommand
+					// 		},
+					// 		new SlashCommandOptionBuilder
+					// 		{
+					// 			Name = SupportedCommands.BDS.ListPlayers,
+					// 			Description = "Lists all currently connected players.",
+					// 			Type = ApplicationCommandOptionType.SubCommand
+					// 		},
+					// 		new SlashCommandOptionBuilder
+					// 		{
+					// 			Name = SupportedCommands.BDS.Shutdown,
+					// 			Description = "Shuts down the server gracefully if no one is on.",
+					// 			Type = ApplicationCommandOptionType.SubCommand,
+					// 			Options = new List<SlashCommandOptionBuilder>
+					// 			{
+					// 				new SlashCommandOptionBuilder
+					// 				{
+					// 					Name = "force",
+					// 					Description = "Kill the process (caution)",
+					// 					Type = ApplicationCommandOptionType.Boolean
+					// 				}
+					// 			}
+					// 		},
+					// 		new SlashCommandOptionBuilder
+					// 		{
+					// 			Name = SupportedCommands.BDS.Logs,
+					// 			Description = "Displays the last X logs.",
+					// 			Type = ApplicationCommandOptionType.SubCommand,
+					// 			Options = new List<SlashCommandOptionBuilder>
+					// 			{
+					// 				new SlashCommandOptionBuilder
+					// 				{
+					// 					Name = "amount",
+					// 					Description = "How many logs to display",
+					// 					Type = ApplicationCommandOptionType.Integer,
+					// 					MinValue = 1,
+					// 					MaxValue = 20
+					// 				}
+					// 			}
+					// 		}
+					// 	}
+					// },
 
 					new SlashCommandOptionBuilder
 					{
@@ -172,55 +190,44 @@ namespace ShaosilBot.Core.SlashCommands
 			object[]? args = Array.Empty<object>();
 			if (group.Name == "bds")
 			{
-				// TODO: Dockerize ServerManager
-				return cmdWrapper.Respond("Sorry, ServerManager BDS functionality will be down until it has been properly dockerized.", ephemeral: true);
+				return cmdWrapper.Respond("Sorry, BDS functionality will be down until it has been properly dockerized.", ephemeral: true);
 
-#pragma warning disable CS0162 // Unreachable code detected
-				if (!VerifyServerManagerRunning(out var serverMsg))
-				{
-					return cmdWrapper.Respond(serverMsg, ephemeral: true);
-				}
+				// if (subCmd.Name == SupportedCommands.BDS.Shutdown)
+				// {
+				// 	args = [(subCmd.Options.FirstOrDefault()?.Value is bool force && force)]; // Whether to force kill it
+				// }
+				// else if (subCmd.Name == SupportedCommands.BDS.Logs)
+				// {
+				// 	args = [subCmd.Options.FirstOrDefault()?.Value ?? 10]; // Amount of logs. Default to 10
+				// }
 
-				if (subCmd.Name == SupportedCommands.BDS.Shutdown)
-				{
-					args = [(subCmd.Options.FirstOrDefault()?.Value is bool force && force)]; // Whether to force kill it
-				}
-				else if (subCmd.Name == SupportedCommands.BDS.Logs)
-				{
-					args = [subCmd.Options.FirstOrDefault()?.Value ?? 10]; // Amount of logs. Default to 10
-				}
+				// // Defer while we wait for a response
+				// return await cmdWrapper.DeferWithCode(async () =>
+				// {
+				// 	// Wait no longer than 30 seconds
+				// 	Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
+				// 	var completedTask = await Task.WhenAny(_rabbitMQProvider.SendCommand(eCommandType.BDS, subCmd.Name, args), timeoutTask);
 
-				// Defer while we wait for a response
-				return await cmdWrapper.DeferWithCode(async () =>
-				{
-					// Wait no longer than 30 seconds
-					Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
-					var completedTask = await Task.WhenAny(_rabbitMQProvider.SendCommand(eCommandType.BDS, subCmd.Name, args), timeoutTask);
+				// 	if (completedTask == timeoutTask)
+				// 	{
+				// 		await cmdWrapper.Command.FollowupAsync("Timeout while waiting for response - ask Shaosil to verify the server manager is running.");
+				// 	}
+				// 	else
+				// 	{
+				// 		var result = ((Task<QueueMessageResponse>)completedTask).Result;
+				// 		await cmdWrapper.Command.FollowupAsync($"Response from server:\n\n{result.Response}");
+				// 	}
 
-					if (completedTask == timeoutTask)
-					{
-						await cmdWrapper.Command.FollowupAsync("Timeout while waiting for response - ask Shaosil to verify the server manager is running.");
-					}
-					else
-					{
-						var result = ((Task<QueueMessageResponse>)completedTask).Result;
-						await cmdWrapper.Command.FollowupAsync($"Response from server:\n\n{result.Response}");
-					}
-
-				}, true);
+				// }, true);
 			}
 			else if (group.Name == "comfyui")
 			{
-				// TODO: Dockerize ServerManager
-				return cmdWrapper.Respond("Sorry, ServerManager image gen functionality will be down until it has been properly dockerized.", ephemeral: true);
-
 				// Defer while we wait for a response
 				return await cmdWrapper.DeferWithCode(async () =>
 				{
-					string result = await AttemptToStartImageGenService(cmdWrapper.Command.ChannelId!.Value, (cmdWrapper.Command.User as IGuildUser)!, subCmd.Name);
+					string result = await ModifyImageGenerationService(cmdWrapper.Command.ChannelId!.Value, (cmdWrapper.Command.User as IGuildUser)!, subCmd.Name);
 					await cmdWrapper.Command.FollowupAsync(result);
 				}, true);
-#pragma warning restore CS0162 // Unreachable code detected
 			}
 			else if (group.Name == "scheduled-jobs")
 			{
@@ -267,46 +274,59 @@ namespace ShaosilBot.Core.SlashCommands
 			return user.GetPermissions(channel).ManageMessages;
 		}
 
-		private bool VerifyServerManagerRunning(out string message)
-		{
-			message = string.Empty;
-
-			bool running = Process.GetProcessesByName("ServerManager").Length > 0;
-
-			if (!running)
-			{
-				message = $"ERROR: The server manager service does not appear to be running.";
-			}
-
-			return running;
-		}
-
-		public async Task<string> AttemptToStartImageGenService(ulong channelID, IGuildUser user, string cmdName)
+		public async Task<string> ModifyImageGenerationService(ulong channelID, IGuildUser user, string commandName)
 		{
 			if (!await VerifyPermissions(channelID, user))
 			{
 				return "Sorry, only admin users in this server may manage remote services.";
 			}
 
-			if (!VerifyServerManagerRunning(out var serverMsg))
-			{
-				return serverMsg;
-			}
-
 			// Wait no longer than 60 seconds
 			Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(60));
-			var completedTask = await Task.WhenAny(_rabbitMQProvider.SendCommand(eCommandType.ComfyUI, cmdName, []), timeoutTask);
+			Task<KeyValuePair<bool, string>> imageGenTask;
+
+			switch (commandName)
+			{
+				case SupportedCommands.ComfyUI.Startup:
+					imageGenTask = Task.Run(async () => {
+						var result = await _dockerProvider.StartComfyAsync();
+
+						// If connected, keep pinging the status page until it returns success
+						while (result.Key && !await _imageGenerationProvider.IsOnline())
+						{
+							Thread.Sleep(1000);	
+						}
+
+						return result;
+					});
+					break;
+
+				case SupportedCommands.ComfyUI.Shutdown:
+					imageGenTask = _dockerProvider.StopComfyAsync();
+					break;
+
+				case SupportedCommands.ComfyUI.Status:
+					imageGenTask = Task.Run(async () =>
+					{
+						bool running = await _dockerProvider.CheckComfyRunningAsync();
+						return new KeyValuePair<bool, string>(running, $"Image generation service is {(running ? "running" : "stopped")}.");
+					});
+					break;
+
+				default:
+					return "Unsupported command!";
+			}
+
+			var completedTask = await Task.WhenAny(imageGenTask, timeoutTask);
 
 			if (completedTask == timeoutTask)
 			{
-				return "Timeout while waiting for response - ask Shaosil to verify the ServerManager service is running.";
+				return "Timeout while waiting for response.";
 			}
 			else
 			{
-				var result = ((Task<QueueMessageResponse>)completedTask).Result;
-				return $"Response from server:\n\n{result.Response}";
+				return (await imageGenTask).Value;
 			}
-
 		}
 	}
 }

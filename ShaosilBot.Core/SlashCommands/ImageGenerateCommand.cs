@@ -128,6 +128,12 @@ SUBCOMMANDS:
 
 		public override async Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
+			// Check if allowed
+			if (IsDisabled(out var disabledMessage))
+			{
+				return cmdWrapper.Respond(disabledMessage, ephemeral: true);
+			}
+
 			var subCmd = cmdWrapper.Command.Data.Options.First();
 
 			// Extra params
@@ -158,7 +164,7 @@ SUBCOMMANDS:
 						var originalMessage = await cmdWrapper.GetOriginalMessage();
 						if (originalMessage == null)
 						{
-							await cmdWrapper.Command.FollowupAsync("Error: Could not load deferred message! Nothing sent to queue.");
+							await cmdWrapper.Command.FollowupAsync("Error: Could not load deferred message! Nothing sent to queue.", ephemeral: true);
 							return;
 						}
 
@@ -171,13 +177,13 @@ SUBCOMMANDS:
 						}
 						else
 						{
-							await cmdWrapper.Command.FollowupAsync(queueData.ErrorMessage);
+							await cmdWrapper.Command.FollowupAsync(queueData.ErrorMessage, ephemeral: true);
 						}
 					}
 				}
 				catch (Exception ex)
 				{
-					await cmdWrapper.Command.FollowupAsync($"ERROR: {ex.Message}");
+					await cmdWrapper.Command.FollowupAsync($"ERROR: {ex.Message}", ephemeral: true);
 				}
 			});
 		}
@@ -200,6 +206,20 @@ SUBCOMMANDS:
 			return default;
 		}
 
+		private bool IsDisabled(out string message)
+		{
+			message = string.Empty;
+
+			// Verify we are allowed to enqueue things
+			if (!_configuration.GetValue<bool>("ImageAIEnabled"))
+			{
+				message = "Image generation is not currently allowed.";
+				return true;
+			}
+
+			return false;
+		}
+
 		public async Task<string> HandleGenerationButton(RestMessageComponent messageComponent)
 		{
 			// Build prompt values from the previous message text
@@ -219,17 +239,24 @@ SUBCOMMANDS:
 			{
 				case ImageGeneration.CmdCancel:
 					// If successful, remove the original message and silently defer
-					if (_imageGenerationProvider.TryCancelQueueItem(messageComponent.User, ID, out var cancelResponse))
+					var cancelResult = await _imageGenerationProvider.TryCancelQueueItem(messageComponent.User, ID);
+					if (cancelResult.Key)
 					{
 						await messageComponent.Message.DeleteAsync();
 						return messageComponent.Defer();
 					}
 
 					// Otherwise, respond with the error message
-					return messageComponent.Respond(cancelResponse, ephemeral: true);
+					return messageComponent.Respond(cancelResult.Value, ephemeral: true);
 
 				case ImageGeneration.CmdRequeue:
 				case ImageGeneration.CmdRequeueFailed:
+					// Check if allowed
+					if (IsDisabled(out var disabledMessage))
+					{
+						return messageComponent.Respond(disabledMessage, ephemeral: true);
+					}
+
 					// Immediately defer to avoid a timeout, then handle the requeue
 					_ = Task.Run(async () =>
 					{
@@ -263,6 +290,12 @@ SUBCOMMANDS:
 					return messageComponent.Defer();
 
 				case ImageGeneration.CmdRemix:
+					// Check if allowed
+					if (IsDisabled(out disabledMessage))
+					{
+						return messageComponent.Respond(disabledMessage, ephemeral: true);
+					}
+
 					// Just send a modal at this point (embed image ID in the custom ID). The actual requeue will come after the modal is submitted
 					var modal = new ModalBuilder("Remix Parameters", $"{MessageCommandNames.Modals.RemixImage}|{ID}|{promptVals.Seed}");
 					modal.AddTextInput("Prompt", "pos-prompt", TextInputStyle.Paragraph, maxLength: 1000, required: true, value: promptVals.PosPrompt);
@@ -280,13 +313,14 @@ SUBCOMMANDS:
 					}
 
 					// Then remove the original message. If it succeeds, silently defer. Otherwise, respond with message
-					if (_imageGenerationProvider.TryDeleteImage(messageComponent.User, ID, out var deleteResponse))
+					var deleteResponse = await _imageGenerationProvider.TryDeleteImage(messageComponent.User, ID);
+					if (deleteResponse.Key)
 					{
 						return messageComponent.Defer();
 					}
 					else
 					{
-						return messageComponent.Respond(deleteResponse, ephemeral: true);
+						return messageComponent.Respond(deleteResponse.Value, ephemeral: true);
 					}
 
 				default:
