@@ -10,11 +10,12 @@
 		public int CFG { get; init; }
 		public int LinePos { get; init; }
 		public Guid BatchID { get; init; }
+		public bool IsImageEdit { get; init;}
 
 		public bool Success { get; init; }
 		public string ErrorMessage { get; init; }
 
-		public SharedEnqueueResult(string positivePrompt, string? negativePrompt, ulong seed, string model, int steps, int cfg, int linePos, Guid batchID)
+		public SharedEnqueueResult(string positivePrompt, string? negativePrompt, ulong seed, string model, int steps, int cfg, int linePos, Guid batchID, bool isImageEdit)
 		{
 			PositivePrompt = positivePrompt;
 			NegativePrompt = negativePrompt;
@@ -24,6 +25,7 @@
 			CFG = cfg;
 			LinePos = linePos;
 			BatchID = batchID;
+			IsImageEdit = isImageEdit;
 
 			Success = true;
 		}

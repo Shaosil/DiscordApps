@@ -73,7 +73,7 @@ namespace ShaosilBot.Web.Controllers
 					return NotFound();
 
 				case RestMessageCommand message:
-					string messageCommandResult = _messageCommandProvider.HandleMessageCommand(message);
+					string messageCommandResult = await _messageCommandProvider.HandleMessageCommand(message);
 					return Content(messageCommandResult);
 
 				case RestMessageComponent messageComponent:

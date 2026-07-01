@@ -169,7 +169,7 @@ SUBCOMMANDS:
 						}
 
 						// Followup with in-progress or error message
-						var queueData = await _imageGenerationProvider.EnqueuePrompt(originalMessage, cmdWrapper.Command.User, posPrompt, negPrompt, width, height, seedStr, model, sampler, steps, cfg);
+						var queueData = await _imageGenerationProvider.EnqueuePrompt(originalMessage, cmdWrapper.Command.User, posPrompt, negPrompt, width, height, seedStr, model, sampler, steps, cfg, null);
 						if (queueData.Success)
 						{
 							var messageData = BuildMessageDetailsFromQueueItem(queueData);
@@ -192,15 +192,21 @@ SUBCOMMANDS:
 		/// Checks if service is running, and if not, returns a message and component to use
 		/// </summary>
 		/// <returns>A KVP of the error message string and button rows component</returns>
-		private async Task<KeyValuePair<string, MessageComponent>> DoOnlineCheck(string posPrompt, string? negPrompt, string? seedStr, string? model, int? steps, int? cfg)
+		private async Task<KeyValuePair<string, MessageComponent>> DoOnlineCheck(string? posPrompt, string? negPrompt, string? seedStr, string? model, int? steps, int? cfg)
 		{
 			if (!await _imageGenerationProvider.IsOnline())
 			{
-				var button = new ComponentBuilder().WithButton("Start Service (Admin Permissions Required)", customId: $"{ImageGeneration.StartService}", style: ButtonStyle.Primary)
-					.WithButton("Retry Prompt", customId: $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdRequeueFailed}", style: ButtonStyle.Primary).Build();
+				var button = new ComponentBuilder().WithButton("Start Service (Admin)", customId: $"{ImageGeneration.StartService}", style: ButtonStyle.Primary);
+				string extraDesc = string.Empty;
 
-				string msg = $"The image generation service is not running.\n\n```{new PromptValues(posPrompt, negPrompt, seedStr, model, steps, cfg)}```";
-				return new KeyValuePair<string, MessageComponent>(msg, button);
+				if (posPrompt != null)
+				{
+					button = button.WithButton("Retry Prompt", customId: $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdRequeueFailed}", style: ButtonStyle.Primary);
+					extraDesc = $"\n\n```{new PromptValues(posPrompt, negPrompt, seedStr, model, steps, cfg, false)}```";
+				}
+
+				string msg = $"The image generation service is not running.{extraDesc}";
+				return new KeyValuePair<string, MessageComponent>(msg, button.Build());
 			}
 
 			return default;
@@ -218,6 +224,26 @@ SUBCOMMANDS:
 			}
 
 			return false;
+		}
+
+		internal async Task<string> HandleEditImageCommand(RestMessageCommand command)
+		{
+			if (string.IsNullOrWhiteSpace(FindImageUrlInMessage(command.Data.Message)))
+			{
+				return command.Respond("No image found in referenced message.", ephemeral: true);
+			}
+
+			var offlineErrors = await DoOnlineCheck(null, null, null, null, null, null);
+			if (!string.IsNullOrWhiteSpace(offlineErrors.Key))
+			{
+				return command.Respond(offlineErrors.Key);
+			}
+
+			// Store original message ID so we can load the image URL later
+			var modal = new ModalBuilder("Edit Image with AI", $"{MessageCommandNames.Modals.EditImage}|{command.Data.Message.Id}");
+			modal.AddTextInput("Prompt", "pos-prompt", TextInputStyle.Paragraph, maxLength: 1000, required: true);
+
+			return command.RespondWithModal(modal.Build());
 		}
 
 		public async Task<string> HandleGenerationButton(RestMessageComponent messageComponent)
@@ -262,7 +288,7 @@ SUBCOMMANDS:
 					{
 						// Followup with in-progress or error message
 						var requeueMessage = await messageComponent.Channel.SendMessageAsync($"{messageComponent.User.Mention} is generating an image!");
-						var queueData = await _imageGenerationProvider.EnqueuePrompt(requeueMessage, messageComponent.User, promptVals.PosPrompt, promptVals.NegPrompt, null, null, null, promptVals.Model, null, promptVals.Steps, promptVals.CFG);
+						var queueData = await _imageGenerationProvider.EnqueuePrompt(requeueMessage, messageComponent.User, promptVals.PosPrompt, promptVals.NegPrompt, null, null, null, promptVals.Model, null, promptVals.Steps, promptVals.CFG, null);
 
 						if (queueData.Success)
 						{
@@ -372,7 +398,7 @@ SUBCOMMANDS:
 			}
 			if (validationErrors.Any())
 			{
-				return modal.Respond($"Invalid parameters!\n\n{string.Join("\n", validationErrors)}");
+				return modal.Respond($"Invalid parameters!\n\n{string.Join("\n", validationErrors)}", ephemeral: true);
 			}
 
 			IUserMessage? requeueMessage = null;
@@ -382,7 +408,7 @@ SUBCOMMANDS:
 				requeueMessage = await modal.Channel.SendMessageAsync($"{modal.User.Mention} is generating an image!");
 
 				// Requeue and modify message
-				var requeueData = await _imageGenerationProvider.EnqueuePrompt(requeueMessage, modal.User, posPrompt, negPrompt, null, null, seedStr == "-1" ? origSeed : seedStr, model, null, steps, null);
+				var requeueData = await _imageGenerationProvider.EnqueuePrompt(requeueMessage, modal.User, posPrompt, negPrompt, null, null, seedStr == "-1" ? origSeed : seedStr, model, null, steps, null, null);
 				var requeueMessageData = BuildMessageDetailsFromQueueItem(requeueData);
 				await requeueMessage.ModifyAsync(p =>
 				{
@@ -405,13 +431,55 @@ SUBCOMMANDS:
 			return modal.Defer();
 		}
 
+		internal async Task<string> HandleEditModal(RestModal modal)
+		{
+			_ = Task.Run(async() =>
+			{
+				// Load and validate referenced image
+				ulong msgId = ulong.Parse(modal.Data.CustomId.Split('|')[1]);
+				var referencedMessage = await modal.Channel.GetMessageAsync(msgId);
+				string? imageUrl = FindImageUrlInMessage(referencedMessage);
+
+				if (string.IsNullOrWhiteSpace(imageUrl))
+				{
+					await modal.FollowupAsync("Error: Could not find referenced image.", ephemeral: true);
+					return;
+				}
+
+				// Download image to input directory
+				string imageDir = _configuration.GetValue<string>("ImageAIInputFolder")!;
+				string filename = $"{Guid.NewGuid()}.jpg";
+				var bytes = await new HttpClient().GetByteArrayAsync(imageUrl);
+				await File.WriteAllBytesAsync($"{imageDir}/{filename}", bytes);
+
+				// Send a new message
+				var newMessage = await modal.Channel.SendMessageAsync($"{modal.User.Mention} is editing an image!", messageReference: new MessageReference(msgId));
+
+				// Queue and modify message
+				string posPrompt = modal.Data.Components.First(c => c.CustomId == "pos-prompt").Value.Trim();
+				var queueData = await _imageGenerationProvider.EnqueuePrompt(newMessage, modal.User, posPrompt, null, null, null, null, null, null, null, null, filename);
+				var queueMessageData = BuildMessageDetailsFromQueueItem(queueData);
+				await newMessage.ModifyAsync(p =>
+				{
+					p.Embed = queueMessageData.Key.Build();
+					p.Components = queueMessageData.Value.Build();
+				});
+
+				// Message commands seem to always show a response message after the modal is submitted, so just delete it here
+				await modal.DeleteOriginalResponseAsync();
+			});
+
+			return modal.Defer(ephemeral: true);
+		}
+
 		private KeyValuePair<EmbedBuilder, ComponentBuilder> BuildMessageDetailsFromQueueItem(SharedEnqueueResult queueItem)
 		{
 			var embedBuilder = new EmbedBuilder()
 			{
-				Color = new Discord.Color(0x7c0089),
+				Color = new Color(0x7c0089),
 				Title = $"Status: Queued ({(queueItem.LinePos > 1 ? $"#{queueItem.LinePos}" : "Next")} in line)",
-				Description = new PromptValues(queueItem.PositivePrompt, queueItem.NegativePrompt, $"{queueItem.Seed}", queueItem.Model, queueItem.Steps, queueItem.CFG).ToString()
+				Description = new PromptValues(queueItem.PositivePrompt, queueItem.NegativePrompt, $"{queueItem.Seed}",
+					queueItem.Model, queueItem.Steps, queueItem.CFG, queueItem.IsImageEdit).ToString()
 			};
 			var componentBuilder = new ComponentBuilder().AddRow(new ActionRowBuilder().WithButton("Cancel", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdCancel}-{queueItem.BatchID}", ButtonStyle.Danger));
 
@@ -427,13 +495,20 @@ SUBCOMMANDS:
 			int? steps = int.TryParse(Regex.Match(messageContent, @"Steps: (\d+)").Groups.Cast<Group>().ElementAtOrDefault(1)?.Value ?? string.Empty, out var iSteps) ? iSteps : null;
 			int? cfg = int.TryParse(Regex.Match(messageContent, @"CFG: (\d+)").Groups.Cast<Group>().ElementAtOrDefault(1)?.Value ?? string.Empty, out var icfg) ? icfg : null;
 
-			return new PromptValues(posPrompt, negPrompt, seed, model, steps, cfg);
+			return new PromptValues(posPrompt, negPrompt, seed, model, steps, cfg, false);
+		}
+
+		private string? FindImageUrlInMessage(RestMessage message)
+		{
+			// Return first found image URL, whether it is an attachment or in an embed
+			return message?.Attachments?.FirstOrDefault(a => !string.IsNullOrWhiteSpace(a.Url))?.Url
+				?? message?.Embeds?.FirstOrDefault(e => !string.IsNullOrWhiteSpace(e.Image?.Url))?.Image?.Url;
 		}
 
 		/// <summary>
 		/// Used to easily store prompt data in messages
 		/// </summary>
-		private record PromptValues(string PosPrompt, string? NegPrompt, string? Seed, string? Model, int? Steps, int? CFG)
+		private record PromptValues(string PosPrompt, string? NegPrompt, string? Seed, string? Model, int? Steps, int? CFG, bool isImageEdit)
 		{
 			public override string ToString()
 			{
@@ -444,10 +519,13 @@ SUBCOMMANDS:
 				{
 					descSB.Append($"Negative Prompt: {NegPrompt}\n");
 				}
-				descSB.Append($"Seed: {Seed}\n");
-				descSB.Append($"Model: {Model}\n");
-				descSB.Append($"Steps: {Steps}\n");
-				descSB.Append($"CFG: {CFG}");
+				if (!isImageEdit)
+				{
+					descSB.Append($"Seed: {Seed}\n");
+					descSB.Append($"Model: {Model}\n");
+					descSB.Append($"Steps: {Steps}\n");
+					descSB.Append($"CFG: {CFG}");
+				}
 
 				return descSB.ToString();
 			}

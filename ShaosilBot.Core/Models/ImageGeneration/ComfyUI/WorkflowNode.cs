@@ -6,8 +6,8 @@ namespace ShaosilBot.Core.Models.ImageGeneration.ComfyUI
 	{
 		public WorkflowNode? Checkpoint => Values.FirstOrDefault(n => n.ClassType == "CheckpointLoaderSimple");
 		public WorkflowNode? Image => Values.FirstOrDefault(n => n.ClassType == "EmptyLatentImage");
-		public WorkflowNode? PositiveText => Values.FirstOrDefault(n => n.ClassType == "CLIPTextEncode" && n.Metadata.Title == "Positive Prompt Text");
-		public WorkflowNode? NegativeText => Values.FirstOrDefault(n => n.ClassType == "CLIPTextEncode" && n.Metadata.Title == "Negative Prompt Text");
+		public WorkflowNode? PositiveText => Values.FirstOrDefault(n => n.Metadata.Title == "Positive Prompt Text");
+		public WorkflowNode? NegativeText => Values.FirstOrDefault(n => n.Metadata.Title == "Negative Prompt Text");
 		public WorkflowNode? Sampler => Values.FirstOrDefault(n => n.ClassType == "KSamplerAdvanced");
 		public WorkflowNode? SaveImage => Values.FirstOrDefault(n => n.ClassType == "SaveImage");
 
@@ -27,6 +27,12 @@ namespace ShaosilBot.Core.Models.ImageGeneration.ComfyUI
 			{
 				[JsonProperty("title")]
 				public string Title { get; set; }
+			}
+
+			public void SetPrompt(string text)
+			{
+				var input = Inputs.FirstOrDefault(i => i.Key == "text" || i.Key == "prompt");
+				Inputs[input.Key] = text;
 			}
 		};
 	}

@@ -25,11 +25,13 @@ namespace ShaosilBot.Core.Providers
 		{
 			public const string RemindMe = "Remind Me!";
 			public const string MockThis = "mOcK tHiS";
+			public const string EditImage = "AI Edit Image...";
 
 			public static class Modals
 			{
 				public const string CustomReminder = "custom-reminder-modal";
 				public const string RemixImage = "remix-image-modal";
+				public const string EditImage = "edit-image-modal";
 			}
 		}
 
@@ -65,7 +67,7 @@ namespace ShaosilBot.Core.Providers
 		/// <summary>
 		/// Handles message commands (i.e. app commands, or the custom context/right click menu things)
 		/// </summary>
-		public string HandleMessageCommand(RestMessageCommand command)
+		public async Task<string> HandleMessageCommand(RestMessageCommand command)
 		{
 			switch (command.Data.Name)
 			{
@@ -74,6 +76,9 @@ namespace ShaosilBot.Core.Providers
 
 				case MessageCommandNames.MockThis:
 					return ExecuteMockReply(command);
+
+				case MessageCommandNames.EditImage:
+					return await _imageGenerateCommand.HandleEditImageCommand(command);
 
 				default:
 					return command.Respond("Unsupported command! Poke Shaosil for details.");
@@ -139,6 +144,9 @@ namespace ShaosilBot.Core.Providers
 
 				case string s when s.StartsWith(MessageCommandNames.Modals.RemixImage):
 					return await _imageGenerateCommand.HandleRemixModal(modal);
+
+				case string s when s.StartsWith(MessageCommandNames.Modals.EditImage):
+					return await _imageGenerateCommand.HandleEditModal(modal);
 
 				default:
 					return modal.Respond("Unknown modal type! Poke Shaosil for details.", ephemeral: true);

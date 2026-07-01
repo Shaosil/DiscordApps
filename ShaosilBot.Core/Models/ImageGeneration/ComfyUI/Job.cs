@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace ShaosilBot.Core.Models.ImageGeneration.ComfyUI
 {
@@ -28,6 +29,9 @@ namespace ShaosilBot.Core.Models.ImageGeneration.ComfyUI
 		[JsonProperty("preview_output")]
 		public PreviewOutput Output { get; set; }
 
+		[JsonProperty("workflow")]
+		public JobWorkflow Workflow { get; set; }
+
 		public class PreviewOutput
 		{
 			[JsonProperty("filename")]
@@ -38,6 +42,12 @@ namespace ShaosilBot.Core.Models.ImageGeneration.ComfyUI
 
 			[JsonProperty("type")]
 			public string FileType { get; set; }
+		}
+
+		public class JobWorkflow
+		{
+			[JsonProperty("prompt")]
+			public WorkflowNodes Nodes { get; set;}
 		}
 	}
 }

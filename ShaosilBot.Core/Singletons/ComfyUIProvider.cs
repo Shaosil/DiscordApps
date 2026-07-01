@@ -180,7 +180,8 @@ namespace ShaosilBot.Core.Singletons
 		/// </summary>
 		/// <returns>The item that was queued, if any, and the position in the queue</returns>
 		/// <exception cref="Exception"></exception>
-		public async Task<SharedEnqueueResult> EnqueuePrompt(IUserMessage message, IUser requestor, string posPrompt, string? negPrompt, int? width, int? height, string? seedStr, string? model, string? sampler, int? steps, int? cfg)
+		public async Task<SharedEnqueueResult> EnqueuePrompt(IUserMessage message, IUser requestor, string posPrompt, string? negPrompt, int? width, int? height,
+			string? seedStr, string? model, string? sampler, int? steps, int? cfg, string? imageName)
 		{
 			try
 			{
@@ -223,19 +224,30 @@ namespace ShaosilBot.Core.Singletons
 					?? allModels.First();                                                                               // Fallback to first discovered model
 
 				// Load workflow nodes
-				string workflowType = targetModel.ToLower().IndexOf("pony") < 0 ? "SDXL" : "SDXL Pony";
+				bool isImageEdit = !string.IsNullOrWhiteSpace(imageName);
+				string workflowType = isImageEdit ? "QwenImageEdit"
+					: !targetModel.ToLower().Contains("pony") ? "SDXL"
+					: "SDXL Pony";
 				var workflow = _fileAccessHelper.LoadFileJSON<WorkflowNodes>($"ComfyUI Workflows/{workflowType}.json");
 
 				// Modify based on prompt parameters
-				workflow.Checkpoint!.Inputs["ckpt_name"] = targetModel;
-				if (width.HasValue) workflow.Image!.Inputs["width"] = width;
-				if (height.HasValue) workflow.Image!.Inputs["height"] = height;
-				workflow.PositiveText!.Inputs["text"] = posPrompt;
-				workflow.NegativeText!.Inputs["text"] = negPrompt ?? string.Empty;
-				workflow.Sampler!.Inputs["noise_seed"] = seed;
-				if (steps.HasValue) workflow.Sampler!.Inputs["steps"] = steps;
-				if (cfg.HasValue) workflow.Sampler!.Inputs["cfg"] = cfg;
-				if (!string.IsNullOrWhiteSpace(sampler)) workflow.Sampler!.Inputs["sampler_name"] = sampler;
+				if (!isImageEdit)
+				{
+					workflow.Checkpoint!.Inputs["ckpt_name"] = targetModel;
+					if (width.HasValue) workflow.Image!.Inputs["width"] = width;
+					if (height.HasValue) workflow.Image!.Inputs["height"] = height;
+					workflow.Sampler!.Inputs["noise_seed"] = seed;
+					if (steps.HasValue) workflow.Sampler!.Inputs["steps"] = steps;
+					if (cfg.HasValue) workflow.Sampler!.Inputs["cfg"] = cfg;
+					if (!string.IsNullOrWhiteSpace(sampler)) workflow.Sampler!.Inputs["sampler_name"] = sampler;
+				}
+				else
+				{
+					var loadImage = workflow.Values.First(v => v.ClassType == "LoadImage");
+					loadImage.Inputs["image"] = imageName!;
+				}
+				if (workflow.PositiveText != null) workflow.PositiveText.SetPrompt(posPrompt);
+				if (workflow.NegativeText != null) workflow.NegativeText.SetPrompt(negPrompt ?? string.Empty);
 				workflow.SaveImage!.Inputs["filename_prefix"] += $"{requestor.Username}/Image";
 
 				// Serialize and send to queue
@@ -254,9 +266,9 @@ namespace ShaosilBot.Core.Singletons
 					int linePos = Math.Max(1, (queueItems?.IndexOf(promptID) ?? -1) + 1);
 
 					// Return the queued information
-					int parsedSteps = int.Parse(workflow.Sampler!.Inputs["steps"].ToString()!);
-					int parsedCfg = int.Parse(workflow.Sampler!.Inputs["cfg"].ToString()!);
-					return new SharedEnqueueResult(posPrompt, negPrompt, seed, validModels.GetValueOrDefault(targetModel) ?? targetModel, parsedSteps, parsedCfg, linePos, promptID);
+					int parsedSteps = int.Parse(workflow.Sampler?.Inputs["steps"]?.ToString() ?? "4");
+					int parsedCfg = int.Parse(workflow.Sampler?.Inputs["cfg"].ToString() ?? "1");
+					return new SharedEnqueueResult(posPrompt, negPrompt, seed, validModels.GetValueOrDefault(targetModel) ?? targetModel, parsedSteps, parsedCfg, linePos, promptID, isImageEdit);
 				}
 				else
 				{
@@ -316,9 +328,9 @@ namespace ShaosilBot.Core.Singletons
 					{
 						var queueResult = await _httpClient.GetAsync("queue");
 						var queueItems = JsonConvert.DeserializeObject<QueueResult>(await queueResult.Content.ReadAsStringAsync());
-						
+
 						outputFolder = queueItems?.AllItems?.FirstOrDefault(q => $"{q.Key}" == jobItem.ID).Value
-							?.SaveImage?.Inputs?.FirstOrDefault(i => i.Key == "filename_prefix").Value?.ToString();
+							?.SaveImage?.Inputs["filename_prefix"].ToString();
 					}
 					else
 					{
@@ -426,7 +438,7 @@ namespace ShaosilBot.Core.Singletons
 							curPrompt = Guid.Empty;
 						}
 					}
-					else if (result.MessageType == WebSocketMessageType.Binary && _trackedBatches.ContainsKey(curPrompt) && curProgress > 2)
+					else if (result.MessageType == WebSocketMessageType.Binary && _trackedBatches.ContainsKey(curPrompt) && curProgress > 0)
 					{
 						// Binary data is an image after skipping 8 bytes
 						byte[] imgBytes = new byte[result.Count - 8];
@@ -459,6 +471,7 @@ namespace ShaosilBot.Core.Singletons
 						p.Content = "Error: Disconnected from websocket handler!";
 						p.Attachments = null;
 						p.Embed = null;
+						p.Components = null;
 					});
 				}
 				finally
@@ -593,6 +606,7 @@ namespace ShaosilBot.Core.Singletons
 			// Get a history item so we can retrieve the filename based on this prompt ID
 			var jobResult = await _httpClient.GetAsync($"jobs/{completedPrompt}");
 			var jobItem = JsonConvert.DeserializeObject<Job>(await jobResult.Content.ReadAsStringAsync())!;
+			bool isImageEdit = jobItem.Workflow?.Nodes?.Values?.FirstOrDefault(v => v.ClassType == "TextEncodeQwenImageEditPlus") != null;
 
 			var modifiedEmbed = originalMessage.Embeds.First().Copy
 			(
@@ -607,13 +621,18 @@ namespace ShaosilBot.Core.Singletons
 			{
 				originalMessage.ModifyAsync(p =>
 				{
-					p.Content = $"{_trackedBatches[completedPrompt].Key.Mention} has generated an image!";
+					p.Content = $"{_trackedBatches[completedPrompt].Key.Mention} has {(isImageEdit ? "edited" : "generated")} an image!";
 					p.Embed = modifiedEmbed;
 					p.Attachments = new List<FileAttachment>([new FileAttachment(stream, "completed.jpg")]);
-					var actionRow = new ActionRowBuilder()
-						.WithButton("Requeue", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdRequeue}-{completedPrompt}")
-						.WithButton("Remix", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdRemix}-{completedPrompt}")
-						.WithButton("Delete", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdDelete}-{completedPrompt}", style: ButtonStyle.Danger);
+					var actionRow = new ActionRowBuilder();
+					if (!isImageEdit)
+					{
+						actionRow = actionRow
+							.WithButton("Requeue", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdRequeue}-{completedPrompt}")
+							.WithButton("Remix", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdRemix}-{completedPrompt}");
+					}
+					actionRow = actionRow.WithButton("Delete", $"{ImageGeneration.ImageGenerate}-{ImageGeneration.CmdDelete}-{completedPrompt}", style: ButtonStyle.Danger);
+
 					p.Components = new ComponentBuilder().AddRow(actionRow).Build();
 				}).GetAwaiter().GetResult();
 			}
