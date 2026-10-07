@@ -50,22 +50,22 @@ namespace ShaosilBot.Core.Providers
 			}
 		}
 
-		public void SetupPersistantJobs()
+		public async Task SetupPersistantJobs()
 		{
-			_scheduler.Start().Wait();
+			await _scheduler.Start();
 
 			// Once a month ChatGPT token reset at end of day (Eastern time)
 			var chatGPTTokensKey = new JobKey(FillMonthlyChatGPTTokensJobIdentity);
 			if (_configuration.GetValue<bool>("ChatGPTEnabled"))
 			{
 				var job = JobBuilder.Create<FillMonthlyChatGPTTokensJob>().WithIdentity(chatGPTTokensKey).Build();
-				var trigger = TriggerBuilder.Create().WithIdentity(FillMonthlyChatGPTTokensJobIdentity).WithCronSchedule("0 0 5 1 * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+				var trigger = TriggerBuilder.Create().WithIdentity(FillMonthlyChatGPTTokensJobIdentity).WithCronSchedule("0 0 3 1 * ?", s => s.WithMisfireInstruction(CronTriggerMisfireInstruction.FireAndProceed)).Build();
 
-				_scheduler.ScheduleJob(job, [trigger], true);
+				await _scheduler.ScheduleJob(job, trigger, ScheduleJobOptions.Replacing);
 			}
 			else
 			{
-				_scheduler.DeleteJob(chatGPTTokensKey).Wait();
+				await _scheduler.DeleteJob(chatGPTTokensKey);
 			}
 
 			// Every X hours searching for game deals
@@ -76,29 +76,29 @@ namespace ShaosilBot.Core.Providers
 				var job = JobBuilder.Create<GameSaleNotifierJob>().WithIdentity(gameDealsKey).Build();
 				var trigger = TriggerBuilder.Create()
 					.WithIdentity(SearchForGameDealsJobIdentity)
-					// Between from 9/10 AM to PM EST/EDT
-					.WithCronSchedule($"0 0 0-2/{gameHourInterval},14-23/{gameHourInterval} * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed())
+					// Between 9 AM to PM Eastern
+					.WithCronSchedule($"0 0 9-21/{gameHourInterval} * * ?", s => s.WithMisfireInstruction(CronTriggerMisfireInstruction.FireAndProceed))
 					.Build();
 
-				_scheduler.ScheduleJob(job, [trigger], true);
+				await _scheduler.ScheduleJob(job, trigger, ScheduleJobOptions.Replacing);
 			}
 			else
 			{
-				_scheduler.DeleteJob(gameDealsKey).Wait();
+				await _scheduler.DeleteJob(gameDealsKey);
 			}
 
-			// Delete any active daily wordle games at 08:00 UTC (03:00 EST or 4:00 EDT)
+			// Delete any active daily wordle games at 03:00 Eastern
 			var wordleKey = new JobKey(WordleDailyCleanupIdentity);
 			if (typeof(WordleCommand) != null)
 			{
 				var job = JobBuilder.Create<WordleJob>().WithIdentity(wordleKey).Build();
-				var trigger = TriggerBuilder.Create().WithIdentity(WordleDailyCleanupIdentity).WithCronSchedule($"0 0 8 * * ?", s => s.WithMisfireHandlingInstructionFireAndProceed()).Build();
+				var trigger = TriggerBuilder.Create().WithIdentity(WordleDailyCleanupIdentity).WithCronSchedule($"0 0 3 * * ?", s => s.WithMisfireInstruction(CronTriggerMisfireInstruction.FireAndProceed)).Build();
 
-				_scheduler.ScheduleJob(job, [trigger], true);
+				await _scheduler.ScheduleJob(job, trigger, ScheduleJobOptions.Replacing);
 			}
 			else
 			{
-				_scheduler.DeleteJob(wordleKey).Wait();
+				await _scheduler.DeleteJob(wordleKey);
 			}
 
 			// If we are here, we are NOT in development
@@ -108,7 +108,7 @@ namespace ShaosilBot.Core.Providers
 		public void SelfDestructMessage(SocketMessage message, int hours)
 		{
 			var key = new JobKey($"DeleteMessage-{message.Id}");
-			var dataMap = new JobDataMap(new Dictionary<string, string>
+			var dataMap = new JobDataMap(new Dictionary<string, object?>
 			{
 				{ SelfDestructMessageJob.DataMapKeys.ChannelID, message.Channel.Id.ToString() },
 				{ SelfDestructMessageJob.DataMapKeys.MessageID, message.Id.ToString() }
@@ -116,7 +116,7 @@ namespace ShaosilBot.Core.Providers
 			var job = JobBuilder.Create<SelfDestructMessageJob>().WithIdentity(key).UsingJobData(dataMap).Build();
 			var trigger = TriggerBuilder.Create().StartAt(DateTimeOffset.Now.AddHours(hours)).Build();
 
-			_scheduler.ScheduleJob(job, trigger);
+			_scheduler.ScheduleJob(job, trigger, ScheduleJobOptions.Replacing);
 		}
 
 		public Dictionary<IJobDetail, ITrigger> GetUserReminders(ulong userID)
@@ -153,13 +153,13 @@ namespace ShaosilBot.Core.Providers
 			return _scheduler.DeleteJob(key).Result;
 		}
 
-		public void ScheduleUserReminder(ulong userID, ulong commandID, ulong channelID, DateTimeOffset targetDate, bool isPrivate, string msg, RestMessage? referenceMessage = null)
+		public async Task ScheduleUserReminder(ulong userID, ulong commandID, ulong channelID, DateTimeOffset targetDate, bool isPrivate, string msg, RestMessage? referenceMessage = null)
 		{
 			// Do not do this in develop
 			if (_isDevelopment) return;
 
 			var key = new JobKey($"Reminder-{commandID}");
-			var dataMap = new JobDataMap(new Dictionary<string, string>
+			var dataMap = new JobDataMap(new Dictionary<string, object?>
 			{
 				{ ReminderJob.DataMapKeys.UserID, userID.ToString() },
 				{ ReminderJob.DataMapKeys.Message, msg }
@@ -180,7 +180,7 @@ namespace ShaosilBot.Core.Providers
 			var trigger = TriggerBuilder.Create().WithIdentity(key.Name).StartAt(targetDate).Build();
 
 			// Upsert
-			_scheduler.ScheduleJob(job, new[] { trigger }, true);
+			await _scheduler.ScheduleJob(job, trigger, ScheduleJobOptions.Replacing);
 		}
 	}
 }

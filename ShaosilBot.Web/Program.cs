@@ -5,7 +5,6 @@ using Discord.WebSocket;
 using Docker.DotNet;
 using Microsoft.AspNetCore.HttpLogging;
 using Quartz;
-using Quartz.AspNetCore;
 using Serilog;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Providers;
@@ -72,19 +71,21 @@ builder.Services.AddQuartz(c =>
 {
 	c.UsePersistentStore(s =>
 	{
-		s.UseProperties = true;
-		s.PerformSchemaValidation = false;
-		s.UseMicrosoftSQLite($"Data Source={Path.Combine(basePath, "data.db")}");
-		s.UseNewtonsoftJsonSerializer();
-	});
+		s.ConfigureStore(sc =>
+		{
+			sc.StoreJobDataAsStrings = true;
+		});
 
+		s.UseNewtonsoftJsonSerializer();
+		s.UseSqlite($"Data Source={Path.Combine(basePath, "data.db")}");
+	});
 })
-.AddQuartzServer(c => { c.WaitForJobsToComplete = true; })
+.AddQuartzHostedService(c => { c.WaitForJobsToComplete = true; })
 .Configure<QuartzOptions>(q =>
 {
-	q.Add("quartz.jobStore.acquireTriggersWithinLock", "true");
-	q.Add("quartz.jobStore.txIsolationLevelSerializable", "true");
-	q.Add("quartz.jobStore.lockHandler.type", typeof(Quartz.Impl.AdoJobStore.UpdateLockRowSemaphore).AssemblyQualifiedName);
+	q.Properties.Add("quartz.jobStore.acquireTriggersWithinLock", "true");
+	q.Properties.Add("quartz.jobStore.txIsolationLevelSerializable", "true");
+	q.Properties.Add("quartz.jobStore.lockHandler.type", typeof(Quartz.Impl.AdoJobStore.UpdateRowLockHandler).AssemblyQualifiedName);
 });
 
 builder.Services.AddHttpLogging(logging =>
@@ -128,7 +129,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Init the Quartz scheduler jobs if not in development mode
-if (!isDev) app.Services.GetRequiredService<IQuartzProvider>().SetupPersistantJobs();
+if (!isDev) await app.Services.GetRequiredService<IQuartzProvider>().SetupPersistantJobs();
 
 // Init the necessary components and launch the app
 app.Services.GetRequiredService<IFileAccessHelper>().InitDataDirectory();

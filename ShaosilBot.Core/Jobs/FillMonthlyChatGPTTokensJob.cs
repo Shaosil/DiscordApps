@@ -12,11 +12,9 @@ namespace ShaosilBot.Core.Jobs
 			_chatGPTProvider = chatGPTProvider;
 		}
 
-		public Task Execute(IJobExecutionContext context)
+		public async ValueTask Execute(IJobExecutionContext context, CancellationToken cancellationToken = default)
 		{
-			_chatGPTProvider.ResetAndFillAllUserBuckets();
-
-			return Task.FromResult(true);
+			await _chatGPTProvider.ResetAndFillAllUserBuckets();
 		}
 	}
 }

@@ -23,7 +23,7 @@ namespace ShaosilBot.Core.Jobs
 			_discordRestClientProvider = discordRestClientProvider;
 		}
 
-		public async Task Execute(IJobExecutionContext context)
+		public async ValueTask Execute(IJobExecutionContext context, CancellationToken cancellationToken = default)
 		{
 			ulong userID = ulong.Parse(context.MergedJobDataMap.GetString(DataMapKeys.UserID)!);
 			context.MergedJobDataMap.TryGetString(DataMapKeys.ChannelID, out var channelStr);

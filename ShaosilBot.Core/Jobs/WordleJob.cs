@@ -18,7 +18,7 @@ namespace ShaosilBot.Core.Jobs
 			_sqliteProvider = sqliteProvider;
 		}
 
-		public async Task Execute(IJobExecutionContext context)
+		public async ValueTask Execute(IJobExecutionContext context, CancellationToken cancellationToken = default)
 		{
 			// Delete all of the previous day's games that were created more than 10 seconds ago
 			DateTimeOffset validTime = DateTimeOffset.Now.AddSeconds(-10);

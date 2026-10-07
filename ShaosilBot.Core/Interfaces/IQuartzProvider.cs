@@ -6,10 +6,10 @@ namespace ShaosilBot.Core.Interfaces
 {
 	public interface IQuartzProvider
 	{
-		void SetupPersistantJobs();
+		Task SetupPersistantJobs();
 		void SelfDestructMessage(SocketMessage message, int hours);
 		Dictionary<IJobDetail, ITrigger> GetUserReminders(ulong userID);
 		bool DeleteUserReminder(JobKey key);
-		void ScheduleUserReminder(ulong userID, ulong commandID, ulong channelID, DateTimeOffset targetDate, bool isPrivate, string msg, RestMessage? referenceMessage = null);
+		Task ScheduleUserReminder(ulong userID, ulong commandID, ulong channelID, DateTimeOffset targetDate, bool isPrivate, string msg, RestMessage? referenceMessage = null);
 	}
 }

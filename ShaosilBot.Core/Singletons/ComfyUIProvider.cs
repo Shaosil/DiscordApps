@@ -226,6 +226,7 @@ namespace ShaosilBot.Core.Singletons
 				// Load workflow nodes
 				bool isImageEdit = !string.IsNullOrWhiteSpace(imageName);
 				string workflowType = isImageEdit ? "QwenImageEdit"
+					: targetModel.ToLower().Contains("krea2") ? "Krea2"
 					: !targetModel.ToLower().Contains("pony") ? "SDXL"
 					: "SDXL Pony";
 				var workflow = _fileAccessHelper.LoadFileJSON<WorkflowNodes>($"ComfyUI Workflows/{workflowType}.json");
@@ -237,9 +238,12 @@ namespace ShaosilBot.Core.Singletons
 					if (width.HasValue) workflow.Image!.Inputs["width"] = width;
 					if (height.HasValue) workflow.Image!.Inputs["height"] = height;
 					workflow.Sampler!.Inputs["noise_seed"] = seed;
-					if (steps.HasValue) workflow.Sampler!.Inputs["steps"] = steps;
-					if (cfg.HasValue) workflow.Sampler!.Inputs["cfg"] = cfg;
-					if (!string.IsNullOrWhiteSpace(sampler)) workflow.Sampler!.Inputs["sampler_name"] = sampler;
+					if (workflowType != "Krea2")
+					{
+						if (steps.HasValue) workflow.Sampler!.Inputs["steps"] = steps;
+						if (cfg.HasValue) workflow.Sampler!.Inputs["cfg"] = cfg;
+						if (!string.IsNullOrWhiteSpace(sampler)) workflow.Sampler!.Inputs["sampler_name"] = sampler;
+					}
 				}
 				else
 				{
@@ -317,9 +321,9 @@ namespace ShaosilBot.Core.Singletons
 			{
 				// First, get the requested job, and check queue items
 				var historyResult = await _httpClient.GetAsync($"jobs/{imageName}");
-				var jobItem = JsonConvert.DeserializeObject<Job>(await historyResult.Content.ReadAsStringAsync());
+				var jobItem = JsonConvert.DeserializeObject<Job>(await historyResult.Content.ReadAsStringAsync())!;
 
-				if (jobItem != null)
+				if (historyResult.IsSuccessStatusCode)
 				{
 					string? outputFolder;
 
@@ -438,7 +442,7 @@ namespace ShaosilBot.Core.Singletons
 							curPrompt = Guid.Empty;
 						}
 					}
-					else if (result.MessageType == WebSocketMessageType.Binary && _trackedBatches.ContainsKey(curPrompt) && curProgress > 0)
+					else if (result.MessageType == WebSocketMessageType.Binary && _trackedBatches.ContainsKey(curPrompt) && curProgress > 1)
 					{
 						// Binary data is an image after skipping 8 bytes
 						byte[] imgBytes = new byte[result.Count - 8];

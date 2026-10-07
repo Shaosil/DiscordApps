@@ -1,11 +1,11 @@
-﻿using Discord;
+﻿using System.Text.RegularExpressions;
+using Discord;
 using Discord.Rest;
 using Microsoft.Extensions.Logging;
 using Quartz;
 using ShaosilBot.Core.Interfaces;
 using ShaosilBot.Core.Jobs;
 using ShaosilBot.Core.Providers;
-using System.Text.RegularExpressions;
 using static ShaosilBot.Core.Providers.MessageCommandProvider;
 
 namespace ShaosilBot.Core.SlashCommands
@@ -131,11 +131,11 @@ SUBCOMMANDS:
 			}.Build();
 		}
 
-		public override Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
+		public override async Task<string> HandleCommand(SlashCommandWrapper cmdWrapper)
 		{
 			// Handle lists and deletes in their own function for better organization
 			var subCmd = cmdWrapper.Command.Data.Options.First();
-			if (subCmd.Name == "list" || subCmd.Name == "delete") return Task.FromResult(cmdWrapper.Respond(ListOrDelete(cmdWrapper.Command.User.Id, subCmd), ephemeral: true));
+			if (subCmd.Name == "list" || subCmd.Name == "delete") return cmdWrapper.Respond(ListOrDelete(cmdWrapper.Command.User.Id, subCmd), ephemeral: true);
 
 			DateTimeOffset targetDateTime;
 			bool isPrivate = (bool)(subCmd.Options.FirstOrDefault(o => o.Name == "private")?.Value ?? true);
@@ -171,23 +171,23 @@ SUBCOMMANDS:
 				if (timeRegex.Groups.Count > 3 && timeRegex.Groups[3].Value == "PM") hour += 12; // Always ensure 24 hour format
 				if (hour > 23 || minute > 59)
 				{
-					return Task.FromResult(cmdWrapper.Respond($"The time you provided parsed to '{hour}:{minute}' (24 hour), which is invalid.", ephemeral: true));
+					return cmdWrapper.Respond($"The time you provided parsed to '{hour}:{minute}' (24 hour), which is invalid.", ephemeral: true);
 				}
 
 				// Parse
 				string toParse = $"{month:00}/{day:00}/{year} {hour}:{minute}";
 				if (!DateTimeOffset.TryParse(toParse, out targetDateTime))
 				{
-					return Task.FromResult(cmdWrapper.Respond($"The date and time you provided could not be parsed ({toParse}). Please input a valid time.", ephemeral: true));
+					return cmdWrapper.Respond($"The date and time you provided could not be parsed ({toParse}). Please input a valid time.", ephemeral: true);
 				}
 			}
 
 			// Validate we are not in the past or too far out (a year and a day max)
-			if (targetDateTime < DateTimeOffset.Now.AddSeconds(10)) return Task.FromResult(cmdWrapper.Respond("Target date is in the past. Please provide a future date.", ephemeral: true));
-			else if ((targetDateTime - DateTimeOffset.Now).Days > 366) return Task.FromResult(cmdWrapper.Respond("Target date is too far in the future! Please keep it within a year.", ephemeral: true));
+			if (targetDateTime < DateTimeOffset.Now.AddSeconds(10)) return cmdWrapper.Respond("Target date is in the past. Please provide a future date.", ephemeral: true);
+			else if ((targetDateTime - DateTimeOffset.Now).Days > 366) return cmdWrapper.Respond("Target date is too far in the future! Please keep it within a year.", ephemeral: true);
 
-			_quartzProvider.ScheduleUserReminder(cmdWrapper.Command.User.Id, cmdWrapper.Command.Data.Id, cmdWrapper.Command.ChannelId!.Value, targetDateTime, isPrivate, msg);
-			return Task.FromResult(cmdWrapper.Respond($"Successfully scheduled {(isPrivate ? "DM" : "public")} reminder for <t:{targetDateTime.ToUnixTimeSeconds()}>. See you then!", ephemeral: isPrivate));
+			await _quartzProvider.ScheduleUserReminder(cmdWrapper.Command.User.Id, cmdWrapper.Command.Data.Id, cmdWrapper.Command.ChannelId!.Value, targetDateTime, isPrivate, msg);
+			return cmdWrapper.Respond($"Successfully scheduled {(isPrivate ? "DM" : "public")} reminder for <t:{targetDateTime.ToUnixTimeSeconds()}>. See you then!", ephemeral: isPrivate);
 		}
 
 		private string ListOrDelete(ulong userID, IApplicationCommandInteractionDataOption cmd)
@@ -200,7 +200,7 @@ SUBCOMMANDS:
 				// Get all user reminders
 				if (allUserReminders.Count == 0) return "You currently have no reminders scheduled. Schedule one today at a local Discord server near you!";
 
-				return string.Join("\n\n", allUserReminders.Select(r => $"* [{r.Key.Key.Name.Replace("Reminder-", string.Empty)}] - Scheduled for <t:{r.Value.GetNextFireTimeUtc()!.Value.ToUnixTimeSeconds()}>. Message: {r.Key.JobDataMap[ReminderJob.DataMapKeys.Message]}"));
+				return string.Join("\n\n", allUserReminders.Select(r => $"* [{r.Key.Key.Name.Replace("Reminder-", string.Empty)}] - Scheduled for <t:{r.Value.GetFireTimeAfter(DateTimeOffset.UtcNow)!.Value.ToUnixTimeSeconds()}>. Message: {r.Key.JobDataMap[ReminderJob.DataMapKeys.Message]}"));
 			}
 			else
 			{
@@ -287,7 +287,7 @@ SUBCOMMANDS:
 			bool alreadyScheduled = _quartzProvider.GetUserReminders(interaction.User.Id).Any(r => r.Key.Key.Name.Contains($"{originalMessageId}"));
 
 			// Schedule and respond
-			_quartzProvider.ScheduleUserReminder(interaction.User.Id, originalMessageId, interaction.ChannelId!.Value, targetDate, false, message, originalMessage);
+			await _quartzProvider.ScheduleUserReminder(interaction.User.Id, originalMessageId, interaction.ChannelId!.Value, targetDate, false, message, originalMessage);
 			return interaction.Respond($"Reminder {(alreadyScheduled ? "updated" : "scheduled")} successfully for <t:{targetDate.ToUnixTimeSeconds()}>", ephemeral: true);
 		}
 	}
